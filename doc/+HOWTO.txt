@@ -1,0 +1,18 @@
+How to setup and run the SPHINX documentation generator
+=======================================================
+
+* When a project is set up for sphinx for the first time: run "sphinx_quickstart"
+* The main properties are now in file "conf.py" and can be changed after initialization
+* To run a builder:
+	# Open command window (or Anaconda prompt)
+	# Goto the "doc" folder of your project
+	# Run the make-file with the desired builder (html, latex, ...)
+		E.g.: >> make html
+	# To see the documentation goto the ".built" directory and open created files 
+	  (E.g.: html -> index.html)
+
+
+Sources:
+--------
+http://www.sphinx-doc.org/en/master/usage/quickstart.html
+http://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html

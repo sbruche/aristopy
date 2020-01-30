@@ -1,0 +1,15 @@
+# ignore directories
+aristopy.egg-info
+.idea/
+__pycache__/
+archiv/
+examples/
+*.build/
+*.dist/
+*.doc/build/
+
+# ignore file types 
+*.pyc
+*.egg-info
+*.log
+*.lp
