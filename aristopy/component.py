@@ -920,7 +920,7 @@ class Component(metaclass=ABCMeta):
         """
         Specify the minimum (nominal) capacity of a component (based on its
         basic variable). If a binary existence variable is declared, the minimal
-        capacity is only used if the component exist. E.g.: |br|
+        capacity is only used if the component exists. E.g.: |br|
         ``Q_CAP >= capacity_min * BI_EX``  or |br|
         ``Q_CAP >= capacity_min`` |br|
         (The maximal capacity is initially set by an upper variable bound.)
@@ -1013,31 +1013,34 @@ class Component(metaclass=ABCMeta):
     @abstractmethod
     def con_operation_limit(self, pyM):
         """
-        The operation of a component is limit by its nominal capacity
+        The operation of a component (MWh) is limit by its nominal power (MW)
+        multiplied with the number of hours per time step (not for storage
+        because it is already a capacity!)
         (with reference to its basic variable).
         E.g.: |br|
-        ``Q[p, t] <= Q_CAP``  (conversion) or |br|
+        ``Q[p, t] <= Q_CAP * dt``  (conversion, sink, source) or |br|
         ``Q_SOC[p, t] <= Q_CAP`` (storage) or |br|
-        ``Q_INLET[p, t] <= Q_CAP`` (bus)
+        ``Q_INLET[p, t] <= Q_CAP * dt`` (bus)
         """
         raise NotImplementedError
 
     def con_couple_op_binary_and_basic_var(self, pyM):
         """
         If a binary operation variable is declared, it needs to be coupled with
-        the basic variable. Therefore, a value for overestimation is needed.
-        The capacity_max parameter is used for this. Hence, if not specified, an
-        error is raised. E.g.: |br|
-        ``Q[p, t] <= capacity_max * BI_OP[p, t]``
+        the basic operation variable. Therefore, a value for overestimation is
+        needed. The capacity_max parameter is used for this. Hence, if not
+        specified, an error is raised. E.g.: |br|
+        ``Q[p, t] <= capacity_max * BI_OP[p, t] * dt``
         """
         if self.bi_op is not None and self.capacity_max is not None:
             # Get variables:
             bi_op = self.variables[self.bi_op]['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
             cap_max = self.capacity_max
+            dt = self.ensys.hours_per_time_step
 
             def con_couple_op_binary_and_basic_var(m, p, t):
-                return basic_var[p, t] <= cap_max * bi_op[p, t]
+                return basic_var[p, t] <= cap_max * bi_op[p, t] * dt
             setattr(self.pyB, 'con_couple_op_binary_and_basic_var',
                     pyomo.Constraint(pyM.time_set,
                                      rule=con_couple_op_binary_and_basic_var))
@@ -1047,8 +1050,10 @@ class Component(metaclass=ABCMeta):
         The basic variable of a component needs to have a minimal value of
         "operation_rate_min" in every time step. E.g.: |br|
         ``Q[p, t] >= op_rate_min[p, t]``
+        (No correction with "hours_per_time_step" needed because it should
+        already be included in the time series for "operation_rate_min")
         """
-        # Only required if component has a time series for "operation_rate_min"
+        # Only required if component has a time series for "operation_rate_min".
         if self.op_rate_min is not None:
             # Get variables:
             op_min = self.parameters[self.op_rate_min]['values']
@@ -1064,8 +1069,10 @@ class Component(metaclass=ABCMeta):
         The basic variable of a component can have a maximal value of
         "operation_rate_max" in every time step. E.g.: |br|
         ``Q[p, t] <= op_rate_max[p, t]``
+        (No correction with "hours_per_time_step" needed because it should
+        already be included in the time series for "operation_rate_max")
         """
-        # Only required if component has a time series for "operation_rate_max"
+        # Only required if component has a time series for "operation_rate_max".
         if self.op_rate_max is not None:
             # Get variables:
             op_max = self.parameters[self.op_rate_max]['values']
@@ -1081,6 +1088,8 @@ class Component(metaclass=ABCMeta):
         The basic variable of a component needs to have a value of
         "operation_rate_fix" in every time step. E.g.: |br|
         ``Q[p, t] == op_rate_fix[p, t]``
+        (No correction with "hours_per_time_step" needed because it should
+        already be included in the time series for "operation_rate_fix")
         """
         # Only required if component has a time series for "operation_rate_fix"
         if self.op_rate_fix is not None:

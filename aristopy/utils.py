@@ -13,6 +13,51 @@ import pyomo.environ as pyomo
 import aristopy
 
 
+def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
+                          aggregate_by='sum'):
+    """
+    Function to compress the original (full scale) time series to a shorter one.
+    Returns an array with aggregated values. For aggregation the values can
+    either be summed up ('sum') or averaged ('mean').
+    (E.g. s = aggregate_time_series([1, 2, 3, 4], 2, 'sum') >> s = [3, 7]
+
+    :param full_series: Original (full scale) hourly time series to aggregate.
+        E.g. two time steps (hours) are summed up or averaged and handled as one
+    :type full_series: pandas Series or numpy array or list
+
+    :param number_of_time_steps_to_aggregate: Number of time steps to aggregate.
+        Should be an integer divisor of the length of the full series.
+    :type number_of_time_steps_to_aggregate: integer
+
+    :param aggregate_by: aggregation method to apply. Can either be 'sum'
+        (values are summed up) or 'mean' (values are averaged).
+    :type aggregate_by: string ('sum' or 'mean')
+    """
+    # Check the user input:
+    if not (isinstance(full_series, pd.Series) or isinstance(
+            full_series, np.ndarray) or isinstance(full_series, list)):
+        raise ValueError('The "full_series" can either by a pandas Series or a '
+                         'numpy ndarray or a Python list.')
+    is_strictly_positive_int(number_of_time_steps_to_aggregate)
+    if not (aggregate_by == 'sum' or aggregate_by == 'mean'):
+        raise ValueError('Keyword "aggregate_by" can either be "sum" or "mean"')
+
+    # Check that number_of_time_steps_to_aggregate is an integer divisor of len
+    if len(full_series) % number_of_time_steps_to_aggregate != 0:
+        raise ValueError('The provided series can not be equally dived with '
+                         'length {}'.format(number_of_time_steps_to_aggregate))
+    else:
+        # convert input to numpy array and reshape it e.g. [[1, 2] [3, 4], ...]
+        s = np.array(full_series).reshape(-1, number_of_time_steps_to_aggregate)
+        if aggregate_by == 'sum':
+            # sum everything over axis 1 (horizontal) -> [3 7]
+            s = s.sum(1)
+        else:  # aggregate_by == 'mean'
+            # calculate mean over axis 1 -> [1.5 3.5]
+            s = s.mean(1)
+        return s
+
+
 def check_logger_input(logfile, delete_old, default_handler, local_handler,
                        default_level, local_level, screen_to_log):
 

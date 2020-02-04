@@ -181,8 +181,7 @@ class Source(Component):
         if self.opex_operation > 0:
             obj['opex_operation'] = -1 * ensys.pvf * self.opex_operation * sum(
                 basic_var[p, t] * ensys.period_occurrences[p] for p, t in
-                pyM.time_set) / ensys.number_of_years \
-                                    * ensys.hours_per_time_step
+                pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
         # ---------------
         #   M I S C
         # ---------------
@@ -191,16 +190,14 @@ class Source(Component):
             obj['com_cost_time_indep'] = \
                 -1 * ensys.pvf * self.commodity_cost * sum(
                     basic_var[p, t] * ensys.period_occurrences[p]
-                    for p, t in pyM.time_set) / ensys.number_of_years \
-                * ensys.hours_per_time_step
+                    for p, t in pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
 
         # Time-dependent cost of a commodity (time series cost values)
         if self.commodity_cost_time_series is not None:
             cost_ts = self.parameters[self.commodity_cost_time_series]['values']
             obj['com_cost_time_dep'] = -1 * ensys.pvf * sum(
                 cost_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
-                for p, t in pyM.time_set) / ensys.number_of_years \
-                * ensys.hours_per_time_step
+                for p, t in pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
 
         # Time-independent revenues for of a commodity (scalar revenue value)
         if self.commodity_revenues is not None:
@@ -215,8 +212,7 @@ class Source(Component):
                 self.commodity_revenues_time_series]['values']
             obj['com_rev_time_dep'] = ensys.pvf * sum(
                 rev_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
-                for p, t in pyM.time_set) / ensys.number_of_years \
-                * ensys.hours_per_time_step
+                for p, t in pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
 
         return sum(obj.values())
 
@@ -225,18 +221,20 @@ class Source(Component):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     def con_operation_limit(self, pyM):
         """
-        The operation of a sink / source component (reference: basic variable /
-        basic commodity) is limit by its nominal capacity. E.g.: |br|
-        ``Q[p, t] <= Q_CAP``
+        The operation variable (ref.: basic variable / basic commodity) of a
+        sink / source unit (MWh) is limit by its nominal power (MW) multiplied
+        with the number of hours per time step. E.g.: |br|
+        ``Q[p, t] <= Q_CAP * dt``
         """
         # Only required if component has a capacity variable
         if self.capacity_variable is not None:
             # Get variables:
             cap = self.variables[self.capacity_variable]['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
+            dt = self.ensys.hours_per_time_step
 
             def con_operation_limit(m, p, t):
-                return basic_var[p, t] <= cap
+                return basic_var[p, t] <= cap * dt
 
             setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
                 pyM.time_set, rule=con_operation_limit))

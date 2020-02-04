@@ -143,7 +143,7 @@ class Storage(Component):
         # ---------------------------
         self.con_operation_limit(pyM)
         self.con_soc_balance(ensys, pyM)
-       # self.con_first_time_step(ensys, pyM)
+       # self.con_first_time_step(ensys, pyM)  #  TODO: remove it?
         self.con_last_time_step(ensys, pyM)
         self.con_charge_rate(ensys, pyM)
         self.con_discharge_rate(ensys, pyM)
@@ -187,8 +187,7 @@ class Storage(Component):
             obj['opex_operation'] = -1 * ensys.pvf * sum(
                 (self.opex_charging * charge[p, t] + self.opex_discharging
                  * discharge[p, t]) * ensys.period_occurrences[p]
-                for p, t in pyM.time_set) / ensys.number_of_years \
-                                    * ensys.hours_per_time_step
+                for p, t in pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
 
         return sum(obj.values())
 
@@ -197,8 +196,9 @@ class Storage(Component):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     def con_operation_limit(self, pyM):
         """
-        The operation of a storage component is limit by its nominal capacity
-        E.g.: |br| ``Q_SOC[p, t] <= Q_CAP``
+        The operation of a storage component (state of charge) is limit by its
+        nominal capacity E.g.: |br|
+        ``Q_SOC[p, t] <= Q_CAP``
         """
         # Only required if component has a capacity variable
         if self.capacity_variable is not None:
@@ -214,29 +214,22 @@ class Storage(Component):
 
     def con_soc_balance(self, ensys, pyM):
         """
-        Constraint that connects the state of charge with the charge and
+        Constraint that connects the state of charge (SOC) with the charge and
         discharge operation: the change in the state of charge between two
         points in time has to match the values of charging and discharging
         and the self-discharge of the storage (explicit Euler formulation).
-		Todo: Explain that SOC is not a value between 0 and 1!
+        Note that the SOC is not necessarily a value between 0 and 1 here.
         """
         # Get variables:
         charge = self.variables[self.charge_variable]['pyomo']
         discharge = self.variables[self.discharge_variable]['pyomo']
         soc = self.variables[self.soc_variable]['pyomo']
+        dt = ensys.hours_per_time_step
 
         def con_soc_balance(m, p, t):
             if t != ensys.time_steps_per_period[0]:  # not for first time step
-                return soc[p, t] - soc[p, t - 1] * (
-                        1 - self.self_discharge)**ensys.hours_per_time_step == \
-                       ensys.hours_per_time_step * (
-                               charge[p, t - 1] - discharge[p, t - 1])
-                # Linear (old) formulation: Has weaknesses when considering
-                # multiple 'hours_per_time_step' and a high 'self_discharge'
-                # return soc[p, t] - soc[p, t - 1] == \
-                #        (charge[p, t - 1] - discharge[p, t - 1]
-                #         - soc[p, t - 1] * self.self_discharge) \
-                #        * ensys.hours_per_time_step
+                return soc[p, t] == soc[p, t-1] * (1-self.self_discharge)**dt \
+                       + charge[p, t-1] - discharge[p, t-1]
             else:
                 return pyomo.Constraint.Skip
 
@@ -244,11 +237,11 @@ class Storage(Component):
             pyM.time_set, rule=con_soc_balance))
 
     # def con_first_time_step(self, ensys, pyM):
+    #     # TODO: Remove it!
     #     """
     #     XXX --> not needed ? (half capacity in first time step of period)
     #     --> just relevant for reciding horizon optimization?!
     #     """
-    #     # TODO: DO I really need this?
     #     if self.capacity_variable is not None:
     #         # Get variables:
     #         soc = self.variables[self.soc_variable]['pyomo']
@@ -267,22 +260,18 @@ class Storage(Component):
         """
         Boundary Condition: Level in storage in last time step (plus loading,
         minus unloading and loss) at least as full as in first time step.
+        # Todo: Decide if at least or exactly?
         """
         # Get variables:
         charge = self.variables[self.charge_variable]['pyomo']
         discharge = self.variables[self.discharge_variable]['pyomo']
         soc = self.variables[self.soc_variable]['pyomo']
+        dt = ensys.hours_per_time_step
 
         def con_last_time_step(m, p, t):
-            if t == ensys.time_steps_per_period[-1]:  # last time step
-                return soc[p, t] * (1 - self.self_discharge
-                                    )**ensys.hours_per_time_step + \
-                       ensys.hours_per_time_step * (
-                               charge[p, t] - discharge[p, t]) >= soc[p, 0]
-                # Linear (old) formulation:
-                # return soc[p, t] + ensys.hours_per_time_step * (
-                #         - soc[p, t] * self.self_discharge + charge[p, t]
-                #         - discharge[p, t]) >= soc[p, 0]
+            if t == ensys.time_steps_per_period[-1]:  # last time step of period
+                return soc[p, t] * (1 - self.self_discharge)**dt \
+                       + charge[p, t] - discharge[p, t] >= soc[p, 0]
             else:
                 return pyomo.Constraint.Skip
 
@@ -299,10 +288,10 @@ class Storage(Component):
         if self.capacity_variable is not None:
             charge = self.variables[self.charge_variable]['pyomo']
             cap = self.variables[self.capacity_variable]['pyomo']
+            dt = ensys.hours_per_time_step
 
             def con_charge_rate(m, p, t):
-                return charge[p, t] <= \
-                       cap * ensys.hours_per_time_step * self.charge_rate
+                return charge[p, t] <= cap * dt * self.charge_rate
 
             setattr(self.pyB, 'con_charge_rate', pyomo.Constraint(
                 pyM.time_set, rule=con_charge_rate))
@@ -314,10 +303,10 @@ class Storage(Component):
         if self.capacity_variable is not None:
             discharge = self.variables[self.discharge_variable]['pyomo']
             cap = self.variables[self.capacity_variable]['pyomo']
+            dt = ensys.hours_per_time_step
 
             def con_discharge_rate(m, p, t):
-                return discharge[p, t] <= \
-                       cap * ensys.hours_per_time_step * self.discharge_rate
+                return discharge[p, t] <= cap * dt * self.discharge_rate
 
             setattr(self.pyB, 'con_discharge_rate', pyomo.Constraint(
                 pyM.time_set, rule=con_discharge_rate))

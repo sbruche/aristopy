@@ -161,26 +161,29 @@ class Bus(Component):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     def con_operation_limit(self, pyM):
         """
-        The operation of a bus comp. (inlet!) is limit by its nominal capacity.
-        E.g.: |br| ``Q_INLET[p, t] <= Q_CAP``
+        The operation of a bus comp. (inlet variable!) is limit by its nominal
+        power (MW) multiplied with the number of hours per time step.
+        E.g.: |br| ``Q_INLET[p, t] <= Q_CAP * dt``
         """
         # Only required if component has a capacity variable
         if self.capacity_variable is not None:
             # Get variables:
             cap = self.variables[self.capacity_variable]['pyomo']
             inlet_var = self.variables[self.inlet_variable]['pyomo']
+            dt = self.ensys.hours_per_time_step
 
             def con_operation_limit(m, p, t):
-                return inlet_var[p, t] <= cap
+                return inlet_var[p, t] <= cap * dt
 
             setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
                 pyM.time_set, rule=con_operation_limit))
 
     def con_bus_balance(self, pyM):
         """
-        The sum of outlets must equal the sum of the inlets minus the losses.
-        A bus component cannot store a commodity. E.g.: |br|
-        ``Q_OUTLET[p, t] == Q_INLET[p, t] * (1 - losses)``
+        The sum of outlets must equal the sum of the inlets minus the share of
+        the transmission losses. A bus component cannot store a commodity.
+        E.g.: |br| ``Q_OUTLET[p, t] == Q_INLET[p, t] * (1 - losses)``
+        (correction with "hours_per_time_step" not needed)
         """
         # Get variables:
         inlet_var = self.variables[self.inlet_variable]['pyomo']

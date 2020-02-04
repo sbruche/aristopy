@@ -192,8 +192,7 @@ class Conversion(Component):
         if self.opex_operation > 0:
             obj['opex_operation'] = -1 * ensys.pvf * self.opex_operation * sum(
                 basic_var[p, t] * ensys.period_occurrences[p] for p, t in
-                pyM.time_set) / ensys.number_of_years \
-                                    * ensys.hours_per_time_step
+                pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
         # ---------------
         #   M I S C
         # ---------------
@@ -202,8 +201,7 @@ class Conversion(Component):
             bi_su = self.variables['BI_SU']['pyomo']  # only available if '>0'
             obj['start_up_cost'] = -1 * ensys.pvf * self.start_up_cost * sum(
                 bi_su[p, t] * ensys.period_occurrences[p] for p, t in
-                pyM.time_set) / ensys.number_of_years \
-                                   * ensys.hours_per_time_step
+                pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
 
         return sum(obj.values())
 
@@ -247,18 +245,20 @@ class Conversion(Component):
 
     def con_operation_limit(self, pyM):
         """
-        The operation of a conversion component (reference: basic variable /
-        basic commodity) is limit by its nominal capacity. E.g.: |br|
-        ``Q[p, t] <= Q_CAP``
+        The operation variable (ref.: basic variable / basic commodity) of a
+        conversion unit (MWh) is limit by its nominal power (MW) multiplied
+        with the number of hours per time step. E.g.: |br|
+        ``Q[p, t] <= Q_CAP * dt``
         """
         # Only required if component has a capacity variable
         if self.capacity_variable is not None:
             # Get variables:
             cap = self.variables[self.capacity_variable]['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
+            dt = self.ensys.hours_per_time_step
 
             def con_operation_limit(m, p, t):
-                return basic_var[p, t] <= cap
+                return basic_var[p, t] <= cap * dt
 
             setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
                 pyM.time_set, rule=con_operation_limit))
@@ -268,10 +268,11 @@ class Conversion(Component):
         Currently minimal part-loads can only be used if a binary variable for
         operation is defined and fixed capacities of the conversion units are
         specified (cap_min = cap_max). E.g.: |br|
-        ``Q[p, t] >= capacity * BI_OP[p, t] * min_load_rel``
+        ``Q[p, t] >= capacity * BI_OP[p, t] * min_load_rel * dt``
         """
         # Only required if minimal part-loads should be modelled.
         if self.min_load_rel is not None:
+            # TODO: Add this to the init check!
             if self.bi_op is None:
                 raise ValueError('Minimal part-loads require the availability '
                                  'of a binary operation variable.')
@@ -282,21 +283,24 @@ class Conversion(Component):
                     basic_var = self.variables[self.basic_variable]['pyomo']
                     cap = self.capacity
                     min_load = self.min_load_rel
+                    dt = self.ensys.hours_per_time_step
 
                     def con_min_load_rel(m, p, t):
-                        return basic_var[p, t] >= cap * bi_op[p, t] * min_load
+                        return \
+                            basic_var[p, t] >= cap * bi_op[p, t] * min_load * dt
 
                     setattr(self.pyB, 'con_min_load_rel', pyomo.Constraint(
                         pyM.time_set, rule=con_min_load_rel))
                 else:
+                    # TODO: Add this to the init check!
                     raise NotImplementedError(
                         'Minimal part-loads with flexible unit capacity can be '
                         'modelled but it requires some effort. This feature has'
                         ' not been implemented yet. Please consider the '
                         '"user_expressions" attribute to model it yourself.\n '
-                        'E.g.: Q_CAP_OR_OFF[p, t] == CAP * BI_OP[p, t]  '
+                        'E.g.: Q_CAP_OR_OFF[p, t] == CAP * BI_OP[p, t] * dt '
                         '--> Linearization required (Glover)!,\n '
-                        'Q[p, t] >= Q_CAP_OR_OFF[p, t] * min_load_rel')
+                        'Q[p, t] >= Q_CAP_OR_OFF[p, t] * min_load_rel * dt')
 
     def con_start_up_cost(self, ensys, pyM):
         """
