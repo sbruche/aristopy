@@ -284,11 +284,11 @@ def check_and_convert_time_series(ensys, data):
     system model. And make sure the data is available as indexed pandas series.
     """
     #  If length of data is not sufficient raise an error
-    if len(data) < len(ensys.total_time_steps):
+    if len(data) < ensys.number_of_time_steps:
         raise ValueError('The length of a time series is not sufficient for the'
                          ' number of time steps of the energy system model.\n'
                          'Time steps energy system model: {}\nLength data: {}\n'
-                         'Data: {}'.format(len(ensys.total_time_steps),
+                         'Data: {}'.format(ensys.number_of_time_steps,
                                            len(data), data))
 
     # Convert to pandas Series if data is in a dictionary (cannot slice dicts)
@@ -296,18 +296,19 @@ def check_and_convert_time_series(ensys, data):
         data = pd.Series(data)
 
     # If length of data is more than needed -> shorten the data, discard rest
-    if len(data) > len(ensys.total_time_steps):
-        data = data[:len(ensys.total_time_steps)]
+    if len(data) > ensys.number_of_time_steps:
+        data = data[:ensys.number_of_time_steps]
 
     # Lists and arrays don't have an index --> add the time index of ensys
     if isinstance(data, list) or isinstance(data, np.ndarray):
-        data = pd.Series(data, index=ensys.total_time_steps)
+        data = pd.Series(data, index=list(range(ensys.number_of_time_steps)))
 
     # If data is already a pandas Series but the index does not match the time
     # index of the energy system model --> replace the index
     elif isinstance(data, pd.Series) and list(sorted(
-            data.index)) != ensys.total_time_steps:
-        data = pd.Series(data.values, index=ensys.total_time_steps)
+            data.index)) != list(range(ensys.number_of_time_steps)):
+        data = pd.Series(data.values, index=list(range(
+            ensys.number_of_time_steps)))
 
     return data
 
@@ -586,14 +587,14 @@ def check_add_icc(which, inc_exist, inc_mod):
 
 def check_clustering_input(number_of_typical_periods,
                            number_of_time_steps_per_period,
-                           total_number_of_time_steps):
+                           number_of_time_steps):
     is_strictly_positive_int(number_of_typical_periods)
     is_strictly_positive_int(number_of_time_steps_per_period)
-    if not total_number_of_time_steps % number_of_time_steps_per_period == 0:  # TODO: There should be a possibility to use other period lengths as well
+    if not number_of_time_steps % number_of_time_steps_per_period == 0:  # TODO: There should be a possibility to use other period lengths as well
         raise ValueError('The number_of_time_steps_per_period has to be an '
                          'integer divisor of the total number of time steps '
                          'considered in the energy system model.')
-    if total_number_of_time_steps < \
+    if number_of_time_steps < \
             number_of_typical_periods * number_of_time_steps_per_period:
         raise ValueError('The product of the number_of_typical_periods and the '
                          ' number_of_time_steps_per_period has to be smaller'

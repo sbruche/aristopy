@@ -83,8 +83,7 @@ class EnergySystemModel:
         # **********************************************************************
         #   Time and clustering
         # **********************************************************************
-        # 'total_time_steps': list, ranging from 0 to number_of_time_steps - 1
-        self.total_time_steps = list(range(number_of_time_steps))  # Todo: rename it and only work with number_of_time_steps --> more intuitive
+        self.number_of_time_steps = number_of_time_steps
         self.hours_per_time_step = hours_per_time_step
         self.number_of_years = number_of_time_steps * hours_per_time_step/8760.0
 
@@ -93,9 +92,7 @@ class EnergySystemModel:
         self.periods_order = [0]
         self.period_occurrences = [1]
         self.time_steps_per_period = list(range(number_of_time_steps))
-        self.inter_period_time_steps = \
-            list(range(int(len(self.total_time_steps) /
-                           len(self.time_steps_per_period)) + 1))
+        self.inter_period_time_steps = [0, 1]  # one before & after only period
 
         # Flag 'is_data_clustered' indicates if the function 'cluster' has been
         # called before. The flag is reset to False if new components are added.
@@ -579,7 +576,7 @@ class EnergySystemModel:
         # Ensure input arguments fit temporal representation of energy system
         utils.check_clustering_input(number_of_typical_periods,
                                      number_of_time_steps_per_period,
-                                     len(self.total_time_steps))
+                                     self.number_of_time_steps)
 
         time_start = time.time()
         self.log.info('Clustering time series data with %s typical periods and '
@@ -604,7 +601,7 @@ class EnergySystemModel:
         # The index is of no further relevance in the energy system model.
         time_series_data.index = \
             pd.date_range('2050-01-01 00:30:00',
-                          periods=len(self.total_time_steps),
+                          periods=self.number_of_time_steps,
                           freq=(str(self.hours_per_time_step) + 'H'),
                           tz='Europe/Berlin')
 
@@ -633,11 +630,10 @@ class EnergySystemModel:
         self.time_steps_per_period = list(
             range(number_of_time_steps_per_period))
 
-        self.periods = list(range(
-            int(len(self.total_time_steps) / len(self.time_steps_per_period))))
-        self.inter_period_time_steps = \
-            list(range(int(len(self.total_time_steps) /
-                           len(self.time_steps_per_period)) + 1))
+        self.periods = list(range(int(
+            self.number_of_time_steps / number_of_time_steps_per_period)))
+        self.inter_period_time_steps = list(range(int(
+            self.number_of_time_steps / number_of_time_steps_per_period) + 1))
 
         self.periods_order = cluster_class.clusterOrder
         # Error in original formulation: see E-Mail (26.9.19)
@@ -659,59 +655,55 @@ class EnergySystemModel:
 
     def declare_time_sets(self, pyM, time_series_aggregation):
         """
-        Set and initialize basic time parameters and sets.
+        Initialize time parameters and sets.
 
-        :param pyM: a pyomo ConcreteModel instance which contains parameters,
-            sets, variables, constraints and objective.
+        :param pyM: Pyomo ConcreteModel instance containing sets, variables,
+            constraints and objective.
         :type pyM: pyomo ConcreteModel
 
         :param time_series_aggregation: states if the optimization of the energy
             system model should be done with
-            (a) the full time series (False) or
+            (a) the full scale time series (False) or
             (b) clustered time series data (True).
             |br| * Default: False
         :type time_series_aggregation: boolean
         """
         self.log.info('    Declare time sets')
 
-        # Store the information if aggregated time series data is considered for
-        # modeling the energy system in the pyomo model instance and set the
-        # time series which is considered to model the components accordingly
+        # Store if time series aggregation is considered in the current concrete
+        # model instance & set the time series data for all modelled components.
         pyM.has_tsa = time_series_aggregation
         for comp in self.components.values():
             comp.set_time_series_data(pyM.has_tsa)
 
-        # Set the time set and the inter time steps set. The time set is a set
-        # of tuples. The first entry indicates an index of a period and the 2nd
-        # indicates a time step inside that period. If time series aggregation
-        # is not considered, only one period (period 0) exists and the time
-        # steps range from 0 to the specified number of total time steps - 1.
-        # Otherwise, the time set is initialized for each typical period (0 to
-        # number_of_typical_periods-1) and the number of time steps per period
-        # (0 to number_of_time_steps_per_period-1).
-        # The inter_period_time_steps is also a set of tuples. The first value
-        # indicates the period as well. However, the 2nd value refers to a point
+        # Two different time sets are considered, both are sets of tuples.
+        # The set "time_set" is used in the intra-period formulation. The first
+        # entry indicates an index of a period and the second a time step inside
+        # of the period. In case the optimiaztion is performed without time
+        # series aggregation, the set runs from [(0,0), (0,1), ..to..,
+        # (0,number_of_time_steps-1)].
+        # Otherwise: [(0,0), ..., (0,time_steps_per_period-1), (1,0), ...,
+        # (number_of_typical_periods-1, time_steps_per_period-1)].
+        # The set "inter_period_time_set"  TODO!
+        # The first value indicates the period as well. However, the 2nd value refers to a point
         # in time right before or after a time step (or between 2 time steps).
         # Hence the 2nd value reaches from 0 to number_of_time_steps_per_period.
         if not pyM.has_tsa:
             # Reset time_steps_per_period in case it was overwritten by the
             # clustering function
-            self.time_steps_per_period = self.total_time_steps
-            self.inter_period_time_steps = \
-                list(range(int(len(self.total_time_steps) /
-                               len(self.time_steps_per_period)) + 1))
             self.periods = [0]
             self.periods_order = [0]
             self.period_occurrences = [1]
+            self.time_steps_per_period = list(range(self.number_of_time_steps))
+            self.inter_period_time_steps = [0, 1]
 
-            # Define sets
+            # Define sets: Only period 0 exists
             def init_time_set(m):
-                return ((p, t) for p in self.periods
-                        for t in self.time_steps_per_period)
+                return ((0, t) for t in range(self.number_of_time_steps))
 
             def init_inter_time_steps_set(m):
-                return ((p, t) for p in self.periods
-                        for t in range(len(self.time_steps_per_period) + 1))
+                return ((0, t) for t in range(self.number_of_time_steps + 1))
+
         else:
             self.log.info('    Aggregated time series data detected (number of '
                           'typical periods: %s, number of time steps per '
@@ -727,12 +719,12 @@ class EnergySystemModel:
                 return ((p, t) for p in self.typical_periods
                         for t in range(len(self.time_steps_per_period) + 1))
 
-        # Initialize sets
-        pyM.time_set = pyomo.Set(dimen=2, initialize=init_time_set,
-                                 ordered=True)
-        pyM.inter_time_steps_set = \
-            pyomo.Set(dimen=2, initialize=init_inter_time_steps_set,
-                      ordered=True)
+        # Initialize the two time sets
+        pyM.time_set = pyomo.Set(
+            dimen=2, initialize=init_time_set, ordered=True)
+
+        pyM.inter_time_steps_set = pyomo.Set(
+            dimen=2, initialize=init_inter_time_steps_set, ordered=True)
 
     def declare_objective(self, pyM):
         """
