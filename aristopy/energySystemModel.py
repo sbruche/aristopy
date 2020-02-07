@@ -128,7 +128,8 @@ class EnergySystemModel:
         self.pyM = None
         self.solver_specs = {'solver': '', 'time_limit': None,  # Todo: Rework the specs (or remove them) -> especcuially remove solver???!!!
                              'optimization_specs': '',
-                             'has_tsa': False, 'build_time': 0, 'solve_time': 0}
+                             'time_series_aggregation': False,
+                             'build_time': 0, 'solve_time': 0}
         self.solver = None
         self.is_model_declared = False
         self.is_persistent_model_declared = False
@@ -657,6 +658,22 @@ class EnergySystemModel:
         """
         Initialize time parameters and sets.
 
+        Two different time sets are considered, both are sets of tuples.
+        The set "time_set" is used in the intra-period formulation. The first
+        entry indicates an index of a period and the second a time step inside
+        of the period. In case the optimization is performed without time
+        series aggregation, the set runs from [(0,0), (0,1), ..to..,
+        (0,number_of_time_steps-1)]. Otherwise: [(0,0), ...,
+        (0,time_steps_per_period-1), (1,0), ..., (number_of_typical_periods-1,
+        time_steps_per_period-1)].
+        The set "inter_period_time_set" holds tuples of period and points in
+        time before, after or between regular time steps. Hence, the second
+        value runs from 0 to "number_of_time_steps" or "time_steps_per_period"
+        respectively. |br|
+        |br| E.g.: time_set (top), inter_time_steps_set (bottom): |br|
+        >> __0___1___2___3___4__   |br|
+        >> 0___1___2___3___4___5   |br|
+
         :param pyM: Pyomo ConcreteModel instance containing sets, variables,
             constraints and objective.
         :type pyM: pyomo ConcreteModel
@@ -670,34 +687,21 @@ class EnergySystemModel:
         """
         self.log.info('    Declare time sets')
 
-        # Store if time series aggregation is considered in the current concrete
-        # model instance & set the time series data for all modelled components.
-        pyM.has_tsa = time_series_aggregation
+        # Set the time series data for all modelled components
         for comp in self.components.values():
-            comp.set_time_series_data(pyM.has_tsa)
+            comp.set_time_series_data(time_series_aggregation)
 
-        # Two different time sets are considered, both are sets of tuples.
-        # The set "time_set" is used in the intra-period formulation. The first
-        # entry indicates an index of a period and the second a time step inside
-        # of the period. In case the optimiaztion is performed without time
-        # series aggregation, the set runs from [(0,0), (0,1), ..to..,
-        # (0,number_of_time_steps-1)].
-        # Otherwise: [(0,0), ..., (0,time_steps_per_period-1), (1,0), ...,
-        # (number_of_typical_periods-1, time_steps_per_period-1)].
-        # The set "inter_period_time_set"  TODO!
-        # The first value indicates the period as well. However, the 2nd value refers to a point
-        # in time right before or after a time step (or between 2 time steps).
-        # Hence the 2nd value reaches from 0 to number_of_time_steps_per_period.
-        if not pyM.has_tsa:
-            # Reset time_steps_per_period in case it was overwritten by the
-            # clustering function
+        # Reset time-relevant attributes and initialize sets if full scale
+        # problem is considered.
+        if not time_series_aggregation:
             self.periods = [0]
             self.periods_order = [0]
             self.period_occurrences = [1]
             self.time_steps_per_period = list(range(self.number_of_time_steps))
             self.inter_period_time_steps = [0, 1]
+            self.typical_periods = None
 
-            # Define sets: Only period 0 exists
+            # Define sets: Only period "0" exists
             def init_time_set(m):
                 return ((0, t) for t in range(self.number_of_time_steps))
 
@@ -719,7 +723,12 @@ class EnergySystemModel:
                 return ((p, t) for p in self.typical_periods
                         for t in range(len(self.time_steps_per_period) + 1))
 
-        # Initialize the two time sets
+        # Initialize the two time sets:
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        #                           0   1   2   3   4
+        # "time_set":               |---|---|---|---|
+        # "inter_time_steps_set": |---|---|---|---|---|
+        #                         0   1   2   3   4   5
         pyM.time_set = pyomo.Set(
             dimen=2, initialize=init_time_set, ordered=True)
 
@@ -1001,7 +1010,8 @@ class EnergySystemModel:
         if persistent_model:
             # Store keyword arguments in the EnergySystemModel instance
             self.solver_specs['solver'] = persistent_solver
-            self.solver_specs['has_tsa'] = time_series_aggregation
+            self.solver_specs['time_series_aggregation'] = \
+                time_series_aggregation
 
             # Call the persistent solver and assign the solver to "self.solver"
             time_persistent_start = time.time()
@@ -1112,7 +1122,7 @@ class EnergySystemModel:
         # Store keyword arguments in the EnergySystemModel instance
         self.solver_specs['time_limit'] = time_limit
         self.solver_specs['optimization_specs'] = optimization_specs
-        self.solver_specs['has_tsa'] = time_series_aggregation
+        self.solver_specs['time_series_aggregation'] = time_series_aggregation
 
         # **********************************************************************
         #   Solve the specified optimization problem

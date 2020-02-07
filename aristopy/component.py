@@ -694,19 +694,20 @@ class Component(metaclass=ABCMeta):
         # Append name and list of pieces to the 'user_expressions_dict'
         self.user_expressions_dict.update({expr_name: expr_pieces})
 
-    def set_time_series_data(self, has_tsa):
+    def set_time_series_data(self, time_series_aggregation):
         """
         Function for setting the time series data in the 'parameters' dictionary
         of a component depending on whether a calculation with aggregated time
         series is requested or not.
 
-        :param has_tsa: time series aggregation requested (True) or not (False).
-        :type has_tsa: boolean
+        :param time_series_aggregation: time series aggregation requested
+            (True) or not (False).
+        :type time_series_aggregation: boolean
         """
         for param in self.parameters:
             param_dict = self.parameters[param]
             if param_dict['has_time_set']:
-                if has_tsa:
+                if time_series_aggregation:
                     # Use aggregated data if time series aggr. is requested
                     param_dict['values'] = param_dict['aggregated']
                 else:
@@ -773,18 +774,41 @@ class Component(metaclass=ABCMeta):
             else:
                 bounds = (var_dict['lb'], var_dict['ub'])
             init = var_dict['init']
+
             # Differentiation between variables with and without time_set
             if var_dict['has_time_set']:
                 setattr(self.pyB, var_name, pyomo.Var(
                         pyM.time_set, domain=domain, bounds=bounds,
                         initialize=init))
-            elif var_dict['alternative_set'] is not None:  # e.g. 'BI_MODULE_EX'
-                setattr(self.pyB, var_name, pyomo.Var(
-                    var_dict['alternative_set'], domain=domain, bounds=bounds,
-                    initialize=init))
+
+            # e.g. for 'BI_MODULE_EX' or for 'SOC' with 'inter_time_steps_set'
+            elif var_dict['alternative_set'] is not None:
+                try:
+                    # Try to find the set in the concrete model instance and
+                    # use it for the variable declaration
+                    alt_set = getattr(pyM, var_dict['alternative_set'])
+                    setattr(self.pyB, var_name, pyomo.Var(
+                        alt_set, domain=domain, bounds=bounds, initialize=init))
+                except AttributeError:  # attr. is a string but it is not found
+                    self.log.error('Pyomo model does not have the attribute '
+                                   '"%s"' % var_dict['alternative_set'])
+                    raise
+                except TypeError:  # provided attribute is not a string
+                    try:
+                        # Assume the entry in the dict is the desired set
+                        setattr(self.pyB, var_name, pyomo.Var(
+                            var_dict['alternative_set'], domain=domain,
+                            bounds=bounds, initialize=init))
+                    except Exception:  # e.g. "object is not iterable"
+                        self.log.error('Something went wrong in the declaration'
+                                       ' of variable "%s" with the set "%s"' % (
+                                        var_name, var_dict['alternative_set']))
+                        raise
+            # built variable without any set
             else:
                 setattr(self.pyB, var_name, pyomo.Var(
                         domain=domain, bounds=bounds, initialize=init))
+
             # Store variable in self.variables[var_name]['pyomo']
             pyomo_var = getattr(self.pyB, var_name)
             self.variables[var_name]['pyomo'] = pyomo_var

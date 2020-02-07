@@ -25,7 +25,9 @@ class Storage(Component):
                  opex_per_capacity=0, opex_if_exist=0,
                  opex_charging=0, opex_discharging=0,
                  charge_rate=1, discharge_rate=1, self_discharge=0,
-                 soc_min=0, soc_max=1):  # TODO
+                 charge_efficiency=1, discharge_efficiency=1,
+                 soc_min=0, soc_max=1, soc_initial=None,
+                 use_inter_period_formulation=False):  # TODO
         """
         Initialize a storage component.
 
@@ -83,8 +85,19 @@ class Storage(Component):
         self.charge_rate = utils.set_if_positive(charge_rate)
         self.discharge_rate = utils.set_if_positive(discharge_rate)
         self.self_discharge = utils.set_if_between_zero_and_one(self_discharge)
+        self.charge_efficiency = utils.set_if_between_zero_and_one(
+            charge_efficiency)
+        self.discharge_efficiency = utils.set_if_between_zero_and_one(
+            discharge_efficiency)
+        self.soc_min = utils.set_if_between_zero_and_one(soc_min)
+        self.soc_max = utils.set_if_between_zero_and_one(soc_max)
+        self.soc_initial = utils.set_if_between_zero_and_one(soc_initial) \
+            if soc_initial is not None else None
         self.opex_charging = utils.set_if_positive(opex_charging)
         self.opex_discharging = utils.set_if_positive(opex_discharging)
+
+        utils.is_boolean(use_inter_period_formulation)  # check input
+        self.use_inter_period_formulation = use_inter_period_formulation
 
         # Declare create two variables. One for loading and one for unloading.
         self.charge_variable = self.basic_variable + '_CHARGE'
@@ -92,9 +105,10 @@ class Storage(Component):
         self._add_var(self.charge_variable)
         self._add_var(self.discharge_variable)
 
-        # Create a SOC (state of charge) variable.
+        # Create a SOC (state of charge) variable (set: 'inter_time_steps_set')
         self.soc_variable = self.basic_variable + '_SOC'
-        self._add_var(self.soc_variable)
+        self._add_var(self.soc_variable, has_time_set=False,
+                      alternative_set='inter_time_steps_set')  # TODO: Hier wird eine NonNegativeReals Variable gebaut!
 
         # Last step: Add the component to the energy system model instance
         self.add_to_energy_system_model(ensys, name)
@@ -143,10 +157,12 @@ class Storage(Component):
         # ---------------------------
         self.con_operation_limit(pyM)
         self.con_soc_balance(ensys, pyM)
-       # self.con_first_time_step(ensys, pyM)  #  TODO: remove it?
-        self.con_last_time_step(ensys, pyM)
+        self.con_first_time_step_soc(ensys, pyM)
+        self.con_cyclic_condition(ensys, pyM)
         self.con_charge_rate(ensys, pyM)
         self.con_discharge_rate(ensys, pyM)
+        self.con_minimal_soc(ensys, pyM)
+        self.con_maximal_soc(ensys, pyM)
 
     def get_objective_function_contribution(self, ensys, pyM):
         """ Get contribution to the objective function. """
@@ -187,7 +203,7 @@ class Storage(Component):
             obj['opex_operation'] = -1 * ensys.pvf * sum(
                 (self.opex_charging * charge[p, t] + self.opex_discharging
                  * discharge[p, t]) * ensys.period_occurrences[p]
-                for p, t in pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
+                for p, t in pyM.time_set) / ensys.number_of_years
 
         return sum(obj.values())
 
@@ -227,59 +243,71 @@ class Storage(Component):
         dt = ensys.hours_per_time_step
 
         def con_soc_balance(m, p, t):
-            if t != ensys.time_steps_per_period[0]:  # not for first time step
-                return soc[p, t] == soc[p, t-1] * (1-self.self_discharge)**dt \
-                       + charge[p, t-1] - discharge[p, t-1]
-            else:
-                return pyomo.Constraint.Skip
+            return soc[p, t+1] == soc[p, t] * (1-self.self_discharge)**dt \
+                   + charge[p, t] * self.charge_efficiency \
+                   - discharge[p, t] / self.discharge_efficiency
 
         setattr(self.pyB, 'con_soc_balance', pyomo.Constraint(
             pyM.time_set, rule=con_soc_balance))
 
-    # def con_first_time_step(self, ensys, pyM):
-    #     # TODO: Remove it!
-    #     """
-    #     XXX --> not needed ? (half capacity in first time step of period)
-    #     --> just relevant for reciding horizon optimization?!
-    #     """
-    #     if self.capacity_variable is not None:
-    #         # Get variables:
-    #         soc = self.variables[self.soc_variable]['pyomo']
-    #         cap = self.variables[self.capacity_variable]['pyomo']
-    #
-    #         def con_first_time_step(m, p, t):
-    #             if t == ensys.time_steps_per_period[0]:  # first time step
-    #                 return soc[p, t] == 0.5 * cap
-    #             else:
-    #                 return pyomo.Constraint.Skip
-    #
-    #         setattr(self.pyB, 'con_first_time_step', pyomo.Constraint(
-    #             pyM.time_set, rule=con_first_time_step))
-
-    def con_last_time_step(self, ensys, pyM):
+    def con_cyclic_condition(self, ensys, pyM):
         """
-        Boundary Condition: Level in storage in last time step (plus loading,
-        minus unloading and loss) at least as full as in first time step.
-        # Todo: Decide if at least or exactly?
+        State of charge storage in last time step (after last charging and
+        discharging events) equals SOC in first time step.
+        TODO: Extend explanation!
         """
         # Get variables:
-        charge = self.variables[self.charge_variable]['pyomo']
-        discharge = self.variables[self.discharge_variable]['pyomo']
         soc = self.variables[self.soc_variable]['pyomo']
-        dt = ensys.hours_per_time_step
 
-        def con_last_time_step(m, p, t):
-            if t == ensys.time_steps_per_period[-1]:  # last time step of period
-                return soc[p, t] * (1 - self.self_discharge)**dt \
-                       + charge[p, t] - discharge[p, t] >= soc[p, 0]
+        if self.use_inter_period_formulation:
+            pass  # TODO: Fill it!  ---> connect the interPeriodSOCs
+
+        else:
+            # Use the formulation without inter-period time steps. This version
+            # is computationally less challenging. All periods represent
+            # independent entities. Energy cannot be transferred between periods
+            def con_cyclic_condition(m, p):
+                soc_last_ts = pyM.inter_time_steps_set.last()[1]
+                return soc[p, 0] == soc[p, soc_last_ts]
+
+            if ensys.is_data_clustered:
+                # Set cyclic condition for every typical period
+                setattr(self.pyB, 'con_cyclic_condition', pyomo.Constraint(
+                    ensys.typical_periods, rule=con_cyclic_condition))
             else:
-                return pyomo.Constraint.Skip
+                # Set cyclic condition for the only period with number "0"
+                setattr(self.pyB, 'con_cyclic_condition', pyomo.Constraint(
+                    [0], rule=con_cyclic_condition))
 
-        setattr(self.pyB, 'con_last_time_step', pyomo.Constraint(
-            pyM.time_set, rule=con_last_time_step))
+    def con_first_time_step_soc(self, ensys, pyM):
+        """
+        A value for the relative state of charge in the first time step of each
+        period can be specified here. (same value for all periods)
+        """
+        if self.capacity_variable is not None and self.soc_initial is not None:
+            # Get variables:
+            soc = self.variables[self.soc_variable]['pyomo']
+            cap = self.variables[self.capacity_variable]['pyomo']
 
-    # TODO: Add constraint that prevents overloading in last time step
-    #  (more than capacity).
+            if self.use_inter_period_formulation:
+                pass  # TODO: Fill it!  ---> set first interPeriodSOC
+
+            else:
+                # Use the formulation without inter-period time steps. This
+                # is computationally less challenging. All periods represent
+                # independent entities. Energy can't be transferred between them
+                def con_first_time_step_soc(m, p):
+                    return soc[p, 0] == cap * self.soc_initial
+
+                if ensys.is_data_clustered:
+                    # Set cyclic condition for every typical period
+                    setattr(self.pyB, 'con_first_time_step_soc',
+                            pyomo.Constraint(ensys.typical_periods,
+                                             rule=con_first_time_step_soc))
+                else:
+                    # Set cyclic condition for the only period with number "0"
+                    setattr(self.pyB, 'con_first_time_step_soc',
+                            pyomo.Constraint([0], rule=con_first_time_step_soc))
 
     def con_charge_rate(self, ensys, pyM):
         """
@@ -310,3 +338,45 @@ class Storage(Component):
 
             setattr(self.pyB, 'con_discharge_rate', pyomo.Constraint(
                 pyM.time_set, rule=con_discharge_rate))
+
+    def con_minimal_soc(self, ensys, pyM):
+        """
+        XXX
+        """
+        if self.capacity_variable is not None:  # todo:  and self.soc_min > 0: ?
+            # Get variables:
+            soc = self.variables[self.soc_variable]['pyomo']
+            cap = self.variables[self.capacity_variable]['pyomo']
+
+            if self.use_inter_period_formulation:
+                pass  # TODO: Fill it!  ---> precise or simplified version
+
+            else:
+                # Use the formulation without inter-period time steps.
+                def con_minimal_soc(m, p, t):
+                    return soc[p, t] >= cap * self.soc_min
+
+                setattr(self.pyB, 'con_minimal_soc',
+                        pyomo.Constraint(pyM.inter_time_steps_set,
+                                         rule=con_minimal_soc))
+
+    def con_maximal_soc(self, ensys, pyM):
+        """
+        XXX
+        """
+        if self.capacity_variable is not None:  # todo:  and self.soc_max < 1: ?
+            # Get variables:
+            soc = self.variables[self.soc_variable]['pyomo']
+            cap = self.variables[self.capacity_variable]['pyomo']
+
+            if self.use_inter_period_formulation:
+                pass  # TODO: Fill it!  ---> precise or simplified version
+
+            else:
+                # Use the formulation without inter-period time steps.
+                def con_maximal_soc(m, p, t):
+                    return soc[p, t] <= cap * self.soc_max
+
+                setattr(self.pyB, 'con_maximal_soc',
+                        pyomo.Constraint(pyM.inter_time_steps_set,
+                                         rule=con_maximal_soc))
