@@ -8,8 +8,9 @@
 """
 import pyomo.environ as pyomo
 import pyomo.network as network
-from aristopy.component import Component
+
 from aristopy import utils
+from aristopy.component import Component
 
 
 class Bus(Component):
@@ -194,3 +195,12 @@ class Bus(Component):
 
         setattr(self.pyB, 'con_bus_balance', pyomo.Constraint(
                 pyM.time_set, rule=con_bus_balance))
+
+    # ==========================================================================
+    #    S E R I A L I Z E
+    # ==========================================================================
+    def serialize(self):
+        comp_dict = super().serialize()
+        comp_dict['inlet_variable'] = self.inlet_variable
+        comp_dict['outlet_variable'] = self.outlet_variable
+        return comp_dict

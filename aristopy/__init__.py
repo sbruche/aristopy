@@ -12,3 +12,4 @@ from .storage import Storage
 from .bus import Bus
 from .logger import Logger
 from .utils import check_logger_input
+from .plotting import Plotter

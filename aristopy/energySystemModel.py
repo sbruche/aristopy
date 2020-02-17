@@ -7,6 +7,8 @@
 * Created by: Stefan Bruche (TU Berlin)
 """
 import time
+import json
+from collections import OrderedDict
 
 import pandas as pd
 import pyomo.environ as pyomo
@@ -35,7 +37,7 @@ class EnergySystemModel:
         Initialize an instance of the EnergySystemModel class.
 
         :param number_of_time_steps: Number of considered time steps for
-            modelling the dispatch problem. With "hours_per_time_step" the
+            modeling the dispatch problem. With "hours_per_time_step" the
             share of the modelled year can be calculated. In this way the cost
             of each time step is scaled and included in the objective function.
             |br| * Default: 8760
@@ -91,15 +93,15 @@ class EnergySystemModel:
         self.periods = [0]
         self.periods_order = [0]
         self.period_occurrences = [1]
-        self.time_steps_per_period = list(range(number_of_time_steps))
+        self.number_of_time_steps_per_period = number_of_time_steps
         self.inter_period_time_steps = [0, 1]  # one before & after only period
 
         # Flag 'is_data_clustered' indicates if the function 'cluster' has been
         # called before. The flag is reset to False if new components are added.
         self.is_data_clustered = False
-        # 'typical_periods' is altered by function 'cluster' to a list ranging
+        # 'typical_periods' is altered by function 'cluster' to an array ranging
         # from 0 to number_of_typical_periods-1.
-        self.typical_periods = None
+        self.typical_periods = [0]
 
         # **********************************************************************
         #   Economics
@@ -628,8 +630,7 @@ class EnergySystemModel:
             comp.set_aggregated_time_series_data(data)
 
         self.typical_periods = cluster_class.clusterPeriodIdx
-        self.time_steps_per_period = list(
-            range(number_of_time_steps_per_period))
+        self.number_of_time_steps_per_period = number_of_time_steps_per_period
 
         self.periods = list(range(int(
             self.number_of_time_steps / number_of_time_steps_per_period)))
@@ -645,34 +646,42 @@ class EnergySystemModel:
         self.is_data_clustered = True
         self.log.info("    Time required for clustering: %.2f sec"
                       % (time.time() - time_start))
-
-        # print('typical_periods', self.typical_periods)
-        # print('time_steps_per_period', self.time_steps_per_period)
-        # print('periods', self.periods)
-        # print('inter_period_time_steps', self.inter_period_time_steps)
-        # print('periods_order', self.periods_order)
-        # print('period_occurrences', self.period_occurrences)
-        # print('number_of_years', self.number_of_years)
+        # Debugging:
+        self.log.debug('typical_periods: %s' % self.typical_periods)
+        self.log.debug('periods: %s' % self.periods)
+        self.log.debug('inter_period_time_steps: %s'
+                       % self.inter_period_time_steps)
+        self.log.debug('periods_order: %s' % self.periods_order)
+        self.log.debug('period_occurrences: %s' % self.period_occurrences)
 
     def declare_time_sets(self, pyM, time_series_aggregation):
         """
-        Initialize time parameters and sets.
+        Initialize time parameters and four different time sets.
 
-        Two different time sets are considered, both are sets of tuples.
-        The set "time_set" is used in the intra-period formulation. The first
-        entry indicates an index of a period and the second a time step inside
-        of the period. In case the optimization is performed without time
-        series aggregation, the set runs from [(0,0), (0,1), ..to..,
-        (0,number_of_time_steps-1)]. Otherwise: [(0,0), ...,
-        (0,time_steps_per_period-1), (1,0), ..., (number_of_typical_periods-1,
-        time_steps_per_period-1)].
-        The set "inter_period_time_set" holds tuples of period and points in
-        time before, after or between regular time steps. Hence, the second
-        value runs from 0 to "number_of_time_steps" or "time_steps_per_period"
-        respectively. |br|
-        |br| E.g.: time_set (top), inter_time_steps_set (bottom): |br|
-        >> __0___1___2___3___4__   |br|
-        >> 0___1___2___3___4___5   |br|
+        The "time_set" represents the general set. The index holds tuples of
+        periods and time steps inside of these periods. In case the optimization
+        is performed without time series aggregation, the set runs from [(0,0),
+        (0,1), ..to.., (0,number_of_time_steps-1)].
+        Otherwise: [(0,0), ..., (0,number_of_time_steps_per_period-1), (1,0),
+        ..., (number_of_typical_periods-1, number_of_time_steps_per_period-1)].
+        The set "intra_period_time_set" holds tuples of periods and points in
+        time before, after or between regular time steps inside of a period.
+        Hence, the second value runs from 0 to "number_of_time_steps" (without
+        aggregation) or "number_of_time_steps_per_period" respectively.
+        The third set "intra_period_time_set" is one-dimensional and ranges from
+        0 to the overall number of periods plus 1. So if no aggregation is used
+        it has only two entries [0, 1]. Otherwise is is ranging from 0 to
+        (1 + number_of_time_steps / number_of_time_steps_per_period).
+        The "typical_periods_set" is a set ranging from 0 to the number of
+        typical periods. If no aggregation is used it only holds 0. |br|
+
+        |br| E.g.: Case with 2 periods and 3 time steps per period |br|
+        1) ______(0,0)___(0,1)___(0,2)___________(1,0)___(1,1)___(1,2)______|br|
+        2) __(0,0)___(0,1)___(0,2)___(0,3)___(1,0)___(1,1)___(1,2)___(1,3)__|br|
+        3) 0_______________________________1_______________________________2|br|
+        4) ________________0_______________________________1________________|br|
+        1) time_set, 2) intra_period_time_steps_set,
+        3) inter_period_time_steps_set, 4) typical_periods_set |br|
 
         :param pyM: Pyomo ConcreteModel instance containing sets, variables,
             constraints and objective.
@@ -697,43 +706,53 @@ class EnergySystemModel:
             self.periods = [0]
             self.periods_order = [0]
             self.period_occurrences = [1]
-            self.time_steps_per_period = list(range(self.number_of_time_steps))
+            self.number_of_time_steps_per_period = self.number_of_time_steps
             self.inter_period_time_steps = [0, 1]
-            self.typical_periods = None
+            self.typical_periods = [0]
 
             # Define sets: Only period "0" exists
             def init_time_set(m):
                 return ((0, t) for t in range(self.number_of_time_steps))
 
-            def init_inter_time_steps_set(m):
+            def init_intra_period_time_set(m):
                 return ((0, t) for t in range(self.number_of_time_steps + 1))
 
         else:
             self.log.info('    Aggregated time series data detected (number of '
                           'typical periods: %s, number of time steps per '
                           'period: %s' % (len(self.typical_periods),
-                                          len(self.time_steps_per_period)))
+                                          self.number_of_time_steps_per_period))
 
             # Define sets
             def init_time_set(m):
                 return ((p, t) for p in self.typical_periods
-                        for t in self.time_steps_per_period)
+                        for t in range(self.number_of_time_steps_per_period))
 
-            def init_inter_time_steps_set(m):
+            def init_intra_period_time_set(m):
                 return ((p, t) for p in self.typical_periods
-                        for t in range(len(self.time_steps_per_period) + 1))
+                        for t in range(self.number_of_time_steps_per_period+1))
 
-        # Initialize the two time sets:
-        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        #                           0   1   2   3   4
-        # "time_set":               |---|---|---|---|
-        # "inter_time_steps_set": |---|---|---|---|---|
-        #                         0   1   2   3   4   5
+        # Initialize the four time sets:
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # E.g.: Case with 2 periods and 3 time steps per period
+        # 1) ______(0,0)___(0,1)___(0,2)___________(1,0)___(1,1)___(1,2)______
+        # 2) __(0,0)___(0,1)___(0,2)___(0,3)___(1,0)___(1,1)___(1,2)___(1,3)__
+        # 3) 0_______________________________1_______________________________2
+        # 4) ________________0_______________________________1________________
+        # 1) time_set, 2) intra_period_time_steps_set,
+        # 3) inter_period_time_steps_set, 4) typical_periods_set
+
         pyM.time_set = pyomo.Set(
             dimen=2, initialize=init_time_set, ordered=True)
 
-        pyM.inter_time_steps_set = pyomo.Set(
-            dimen=2, initialize=init_inter_time_steps_set, ordered=True)
+        pyM.intra_period_time_set = pyomo.Set(
+            dimen=2, initialize=init_intra_period_time_set, ordered=True)
+
+        pyM.inter_period_time_set = pyomo.Set(
+            initialize=self.inter_period_time_steps, ordered=True)
+
+        pyM.typical_periods_set = pyomo.Set(
+            initialize=self.typical_periods, ordered=True)
 
     def declare_objective(self, pyM):
         """
@@ -1038,7 +1057,8 @@ class EnergySystemModel:
     def optimize(self, declares_optimization_problem=True,
                  persistent_model=False, persistent_solver='gurobi_persistent',
                  time_series_aggregation=False, solver='gurobi',
-                 time_limit=None, optimization_specs='', warmstart=False):
+                 time_limit=None, optimization_specs='', warmstart=False,
+                 results_file='results.json'):
         """
         Optimize the specified energy system for which a pyomo ConcreteModel
         instance is built or called upon.
@@ -1094,6 +1114,9 @@ class EnergySystemModel:
             be considered (not always supported by the solvers).
             |br| * Default: False
         :type warmstart: boolean
+
+        :param results_file: Name of the results file (format: .json)
+        :type results_file: string
         """
         self.log.info('Call of function "optimize"')
 
@@ -1158,50 +1181,37 @@ class EnergySystemModel:
         self.log.info('Solve time: %d sec' % self.solver_specs['solve_time'])
 
         # **********************************************************************
-        #   Post-process optimization output
+        #   Export results to JSON
         # **********************************************************************
-        # _t = time.time()
-        # # Post-process the optimization output by differentiating between
-        # # different solver statuses and termination conditions. First, check if
-        # # the status and termination_condition of the optimization are
-        # # acceptable. If not, no output is generated.
-        # # TODO check if this is still compatible with the latest pyomo version
-        # status = solver_info.solver.status
-        # term_cond = solver_info.solver.termination_condition
-        # if status == opt.SolverStatus.error or status == \
-        #         opt.SolverStatus.aborted or status == opt.SolverStatus.unknown:
-        #     utils.output('Solver status: {}, termination condition: {}. '
-        #                  'No output is generated.'
-        #                  .format(status, term_cond), self.verbose, 0)
-        # elif solver_info.solver.termination_condition == \
-        #         opt.TerminationCondition.infeasibleOrUnbounded or \
-        #         solver_info.solver.termination_condition == \
-        #         opt.TerminationCondition.infeasible or \
-        #         solver_info.solver.termination_condition == \
-        #         opt.TerminationCondition.unbounded:
-        #     utils.output('Optimization problem is {}. No output is generated.'
-        #                  .format(solver_info.solver.termination_condition),
-        #                  self.verbose, 0)
-        # else:
-        #     # If the solver status is not optimal show a warning message.
-        #     if not solver_info.solver.termination_condition == \
-        #            opt.TerminationCondition.optimal and self.verbose < 2:
-        #         warnings.warn('Output is generated for a non-optimal solution.')
-        #     utils.output("\nProcessing optimization output...", self.verbose, 0)
-        #
-        #     # # Declare component specific sets, variables and constraints
-        #     # w = str(len(max(self.componentModelingDict.keys()))+6)
-        #     # for key, mdl in self.componentModelingDict.items():
-        #     #     __t = time.time()
-        #     #     mdl.setOptimalValues(self, self.pyM)
-        #     #     outputString = ('for {:' + w + '}').format(key + ' ...')
-        #     #     + "(%.4f" % (time.time() - __t) + "sec)"
-        #     #     utils.output(outputString, self.verbose, 0)
+        # Write results to a json-file
+        with open(results_file, 'w') as f:
+            f.write(json.dumps(self.serialize(), indent=2))
 
-    # # NOT ADDED YET:
-    # # --------------
-    # def getOptimizationSummary(self, modelingClass, outputLevel=0):
-    #     # [...]
+    # ==========================================================================
+    #   Serialize the content of the class instance and its components
+    # ==========================================================================
+    def serialize(self):
+        components = {}
+        for name, comp in self.components.items():
+            components[name] = comp.serialize()
+
+        return OrderedDict([
+            ('model_class', self.__class__.__name__),
+            ('id', id(self)),
+            ('number_of_time_steps', self.number_of_time_steps),
+            ('hours_per_time_step', self.hours_per_time_step),
+            ('is_data_clustered', self.is_data_clustered),
+            ('number_of_time_steps_per_period',
+             self.number_of_time_steps_per_period),
+            ('number_of_typical_periods', len(self.typical_periods)),
+            ('total_number_of_periods', len(self.periods)),
+            ('periods_order', str(list(self.periods_order))),
+            ('period_occurrences', str(self.period_occurrences)),
+            ('present value factor', self.pvf),
+            ('components', components),
+            ('connections', str(self.connections_dict)),
+            ('opt_results', self.solver_specs),
+        ])
 
 
 if __name__ == '__main__':

@@ -322,9 +322,19 @@ class Conversion(Component):
                 bi_su = self.variables['BI_SU']['pyomo']
 
                 def con_start_up_cost(m, p, t):
-                    if t != ensys.time_steps_per_period[0]:  # not in first ts
+                    if t != 0:  # ensys.time_steps_per_period[0]:  # not in first ts
                         return 0 <= bi_op[p, t - 1] - bi_op[p, t] + bi_su[p, t]
                     else:
                         return pyomo.Constraint.Skip  # free start in first ts
                 setattr(self.pyB, 'con_start_up_cost', pyomo.Constraint(
                         pyM.time_set, rule=con_start_up_cost))
+
+    # ==========================================================================
+    #    S E R I A L I Z E
+    # ==========================================================================
+    def serialize(self):
+        comp_dict = super().serialize()
+        comp_dict['operation_rate_min'] = self.op_rate_min
+        comp_dict['operation_rate_max'] = self.op_rate_max
+        comp_dict['operation_rate_fix'] = self.op_rate_fix
+        return comp_dict

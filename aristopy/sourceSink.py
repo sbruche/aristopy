@@ -181,7 +181,7 @@ class Source(Component):
         if self.opex_operation > 0:
             obj['opex_operation'] = -1 * ensys.pvf * self.opex_operation * sum(
                 basic_var[p, t] * ensys.period_occurrences[p] for p, t in
-                pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
+                pyM.time_set) / ensys.number_of_years
         # ---------------
         #   M I S C
         # ---------------
@@ -190,14 +190,14 @@ class Source(Component):
             obj['com_cost_time_indep'] = \
                 -1 * ensys.pvf * self.commodity_cost * sum(
                     basic_var[p, t] * ensys.period_occurrences[p]
-                    for p, t in pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
+                    for p, t in pyM.time_set) / ensys.number_of_years
 
         # Time-dependent cost of a commodity (time series cost values)
         if self.commodity_cost_time_series is not None:
             cost_ts = self.parameters[self.commodity_cost_time_series]['values']
             obj['com_cost_time_dep'] = -1 * ensys.pvf * sum(
                 cost_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
-                for p, t in pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
+                for p, t in pyM.time_set) / ensys.number_of_years
 
         # Time-independent revenues for of a commodity (scalar revenue value)
         if self.commodity_revenues is not None:
@@ -212,7 +212,7 @@ class Source(Component):
                 self.commodity_revenues_time_series]['values']
             obj['com_rev_time_dep'] = ensys.pvf * sum(
                 rev_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
-                for p, t in pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
+                for p, t in pyM.time_set) / ensys.number_of_years
 
         return sum(obj.values())
 
@@ -238,6 +238,16 @@ class Source(Component):
 
             setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
                 pyM.time_set, rule=con_operation_limit))
+
+    # ==========================================================================
+    #    S E R I A L I Z E
+    # ==========================================================================
+    def serialize(self):
+        comp_dict = super().serialize()
+        comp_dict['operation_rate_min'] = self.op_rate_min
+        comp_dict['operation_rate_max'] = self.op_rate_max
+        comp_dict['operation_rate_fix'] = self.op_rate_fix
+        return comp_dict
 
 
 class Sink(Source):

@@ -751,7 +751,16 @@ def is_string(string):
         raise TypeError('The input argument has to be a string')
 
 
-# Todo: delete this
-# def output(message, verbose, val):
-#     if verbose == val:
-#         print(message)
+def check_plot_operation_input(data, comp, single_period, level, show_plot,
+                               save_plot, file_name):
+    if comp not in data['components']:
+        raise Exception('Component not found in JSON-File!')
+    if single_period is not None \
+            and single_period not \
+            in list(range(data['number_of_typical_periods'])):
+        raise Exception('Period index for plotting is out of range!')
+    if level != 1 and level != 2:
+        raise Exception('Level of detail can take values 1 or 2!')
+    if not isinstance(show_plot, bool) or not isinstance(save_plot, bool) \
+            or not isinstance(file_name, str):
+        raise Exception('Wrong argument type detected!')

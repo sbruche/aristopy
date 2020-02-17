@@ -8,8 +8,9 @@
 """
 import pyomo.environ as pyomo
 import pyomo.network as network
-from aristopy.component import Component
+
 from aristopy import utils
+from aristopy.component import Component
 
 
 class Storage(Component):
@@ -27,7 +28,8 @@ class Storage(Component):
                  charge_rate=1, discharge_rate=1, self_discharge=0,
                  charge_efficiency=1, discharge_efficiency=1,
                  soc_min=0, soc_max=1, soc_initial=None,
-                 use_inter_period_formulation=False):  # TODO
+                 use_inter_period_formulation=False,
+                 precise_inter_period_modeling=False):
         """
         Initialize a storage component.
 
@@ -59,6 +61,11 @@ class Storage(Component):
         :param soc_min:
         :param soc_max:
         """
+
+        # Set an upper bound for the storage capacity if nothing is specified to
+        # make sure that storage components always have a capacity variable!
+        if not capacity and not capacity_min and not capacity_max:
+            capacity_max = 1e6
 
         Component.__init__(self, ensys, name, basic_variable,
                            inlets=inlets, outlets=outlets,
@@ -98,6 +105,8 @@ class Storage(Component):
 
         utils.is_boolean(use_inter_period_formulation)  # check input
         self.use_inter_period_formulation = use_inter_period_formulation
+        utils.is_boolean(precise_inter_period_modeling)
+        self.precise_inter_period_modeling = precise_inter_period_modeling
 
         # Declare create two variables. One for loading and one for unloading.
         self.charge_variable = self.basic_variable + '_CHARGE'
@@ -105,10 +114,28 @@ class Storage(Component):
         self._add_var(self.charge_variable)
         self._add_var(self.discharge_variable)
 
-        # Create a SOC (state of charge) variable (set: 'inter_time_steps_set')
+        # Create a state of charge (SOC) variable and if the inter-period
+        # formulation is selected create an additional inter-period SOC variable
         self.soc_variable = self.basic_variable + '_SOC'
-        self._add_var(self.soc_variable, has_time_set=False,
-                      alternative_set='inter_time_steps_set')  # TODO: Hier wird eine NonNegativeReals Variable gebaut!
+        if not self.use_inter_period_formulation:
+            self._add_var(self.soc_variable, has_time_set=False,
+                          alternative_set='intra_period_time_set')  # NonNegReal
+        # use inter-period formulation:
+        else:
+            self._add_var(self.soc_variable, domain='Reals', has_time_set=False,
+                          alternative_set='intra_period_time_set')  # Real
+            self.soc_inter_variable = self.basic_variable + '_SOC_INTER'
+            self._add_var(self.soc_inter_variable, has_time_set=False,
+                          alternative_set='inter_period_time_set')
+            if not self.precise_inter_period_modeling:
+                self.soc_max_variable = self.basic_variable + '_SOC_MAX'
+                self.soc_min_variable = self.basic_variable + '_SOC_MIN'
+                self._add_var(self.soc_max_variable, has_time_set=False,
+                              alternative_set='typical_periods_set',
+                              domain='Reals')
+                self._add_var(self.soc_min_variable, has_time_set=False,
+                              alternative_set='typical_periods_set',
+                              domain='Reals')
 
         # Last step: Add the component to the energy system model instance
         self.add_to_energy_system_model(ensys, name)
@@ -157,12 +184,15 @@ class Storage(Component):
         # ---------------------------
         self.con_operation_limit(pyM)
         self.con_soc_balance(ensys, pyM)
-        self.con_first_time_step_soc(ensys, pyM)
-        self.con_cyclic_condition(ensys, pyM)
         self.con_charge_rate(ensys, pyM)
         self.con_discharge_rate(ensys, pyM)
-        self.con_minimal_soc(ensys, pyM)
-        self.con_maximal_soc(ensys, pyM)
+        self.con_cyclic_condition(ensys, pyM)
+        self.con_soc_initial(ensys, pyM)
+        self.con_soc_intra_period_start(ensys, pyM)  # only if inter-period f.
+        self.con_soc_inter_period_balance(ensys, pyM)  # only if inter-period f.
+        self.con_soc_bounds_without_inter_period_formulation(ensys, pyM)
+        self.con_soc_bounds_with_inter_period_formulation_simple(ensys, pyM)
+        self.con_soc_bounds_with_inter_period_formulation_precise(ensys, pyM)
 
     def get_objective_function_contribution(self, ensys, pyM):
         """ Get contribution to the objective function. """
@@ -216,17 +246,15 @@ class Storage(Component):
         nominal capacity E.g.: |br|
         ``Q_SOC[p, t] <= Q_CAP``
         """
-        # Only required if component has a capacity variable
-        if self.capacity_variable is not None:
-            # Get variables:
-            cap = self.variables[self.capacity_variable]['pyomo']
-            soc = self.variables[self.soc_variable]['pyomo']
+        # Get variables:
+        cap = self.variables[self.capacity_variable]['pyomo']
+        soc = self.variables[self.soc_variable]['pyomo']
 
-            def con_operation_limit(m, p, t):
-                return soc[p, t] <= cap
+        def con_operation_limit(m, p, t):
+            return soc[p, t] <= cap
 
-            setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
-                pyM.time_set, rule=con_operation_limit))
+        setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
+            pyM.time_set, rule=con_operation_limit))
 
     def con_soc_balance(self, ensys, pyM):
         """
@@ -250,6 +278,34 @@ class Storage(Component):
         setattr(self.pyB, 'con_soc_balance', pyomo.Constraint(
             pyM.time_set, rule=con_soc_balance))
 
+    def con_charge_rate(self, ensys, pyM):
+        """
+        XXX
+        """
+        cap = self.variables[self.capacity_variable]['pyomo']
+        charge = self.variables[self.charge_variable]['pyomo']
+        dt = ensys.hours_per_time_step
+
+        def con_charge_rate(m, p, t):
+            return charge[p, t] <= cap * dt * self.charge_rate
+
+        setattr(self.pyB, 'con_charge_rate', pyomo.Constraint(
+            pyM.time_set, rule=con_charge_rate))
+
+    def con_discharge_rate(self, ensys, pyM):
+        """
+        XXX
+        """
+        cap = self.variables[self.capacity_variable]['pyomo']
+        discharge = self.variables[self.discharge_variable]['pyomo']
+        dt = ensys.hours_per_time_step
+
+        def con_discharge_rate(m, p, t):
+            return discharge[p, t] <= cap * dt * self.discharge_rate
+
+        setattr(self.pyB, 'con_discharge_rate', pyomo.Constraint(
+            pyM.time_set, rule=con_discharge_rate))
+
     def con_cyclic_condition(self, ensys, pyM):
         """
         State of charge storage in last time step (after last charging and
@@ -259,124 +315,233 @@ class Storage(Component):
         # Get variables:
         soc = self.variables[self.soc_variable]['pyomo']
 
-        if self.use_inter_period_formulation:
-            pass  # TODO: Fill it!  ---> connect the interPeriodSOCs
+        if self.use_inter_period_formulation and ensys.is_data_clustered:
+            soc_inter = self.variables[self.soc_inter_variable]['pyomo']
+
+            def con_cyclic_condition_inter(m):
+                last_idx = pyM.inter_period_time_set.last()
+                return soc_inter[0] == soc_inter[last_idx]
+
+            setattr(self.pyB, 'con_cyclic_condition_inter', pyomo.Constraint(
+                rule=con_cyclic_condition_inter))
 
         else:
             # Use the formulation without inter-period time steps. This version
             # is computationally less challenging. All periods represent
             # independent entities. Energy cannot be transferred between periods
+            # Only one "typical period" exists if data is not clustered [0]
             def con_cyclic_condition(m, p):
-                soc_last_ts = pyM.inter_time_steps_set.last()[1]
-                return soc[p, 0] == soc[p, soc_last_ts]
+                last_t_idx = pyM.intra_period_time_set.last()[1]
+                return soc[p, 0] == soc[p, last_t_idx]
 
-            if ensys.is_data_clustered:
-                # Set cyclic condition for every typical period
-                setattr(self.pyB, 'con_cyclic_condition', pyomo.Constraint(
-                    ensys.typical_periods, rule=con_cyclic_condition))
-            else:
-                # Set cyclic condition for the only period with number "0"
-                setattr(self.pyB, 'con_cyclic_condition', pyomo.Constraint(
-                    [0], rule=con_cyclic_condition))
+            setattr(self.pyB, 'con_cyclic_condition', pyomo.Constraint(
+                pyM.typical_periods_set, rule=con_cyclic_condition))
 
-    def con_first_time_step_soc(self, ensys, pyM):
+    def con_soc_initial(self, ensys, pyM):
         """
         A value for the relative state of charge in the first time step of each
         period can be specified here. (same value for all periods)
         """
-        if self.capacity_variable is not None and self.soc_initial is not None:
+        if self.soc_initial is not None:
             # Get variables:
             soc = self.variables[self.soc_variable]['pyomo']
             cap = self.variables[self.capacity_variable]['pyomo']
 
-            if self.use_inter_period_formulation:
-                pass  # TODO: Fill it!  ---> set first interPeriodSOC
+            if self.use_inter_period_formulation and ensys.is_data_clustered:
+                soc_inter = self.variables[self.soc_inter_variable]['pyomo']
+
+                def con_soc_inter_initial(m):
+                    return soc_inter[0] == cap * self.soc_initial
+
+                setattr(self.pyB, 'con_soc_inter_initial', pyomo.Constraint(
+                    rule=con_soc_inter_initial))
 
             else:
                 # Use the formulation without inter-period time steps. This
                 # is computationally less challenging. All periods represent
                 # independent entities. Energy can't be transferred between them
-                def con_first_time_step_soc(m, p):
+                # Only one "typical period" exists if data is not clustered [0]
+                def con_soc_initial(m, p):
                     return soc[p, 0] == cap * self.soc_initial
 
-                if ensys.is_data_clustered:
-                    # Set cyclic condition for every typical period
-                    setattr(self.pyB, 'con_first_time_step_soc',
-                            pyomo.Constraint(ensys.typical_periods,
-                                             rule=con_first_time_step_soc))
-                else:
-                    # Set cyclic condition for the only period with number "0"
-                    setattr(self.pyB, 'con_first_time_step_soc',
-                            pyomo.Constraint([0], rule=con_first_time_step_soc))
+                setattr(self.pyB, 'con_soc_initial', pyomo.Constraint(
+                    pyM.typical_periods_set, rule=con_soc_initial))
 
-    def con_charge_rate(self, ensys, pyM):
+    def con_soc_intra_period_start(self, ensys, pyM):
         """
-        XXX
+        Eq. V
         """
-        if self.capacity_variable is not None:
-            charge = self.variables[self.charge_variable]['pyomo']
-            cap = self.variables[self.capacity_variable]['pyomo']
+        if self.use_inter_period_formulation and ensys.is_data_clustered:
+            # Get variables:
+            soc = self.variables[self.soc_variable]['pyomo']
+
+            def con_soc_intra_period_start(m, p):
+                return soc[p, 0] == 0
+
+            setattr(self.pyB, 'con_soc_intra_period_start', pyomo.Constraint(
+                pyM.typical_periods_set, rule=con_soc_intra_period_start))
+
+    def con_soc_inter_period_balance(self, ensys, pyM):
+        """
+        Eq. VIII
+
+        """
+        if self.use_inter_period_formulation and ensys.is_data_clustered:
+            # Get variables:
+            soc = self.variables[self.soc_variable]['pyomo']
+            soc_inter = self.variables[self.soc_inter_variable]['pyomo']
             dt = ensys.hours_per_time_step
 
-            def con_charge_rate(m, p, t):
-                return charge[p, t] <= cap * dt * self.charge_rate
+            def con_soc_inter_period_balance(m, p):
+                typ_period = ensys.periods_order[p]
+                last_ts_idx = pyM.intra_period_time_set.last()[1]
+                return soc_inter[p + 1] == soc_inter[p] * (
+                        1 - self.self_discharge)**(
+                        ensys.number_of_time_steps_per_period * dt) + soc[
+                    typ_period, last_ts_idx]
 
-            setattr(self.pyB, 'con_charge_rate', pyomo.Constraint(
-                pyM.time_set, rule=con_charge_rate))
+            setattr(self.pyB, 'con_soc_inter_period_balance', pyomo.Constraint(
+                ensys.periods, rule=con_soc_inter_period_balance))
 
-    def con_discharge_rate(self, ensys, pyM):
+    def con_soc_bounds_without_inter_period_formulation(self, ensys, pyM):
         """
-        XXX
+        Is applied if the inter period formulation is not selected or the data
+        is not clustered!
         """
-        if self.capacity_variable is not None:
-            discharge = self.variables[self.discharge_variable]['pyomo']
-            cap = self.variables[self.capacity_variable]['pyomo']
-            dt = ensys.hours_per_time_step
-
-            def con_discharge_rate(m, p, t):
-                return discharge[p, t] <= cap * dt * self.discharge_rate
-
-            setattr(self.pyB, 'con_discharge_rate', pyomo.Constraint(
-                pyM.time_set, rule=con_discharge_rate))
-
-    def con_minimal_soc(self, ensys, pyM):
-        """
-        XXX
-        """
-        if self.capacity_variable is not None:  # todo:  and self.soc_min > 0: ?
+        if not self.use_inter_period_formulation or not ensys.is_data_clustered:
             # Get variables:
             soc = self.variables[self.soc_variable]['pyomo']
             cap = self.variables[self.capacity_variable]['pyomo']
 
-            if self.use_inter_period_formulation:
-                pass  # TODO: Fill it!  ---> precise or simplified version
-
-            else:
-                # Use the formulation without inter-period time steps.
+            # Only built the constraint if the value for soc_min > 0 or if the
+            # domain of the SOC variable is 'Reals' (this is possible if the
+            # storage component is constructed with the attribute
+            # "use_inter_period_formulation"=True but the time series
+            # aggregation was not performed before optimization.
+            # Otherwise it is already considered by the variable bound (NonNegR)
+            if self.soc_min > 0 or \
+                    soc[soc.index_set().first()].domain == pyomo.Reals:
                 def con_minimal_soc(m, p, t):
                     return soc[p, t] >= cap * self.soc_min
 
-                setattr(self.pyB, 'con_minimal_soc',
-                        pyomo.Constraint(pyM.inter_time_steps_set,
-                                         rule=con_minimal_soc))
+                setattr(self.pyB, 'con_minimal_soc', pyomo.Constraint(
+                    pyM.intra_period_time_set, rule=con_minimal_soc))
 
-    def con_maximal_soc(self, ensys, pyM):
-        """
-        XXX
-        """
-        if self.capacity_variable is not None:  # todo:  and self.soc_max < 1: ?
-            # Get variables:
-            soc = self.variables[self.soc_variable]['pyomo']
-            cap = self.variables[self.capacity_variable]['pyomo']
-
-            if self.use_inter_period_formulation:
-                pass  # TODO: Fill it!  ---> precise or simplified version
-
-            else:
-                # Use the formulation without inter-period time steps.
+            # Only built the constraint if the value for soc_max is less than 1.
+            # Otherwise it is already considered by "con_operation_limit".
+            if self.soc_max < 1:
                 def con_maximal_soc(m, p, t):
                     return soc[p, t] <= cap * self.soc_max
 
-                setattr(self.pyB, 'con_maximal_soc',
-                        pyomo.Constraint(pyM.inter_time_steps_set,
-                                         rule=con_maximal_soc))
+                setattr(self.pyB, 'con_maximal_soc', pyomo.Constraint(
+                    pyM.intra_period_time_set, rule=con_maximal_soc))
+
+    def con_soc_bounds_with_inter_period_formulation_simple(self, ensys, pyM):
+        """
+        Define the bounds for the state of charge in a simplified way.
+        The error is relatively small in comparison the to precise method if
+        the specified value for the 'self_discharge' is not too high. However,
+        this version requires a reasonable smaller number of constraints but
+        also some additional variables.
+        """
+        if self.use_inter_period_formulation and ensys.is_data_clustered \
+                and not self.precise_inter_period_modeling:
+
+            # Get variables:
+            soc = self.variables[self.soc_variable]['pyomo']
+            cap = self.variables[self.capacity_variable]['pyomo']
+            soc_max = self.variables[self.soc_max_variable]['pyomo']
+            soc_min = self.variables[self.soc_min_variable]['pyomo']
+            soc_inter = self.variables[self.soc_inter_variable]['pyomo']
+            dt = ensys.hours_per_time_step
+
+            # The variable "SOC_MAX" of a typical period is larger than all
+            # occurring intra-period SOCs in the same period (except the last
+            # one since it is already used in "SOC_INTER" of the next period)
+            def con_soc_max_intra(m, p, t):
+                return soc[p, t] <= soc_max[p]
+
+            setattr(self.pyB, 'con_soc_max_intra', pyomo.Constraint(
+                pyM.time_set, rule=con_soc_max_intra))
+
+            # The variable "SOC_MIN" of a typical period is smaller than all
+            # occurring intra-period SOCs in the same period (except the last
+            # one since it is already used in "SOC_INTER" of the next period)
+            def con_soc_min_intra(m, p, t):
+                return soc[p, t] >= soc_min[p]
+
+            setattr(self.pyB, 'con_soc_min_intra', pyomo.Constraint(
+                pyM.time_set, rule=con_soc_min_intra))
+
+            # The inter-period SOC at the beginning of a period plus the maximum
+            # intra-period SOC of the associated typical period is less than
+            # the available capacity times the maximal usable share (soc_max).
+            def con_soc_max_bound_simple(m, p):
+                typ_period = ensys.periods_order[p]
+                return soc_inter[p] + soc_max[typ_period] <= cap * self.soc_max
+
+            setattr(pyM, 'con_soc_max_bound_simple', pyomo.Constraint(
+                ensys.periods, rule=con_soc_max_bound_simple))
+
+            # The inter-period SOC at the beginning of a period minus the
+            # maximal self discharge during that period plus the minimum
+            # intra-period SOC of the associated typical period is larger than
+            # the available capacity times the minimal required SOC (soc_min).
+            def con_soc_min_bound_simple(m, p):
+                typ_period = ensys.periods_order[p]
+                return soc_inter[p] * (1 - self.self_discharge)**(
+                        ensys.number_of_time_steps_per_period * dt) + soc_min[
+                    typ_period] >= cap * self.soc_min
+
+            setattr(pyM, 'con_soc_min_bound_simple', pyomo.Constraint(
+                ensys.periods, rule=con_soc_min_bound_simple))
+
+    def con_soc_bounds_with_inter_period_formulation_precise(self, ensys, pyM):
+        """
+        Define the bounds for the state of charge in a precise way. This version
+        requires two constraints for each time step of the full scale problem.
+        """
+        if self.use_inter_period_formulation and ensys.is_data_clustered \
+                and self.precise_inter_period_modeling:
+
+            # Get variables:
+            soc = self.variables[self.soc_variable]['pyomo']
+            cap = self.variables[self.capacity_variable]['pyomo']
+            soc_inter = self.variables[self.soc_inter_variable]['pyomo']
+            dt = ensys.hours_per_time_step
+
+            # The inter-period SOC at the beginning of a period minus the self
+            # discharge plus the intra-period SOC in each hour of that period
+            # is less than the available capacity times the max. usable share.
+            def con_soc_max_bound_precise(m, p, t):
+                typ_period = ensys.periods_order[p]
+                return soc_inter[p] * (1 - self.self_discharge)**(t * dt) + soc[
+                    typ_period, t] <= cap * self.soc_max
+
+            setattr(pyM, 'con_soc_max_bound_precise', pyomo.Constraint(
+                ensys.periods, range(ensys.number_of_time_steps_per_period),
+                rule=con_soc_max_bound_precise))
+
+            # The inter-period SOC at the beginning of a period minus the self
+            # discharge plus the intra-period SOC in each hour of that period
+            # is larger than the available capacity times the min. required SOC.
+            def con_soc_min_bound_precise(m, p, t):
+                typ_period = ensys.periods_order[p]
+                return soc_inter[p] * (1 - self.self_discharge)**(t * dt) + soc[
+                    typ_period, t] >= cap * self.soc_min
+
+            setattr(pyM, 'con_soc_min_bound_precise', pyomo.Constraint(
+                ensys.periods, range(ensys.number_of_time_steps_per_period),
+                rule=con_soc_min_bound_precise))
+
+    # ==========================================================================
+    #    S E R I A L I Z E
+    # ==========================================================================
+    def serialize(self):
+        comp_dict = super().serialize()
+        comp_dict['charge_variable'] = self.charge_variable
+        comp_dict['discharge_variable'] = self.discharge_variable
+        comp_dict['soc_variable'] = self.soc_variable
+        if hasattr(self, 'soc_inter_variable'):
+            comp_dict['soc_inter_variable'] = self.soc_inter_variable
+        return comp_dict

@@ -7,6 +7,7 @@
 * Created by: Stefan Bruche (TU Berlin)
 """
 import copy
+from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 import pandas as pd
 import operator as oper
@@ -781,7 +782,7 @@ class Component(metaclass=ABCMeta):
                         pyM.time_set, domain=domain, bounds=bounds,
                         initialize=init))
 
-            # e.g. for 'BI_MODULE_EX' or for 'SOC' with 'inter_time_steps_set'
+            # e.g. for 'BI_MODULE_EX' or for 'SOC' with 'intra_period_time_set'
             elif var_dict['alternative_set'] is not None:
                 try:
                     # Try to find the set in the concrete model instance and
@@ -1125,3 +1126,33 @@ class Component(metaclass=ABCMeta):
                 return basic_var[p, t] == op_fix[p, t]
             setattr(self.pyB, 'con_operation_rate_fix', pyomo.Constraint(
                 pyM.time_set, rule=con_operation_rate_fix))
+
+    # ==========================================================================
+    #    S E R I A L I Z E
+    # ==========================================================================
+    def serialize(self):
+        return OrderedDict([
+            ('model_class', self.__class__.__name__),
+            ('id', id(self)),
+            ('group_name', self.group_name),
+            ('number_in_group', self.number_in_group),
+            ('ports_and_variables', self.ports_and_vars),
+            ('variables', self.get_variable_values()),
+            ('parameters', self.get_parameter_values()),
+            ('basic_variable', self.basic_variable)
+        ])
+
+    def get_variable_values(self):
+        var_dict = {}
+        for var in self.variables.loc['pyomo']:
+            var_dict[var.local_name] = str(var.get_values())
+            # var_dict[var.local_name] = str(var.get_values()) if var.dim() > 1\
+            #     else var.get_values()
+        return var_dict
+
+    def get_parameter_values(self):
+        para_dict = {}
+        for para in self.parameters:
+            # Data is stored as a pandas Series --> convert it to dictionary
+            para_dict[para] = str(self.parameters[para]['values'].to_dict())
+        return para_dict
