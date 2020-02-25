@@ -7,7 +7,6 @@
 * Created by: Stefan Bruche (TU Berlin)
 """
 import pyomo.environ as pyomo
-import pyomo.network as network
 
 from aristopy import utils
 from aristopy.component import Component
@@ -15,10 +14,11 @@ from aristopy.component import Component
 
 class Storage(Component):
     # Storage components store commodities and transfer them between time steps.
-    def __init__(self, ensys, name, basic_variable, inlets=None, outlets=None,
+    def __init__(self, ensys, name, basic_commodity,
+                 inlet_connections=None, outlet_connections=None,
                  existence_binary_var=None,
-                 time_series_data_dict=None, time_series_weight_dict=None,
-                 scalar_params_dict=None, additional_vars=None,
+                 time_series_data=None, time_series_weights=None,
+                 scalar_params=None, additional_vars=None,
                  user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capacity_per_module=None, maximal_module_number=None,
@@ -29,19 +29,20 @@ class Storage(Component):
                  charge_efficiency=1, discharge_efficiency=1,
                  soc_min=0, soc_max=1, soc_initial=None,
                  use_inter_period_formulation=False,
-                 precise_inter_period_modeling=False):
+                 precise_inter_period_modeling=False
+                 ):
         """
         Initialize a storage component.
 
         :param ensys:
         :param name:
-        :param basic_variable:
-        :param inlets:
-        :param outlets:
+        :param basic_commodity:
+        :param inlet_connections:
+        :param outlet_connections:
         :param existence_binary_var:
-        :param time_series_data_dict:
-        :param time_series_weight_dict:
-        :param scalar_params_dict:
+        :param time_series_data:
+        :param time_series_weights:
+        :param scalar_params:
         :param additional_vars:
         :param user_expressions:
         :param capacity:
@@ -67,12 +68,11 @@ class Storage(Component):
         if not capacity and not capacity_min and not capacity_max:
             capacity_max = 1e6
 
-        Component.__init__(self, ensys, name, basic_variable,
-                           inlets=inlets, outlets=outlets,
+        Component.__init__(self, ensys, name, basic_commodity,
                            existence_binary_var=existence_binary_var,
-                           time_series_data_dict=time_series_data_dict,
-                           time_series_weight_dict=time_series_weight_dict,
-                           scalar_params_dict=scalar_params_dict,
+                           time_series_data=time_series_data,
+                           time_series_weights=time_series_weights,
+                           scalar_params=scalar_params,
                            additional_vars=additional_vars,
                            user_expressions=user_expressions,
                            capacity=capacity,
@@ -85,8 +85,6 @@ class Storage(Component):
                            opex_per_capacity=opex_per_capacity,
                            opex_if_exist=opex_if_exist
                            )
-
-        self.modeling_class = 'Stor'
 
         # Check and set storage specific input arguments
         self.charge_rate = utils.set_if_positive(charge_rate)
@@ -109,14 +107,24 @@ class Storage(Component):
         self.precise_inter_period_modeling = precise_inter_period_modeling
 
         # Declare create two variables. One for loading and one for unloading.
-        self.charge_variable = self.basic_variable + '_CHARGE'
-        self.discharge_variable = self.basic_variable + '_DISCHARGE'
+        self.charge_variable = self.basic_commodity + '_IN'
+        self.discharge_variable = self.basic_commodity + '_OUT'
         self._add_var(self.charge_variable)
         self._add_var(self.discharge_variable)
 
+        # Check and add inlet and outlet connections
+        self.inlet_connections = utils.check_and_convert_to_list(
+            inlet_connections)
+        self.outlet_connections = utils.check_and_convert_to_list(
+            outlet_connections)
+        self.inlet_ports_and_vars = \
+            {self.basic_commodity: self.charge_variable}
+        self.outlet_ports_and_vars = \
+            {self.basic_commodity: self.discharge_variable}
+
         # Create a state of charge (SOC) variable and if the inter-period
         # formulation is selected create an additional inter-period SOC variable
-        self.soc_variable = self.basic_variable + '_SOC'
+        self.soc_variable = self.basic_commodity + '_SOC'
         if not self.use_inter_period_formulation:
             self._add_var(self.soc_variable, has_time_set=False,
                           alternative_set='intra_period_time_set')  # NonNegReal
@@ -124,12 +132,12 @@ class Storage(Component):
         else:
             self._add_var(self.soc_variable, domain='Reals', has_time_set=False,
                           alternative_set='intra_period_time_set')  # Real
-            self.soc_inter_variable = self.basic_variable + '_SOC_INTER'
+            self.soc_inter_variable = self.basic_commodity + '_SOC_INTER'
             self._add_var(self.soc_inter_variable, has_time_set=False,
                           alternative_set='inter_period_time_set')
             if not self.precise_inter_period_modeling:
-                self.soc_max_variable = self.basic_variable + '_SOC_MAX'
-                self.soc_min_variable = self.basic_variable + '_SOC_MIN'
+                self.soc_max_variable = self.basic_commodity + '_SOC_MAX'
+                self.soc_min_variable = self.basic_commodity + '_SOC_MIN'
                 self._add_var(self.soc_max_variable, has_time_set=False,
                               alternative_set='typical_periods_set',
                               domain='Reals')
@@ -142,23 +150,6 @@ class Storage(Component):
 
     def __repr__(self):
         return '<Storage: "%s">' % self.name
-
-    def declare_component_ports(self):
-        """
-        Create all ports from dict 'ports_and_vars' and add variables to ports.
-        """
-        # Create ports and assign variables to ports
-        for port_name, var_name in self.ports_and_vars.items():
-            # Declare port
-            setattr(self.pyB, port_name, network.Port())
-            # Add charge (inlet) and discharge (outlet) variables
-            port = getattr(self.pyB, port_name)
-            if port_name.startswith('inlet_'):
-                port.add(getattr(self.pyB, self.charge_variable),
-                         var_name, port.Extensive)
-            elif port_name.startswith('outlet_'):
-                port.add(getattr(self.pyB, self.discharge_variable),
-                         var_name, port.Extensive)
 
     def declare_component_constraints(self, ensys, pyM):
         """

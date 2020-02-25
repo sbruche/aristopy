@@ -207,18 +207,18 @@ def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
     return cap, cap_min, cap_max, cap_per_mod, max_mod_nbr
 
 
-def check_operation_rates(comp, rate_min, rate_max, rate_fix):
-    """  Check input values for operation rate arguments. """
+def check_commodity_rates(comp, rate_min, rate_max, rate_fix):
+    """  Check input values for commodity rate arguments. """
     # Show warning if rate_fix is specified and rate_min or rate_max as well.
     # --> set rate_min and rate_max to None.
     if rate_fix is not None and (rate_min or rate_max is not None):
         rate_min, rate_max = None, None
-        warnings.warn('\nIf "operation_rate_fix" is specified, the time series '
-                      '"operation_rate_min" and "operation_rate_max" are not '
+        warnings.warn('\nIf "commodity_rate_fix" is specified, the time series '
+                      '"commodity_rate_min" and "commodity_rate_max" are not '
                       'required and are set to None.')
 
     # Names are strings (if not None)
-    # Raise error if an operation_rate is specified and its name is not in the
+    # Raise error if an commodity rate is specified and its name is not in the
     # 'parameters' dictionary of the component (if not None)
     for rate in [rate_min, rate_max, rate_fix]:
         check_existence_in_dataframe(rate, comp.parameters)
@@ -226,8 +226,8 @@ def check_operation_rates(comp, rate_min, rate_max, rate_fix):
     if rate_min and rate_max is not None and (
             comp.parameters[rate_min]['full_resolution'] >
             comp.parameters[rate_max]['full_resolution']).all():
-        raise ValueError('The series "operation_rate_min" has at least one '
-                         'value that is larger than "operation_rate_max".')
+        raise ValueError('The series "commodity_rate_min" has at least one '
+                         'value that is larger than "commodity_rate_max".')
     return rate_min, rate_max, rate_fix
 
 
@@ -242,13 +242,14 @@ def check_existence_in_dataframe(name, df):
     return name
 
 
-def check_inlets_and_outlets(data):
-    """ The inlet and outlet attributes need to be of type dict. If a single
-    string is given as key value, it is converted to a list with length 1. """
+def check_connections(data):
+    """ The inlet and outlet attributes for conversion components need to be of
+    type dict. If a single string is given as value, it is converted to a list
+    with length 1. """
     if data is not None:
         if not isinstance(data, dict):
-            raise ValueError('The "inlets" and "outlets" needs to be '
-                             'dictionaries!')
+            raise ValueError('The inlet and outlet_connections of conversion '
+                             'components needs to be dictionaries!')
         for key, val in data.items():
             if isinstance(val, str):
                 data[key] = [val]  # to list
@@ -264,6 +265,8 @@ def check_and_convert_to_list(value):
         return [value]
     elif isinstance(value, list):
         return value
+    elif value is None:
+        return None
     else:
         raise TypeError('The type of input "{}" should be a list or a single '
                         'string.'.format(value))
@@ -751,16 +754,19 @@ def is_string(string):
         raise TypeError('The input argument has to be a string')
 
 
-def check_plot_operation_input(data, comp, single_period, level, show_plot,
-                               save_plot, file_name):
+def check_plot_operation_input(data, comp, commod, scale, single_period, level,
+                               show_plot, save_plot, file_name):
     if comp not in data['components']:
         raise Exception('Component not found in JSON-File!')
+    if commod not in data['components'][comp]['commodities']:
+        raise Exception('Could not find commodity "{}" in component {}!'
+                        .format(commod, comp))
     if single_period is not None \
             and single_period not \
             in list(range(data['number_of_typical_periods'])):
         raise Exception('Period index for plotting is out of range!')
     if level != 1 and level != 2:
         raise Exception('Level of detail can take values 1 or 2!')
-    if not isinstance(show_plot, bool) or not isinstance(save_plot, bool) \
-            or not isinstance(file_name, str):
+    if not isinstance(scale, bool) or not isinstance(show_plot, bool) or \
+            not isinstance(save_plot, bool) or not isinstance(file_name, str):
         raise Exception('Wrong argument type detected!')

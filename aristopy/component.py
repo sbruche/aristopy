@@ -12,6 +12,7 @@ from abc import ABCMeta, abstractmethod
 import pandas as pd
 import operator as oper
 import pyomo.environ as pyomo
+import pyomo.network as network
 from aristopy import utils
 
 
@@ -30,12 +31,10 @@ class Component(metaclass=ABCMeta):
     # components which can be added to the energy system model (source, sink,
     # storage, conversion, ...). All of these components inherit from the
     # Component class.
-    def __init__(self, ensys, name, basic_variable, inlets=None, outlets=None,
+    def __init__(self, ensys, name, basic_commodity,
                  existence_binary_var=None, operation_binary_var=None,
-                 operation_rate_min=None, operation_rate_max=None,
-                 operation_rate_fix=None,
-                 time_series_data_dict=None, time_series_weight_dict=None,
-                 scalar_params_dict=None, additional_vars=None,
+                 time_series_data=None, time_series_weights=None,
+                 scalar_params=None, additional_vars=None,
                  user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capacity_per_module=None, maximal_module_number=None,
@@ -52,17 +51,12 @@ class Component(metaclass=ABCMeta):
 
         :param ensys:
         :param name:
-        :param basic_variable:
-        :param inlets:
-        :param outlets:
+        :param basic_commodity:
         :param existence_binary_var:
         :param operation_binary_var:
-        :param operation_rate_min:
-        :param operation_rate_max:
-        :param operation_rate_fix:
-        :param time_series_data_dict:
-        :param time_series_weight_dict:
-        :param scalar_params_dict:
+        :param time_series_data: (dict)
+        :param time_series_weights: (dict)
+        :param scalar_params: (dict)
         :param additional_vars:
         :param user_expressions:
         :param capacity:
@@ -88,15 +82,18 @@ class Component(metaclass=ABCMeta):
         self.name = name  # might be changed by "add_to_energy_system_model"
         self.group_name = name
         self.number_in_group = 1  # dito
-        self.modeling_class = ''
-        self.block_name = ''
         self.pyB = None  # pyomo simple Block object
+
+        # Component connections, ports, variables, commodities:
+        self.inlet_connections = None
+        self.outlet_connections = None
+        self.inlet_ports_and_vars = {}  # @inlet: {commod: port_variable_name}
+        self.outlet_ports_and_vars = {}  # @outlet: {commod: port_variable_name}
+        self.commodities = [basic_commodity]  # init
+        self.var_connections = {}  # {port_variable_name: [connected_arc_names]}
 
         # V A R I A B L E S:
         # ------------------
-        # Dictionary to store the component ports and assigned port variables
-        self.ports_and_vars = {}  # {port_name: var_name}
-
         # Initialize an empty pandas DataFrame to store the component variables
         self.variables = pd.DataFrame(index=['domain', 'has_time_set',
                                              'alternative_set', 'init',
@@ -107,13 +104,16 @@ class Component(metaclass=ABCMeta):
                                                   'alternative_set', 'init',
                                                   'ub', 'lb'])
 
-        # Every component has a basic variable (used to restrict capacities,
-        # set operation rates and calculate capex and opex)
-        # Specified as a required argument for now: Could probably be simplified
-        # for sinks and sources.
-        utils.is_string(basic_variable)
-        self.basic_variable = basic_variable
-        self._add_var(basic_variable)  # Add to variables dict
+        # Every component has a basic commodity and a derived basic variable
+        # (except from storage and bus).
+        # The basic variable is used to restrict capacities, set operation rates
+        # and calculate capex and opex. If the basic commodity is specified on
+        # an inlet and an outlet port at the same time, the inlet variable is
+        # used as basic variable.
+        # For conversion components the basic variable is set during declaration
+        utils.is_string(basic_commodity)
+        self.basic_commodity = basic_commodity
+        self.basic_variable = None  # Name of basic var -> specif. in components
 
         # Check and set input values for capacities:
         self.capacity, self.capacity_min, self.capacity_max, \
@@ -122,12 +122,12 @@ class Component(metaclass=ABCMeta):
                                            capacity_per_module,
                                            maximal_module_number)
 
-        # Specify a name for the capacity variable (based on the name of the
-        # basic_variable) if capacities are stated and add it to variables dict.
+        # Specify a capacity variable (based on the name of the basic_commodity)
+        # if capacities are stated and add it to variables dict.
         # Set 'capacity_max' as upper bound for 'capacity_variable'.
         # Lower bound is only used if component is built (depends on status of
         # the existence binary variable if specified) --> see constraints!
-        self.capacity_variable = self.basic_variable + '_CAP' if \
+        self.capacity_variable = self.basic_commodity + '_CAP' if \
             self.capacity_min or self.capacity_max is not None else None
         if self.capacity_variable is not None:
             self._add_var(self.capacity_variable, has_time_set=False,
@@ -169,20 +169,6 @@ class Component(metaclass=ABCMeta):
             raise ValueError('Group requires a binary operation variable if an '
                              'operation order is requested!')
 
-        # Check and add inlets and outlets and respective variables
-        self.inlets = utils.check_inlets_and_outlets(inlets)
-        self.outlets = utils.check_inlets_and_outlets(outlets)
-        if self.inlets is not None:
-            for val in self.inlets.values():
-                for var in val:
-                    if var not in self.variables.columns:
-                        self._add_var(var)  # add with default specifications
-        if self.outlets is not None:
-            for val in self.outlets.values():
-                for var in val:
-                    if var not in self.variables.columns:
-                        self._add_var(var)
-
         # Additional variables can be added by the 'additional_vars' keyword
         if additional_vars is not None:
             additional_vars = utils.check_and_convert_to_list(additional_vars)
@@ -197,31 +183,26 @@ class Component(metaclass=ABCMeta):
                                               'values', 'full_resolution',
                                               'aggregated'])
 
-        # Add scalar parameters from dictionary 'scalar_params_dict'
-        if scalar_params_dict is not None:
-            utils.check_user_dict('scalar_params_dict', scalar_params_dict)
-            for key, val in scalar_params_dict.items():
+        # Add scalar parameters from dictionary 'scalar_params'
+        if scalar_params is not None:
+            utils.check_user_dict('scalar_params', scalar_params)
+            for key, val in scalar_params.items():
                 self._add_param(key, init=val)
 
-        # Add time series data from 'time_series_data_dict'
-        if time_series_data_dict is not None:
-            for key, val in time_series_data_dict.items():
+        # Add time series data from 'time_series_data'
+        if time_series_data is not None:
+            for key, val in time_series_data.items():
                 data = utils.check_and_convert_time_series(ensys, val)
                 self._add_param(key, init=data)
         # Add weights for time series data if required. Default weight = 1.
-        if time_series_weight_dict is not None:
-            utils.check_user_dict('ts_weight_dict', time_series_weight_dict)
-            for param, weight in time_series_weight_dict.items():
+        if time_series_weights is not None:
+            utils.check_user_dict('ts_weight_dict', time_series_weights)
+            for param, weight in time_series_weights.items():
                 if param in self.parameters.columns:
                     self.parameters[param].loc['tsam_weight'] = weight
                 else:
                     raise ValueError('Parameter "{}" is unknown for component '
                                      '"{}"!'.format(param, self.name))
-
-        # Check and set time series for operation_rates (if available)
-        self.op_rate_min, self.op_rate_max, self.op_rate_fix = \
-            utils.check_operation_rates(self, operation_rate_min,
-                                        operation_rate_max, operation_rate_fix)
 
         # Check and set the input values for the cost parameters and prevent
         # invalid parameter combinations.
@@ -749,15 +730,12 @@ class Component(metaclass=ABCMeta):
     #   Functions for declaring components of the energy system and their
     #   contributions to the objective function
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def declare_component_model_block(self, ensys, pyM):
+    def declare_component_model_block(self, pyM):
         """
-        Create a pyomo Block and store it in attribute 'pyB' of the component
-        and in dictionary 'component_model_blocks' of the energy system model.
+        Create a pyomo Block and store it in attribute 'pyB' of the component.
         """
-        self.block_name = 'py'+self.modeling_class+'_'+self.name
-        setattr(pyM, self.block_name, pyomo.Block())
-        self.pyB = getattr(pyM, self.block_name)
-        ensys.component_model_blocks.update({self.name: self.pyB})
+        setattr(pyM, self.name, pyomo.Block())
+        self.pyB = getattr(pyM, self.name)
 
     def declare_component_variables(self, pyM):
         """
@@ -814,14 +792,30 @@ class Component(metaclass=ABCMeta):
             pyomo_var = getattr(self.pyB, var_name)
             self.variables[var_name]['pyomo'] = pyomo_var
 
-    @abstractmethod
     def declare_component_ports(self):
         """
-        Create all ports from dict 'ports_and_vars' and add variables to ports.
+        Create all ports from dictionaries the 'inlet_ports_and_vars' and
+        'outlet_ports_and_vars' and add the variables to the ports.
         """
-        raise NotImplementedError
+        # Create inlet ports
+        for commod, var_name in self.inlet_ports_and_vars.items():
+            # Declare port
+            port_name = 'inlet_' + commod
+            setattr(self.pyB, port_name, network.Port())
+            # Add variable to port
+            port = getattr(self.pyB, port_name)
+            port.add(getattr(self.pyB, var_name), commod, port.Extensive)
 
-    def declare_component_user_constraints(self, ensys, pyM):
+        # Create outlet ports
+        for commod, var_name in self.outlet_ports_and_vars.items():
+            # Declare port
+            port_name = 'outlet_' + commod
+            setattr(self.pyB, port_name, network.Port())
+            # Add variable to port
+            port = getattr(self.pyB, port_name)
+            port.add(getattr(self.pyB, var_name), commod, port.Extensive)
+
+    def declare_component_user_constraints(self, pyM):
         reserved_chars = ['*', '/', '+', '-', '(', ')', '==', '>=', '<=', '**']
         for expr_name, expr in self.user_expressions_dict.items():
             has_time_dependency = False  # init
@@ -1070,89 +1064,48 @@ class Component(metaclass=ABCMeta):
                     pyomo.Constraint(pyM.time_set,
                                      rule=con_couple_op_binary_and_basic_var))
 
-    def con_operation_rate_min(self, pyM):
-        """
-        The basic variable of a component needs to have a minimal value of
-        "operation_rate_min" in every time step. E.g.: |br|
-        ``Q[p, t] >= op_rate_min[p, t]``
-        (No correction with "hours_per_time_step" needed because it should
-        already be included in the time series for "operation_rate_min")
-        """
-        # Only required if component has a time series for "operation_rate_min".
-        if self.op_rate_min is not None:
-            # Get variables:
-            op_min = self.parameters[self.op_rate_min]['values']
-            basic_var = self.variables[self.basic_variable]['pyomo']
-
-            def con_operation_rate_min(m, p, t):
-                return basic_var[p, t] >= op_min[p, t]
-            setattr(self.pyB, 'con_operation_rate_min', pyomo.Constraint(
-                pyM.time_set, rule=con_operation_rate_min))
-
-    def con_operation_rate_max(self, pyM):
-        """
-        The basic variable of a component can have a maximal value of
-        "operation_rate_max" in every time step. E.g.: |br|
-        ``Q[p, t] <= op_rate_max[p, t]``
-        (No correction with "hours_per_time_step" needed because it should
-        already be included in the time series for "operation_rate_max")
-        """
-        # Only required if component has a time series for "operation_rate_max".
-        if self.op_rate_max is not None:
-            # Get variables:
-            op_max = self.parameters[self.op_rate_max]['values']
-            basic_var = self.variables[self.basic_variable]['pyomo']
-
-            def con_operation_rate_max(m, p, t):
-                return basic_var[p, t] <= op_max[p, t]
-            setattr(self.pyB, 'con_operation_rate_max', pyomo.Constraint(
-                pyM.time_set, rule=con_operation_rate_max))
-
-    def con_operation_rate_fix(self, pyM):
-        """
-        The basic variable of a component needs to have a value of
-        "operation_rate_fix" in every time step. E.g.: |br|
-        ``Q[p, t] == op_rate_fix[p, t]``
-        (No correction with "hours_per_time_step" needed because it should
-        already be included in the time series for "operation_rate_fix")
-        """
-        # Only required if component has a time series for "operation_rate_fix"
-        if self.op_rate_fix is not None:
-            # Get variables:
-            op_fix = self.parameters[self.op_rate_fix]['values']
-            basic_var = self.variables[self.basic_variable]['pyomo']
-
-            def con_operation_rate_fix(m, p, t):
-                return basic_var[p, t] == op_fix[p, t]
-            setattr(self.pyB, 'con_operation_rate_fix', pyomo.Constraint(
-                pyM.time_set, rule=con_operation_rate_fix))
-
     # ==========================================================================
     #    S E R I A L I Z E
     # ==========================================================================
     def serialize(self):
+
         return OrderedDict([
             ('model_class', self.__class__.__name__),
-            ('id', id(self)),
             ('group_name', self.group_name),
             ('number_in_group', self.number_in_group),
-            ('ports_and_variables', self.ports_and_vars),
             ('variables', self.get_variable_values()),
             ('parameters', self.get_parameter_values()),
-            ('basic_variable', self.basic_variable)
+            ('commodities', self.commodities),
+            ('inlet_ports_and_vars', self.inlet_ports_and_vars),
+            ('outlet_ports_and_vars', self.outlet_ports_and_vars),
+            ('basic_variable', self.basic_variable),
+            ('var_connections', self.var_connections),
+            ('comp_obj_dict', self.get_obj_values())
         ])
 
     def get_variable_values(self):
         var_dict = {}
         for var in self.variables.loc['pyomo']:
             var_dict[var.local_name] = str(var.get_values())
-            # var_dict[var.local_name] = str(var.get_values()) if var.dim() > 1\
-            #     else var.get_values()
         return var_dict
 
     def get_parameter_values(self):
         para_dict = {}
         for para in self.parameters:
-            # Data is stored as a pandas Series --> convert it to dictionary
-            para_dict[para] = str(self.parameters[para]['values'].to_dict())
+            if hasattr(self.parameters[para]['values'], '__iter__'):
+                # Usually data is stored as a pandas Series --> convert to dict
+                para_dict[para] = str(self.parameters[para]['values'].to_dict())
+            else:
+                # float or integer cannot be converted to dict --> use directly
+                para_dict[para] = str(self.parameters[para]['values'])
         return para_dict
+
+    def get_obj_values(self):
+        obj_values = {}
+        for key, val in self.comp_obj_dict.items():
+            # if isinstance(val, int) or isinstance(val, float):
+            #     obj_values[key] = val
+            # else:  # if pyomo expression
+            #     obj_values[key] = pyomo.value(val)
+            obj_values[key] = pyomo.value(val)
+        return obj_values

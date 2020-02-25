@@ -7,7 +7,6 @@
 * Created by: Stefan Bruche (TU Berlin)
 """
 import pyomo.environ as pyomo
-import pyomo.network as network
 
 from aristopy import utils
 from aristopy.component import Component
@@ -16,11 +15,12 @@ from aristopy.component import Component
 class Bus(Component):
     # A Bus component collects and transfers a commodity.
     # They can also be used to model transmission lines between different sites.
-    def __init__(self, ensys, name, basic_variable, inlets=None, outlets=None,
+    def __init__(self, ensys, name, basic_commodity,
+                 inlet_connections=None, outlet_connections=None,
                  existence_binary_var=None,
-                 time_series_data_dict=None,
-                 time_series_weight_dict=None,
-                 scalar_params_dict=None, additional_vars=None,
+                 time_series_data=None,
+                 time_series_weights=None,
+                 scalar_params=None, additional_vars=None,
                  user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  # fix_existence=None, oder 1 oder 0
@@ -32,13 +32,13 @@ class Bus(Component):
 
         :param ensys:
         :param name:
-        :param basic_variable:
-        :param inlets:
-        :param outlets:
+        :param basic_commodity:
+        :param inlet_connections:
+        :param outlet_connections:
         :param existence_binary_var:
-        :param time_series_data_dict:
-        :param time_series_weight_dict:
-        :param scalar_params_dict:
+        :param time_series_data:
+        :param time_series_weights:
+        :param scalar_params:
         :param additional_vars:
         :param user_expressions:
         :param capacity:
@@ -51,12 +51,11 @@ class Bus(Component):
         :param losses:
         """
 
-        Component.__init__(self, ensys, name, basic_variable,
-                           inlets=inlets, outlets=outlets,
+        Component.__init__(self, ensys, name, basic_commodity,
                            existence_binary_var=existence_binary_var,
-                           time_series_data_dict=time_series_data_dict,
-                           time_series_weight_dict=time_series_weight_dict,
-                           scalar_params_dict=scalar_params_dict,
+                           time_series_data=time_series_data,
+                           time_series_weights=time_series_weights,
+                           scalar_params=scalar_params,
                            additional_vars=additional_vars,
                            user_expressions=user_expressions,
                            capacity=capacity, capacity_min=capacity_min,
@@ -67,39 +66,30 @@ class Bus(Component):
                            opex_if_exist=opex_if_exist
                            )
 
-        self.modeling_class = 'Bus'
-
         # Check and set bus (transmission) specific input arguments
         self.losses = utils.set_if_between_zero_and_one(losses)  # relative loss
 
         # Declare create two variables. One for loading and one for unloading.
-        self.inlet_variable = self.basic_variable + '_INLET'
-        self.outlet_variable = self.basic_variable + '_OUTLET'
+        self.inlet_variable = self.basic_commodity + '_IN'
+        self.outlet_variable = self.basic_commodity + '_OUT'
         self._add_var(self.inlet_variable)
         self._add_var(self.outlet_variable)
+
+        # Check and add inlet and outlet connections
+        self.inlet_connections = utils.check_and_convert_to_list(
+            inlet_connections)
+        self.outlet_connections = utils.check_and_convert_to_list(
+            outlet_connections)
+        self.inlet_ports_and_vars = \
+            {self.basic_commodity: self.inlet_variable}
+        self.outlet_ports_and_vars = \
+            {self.basic_commodity: self.outlet_variable}
 
         # Last step: Add the component to the energy system model instance
         self.add_to_energy_system_model(ensys, name)
 
     def __repr__(self):
         return '<Bus: "%s">' % self.name
-
-    def declare_component_ports(self):
-        """
-        Create all ports from dict 'ports_and_vars' and add variables to ports.
-        """
-        # Create ports and assign variables to ports
-        for port_name, var_name in self.ports_and_vars.items():
-            # Declare port
-            setattr(self.pyB, port_name, network.Port())
-            # Add charge (inlet) and discharge (outlet) variables
-            port = getattr(self.pyB, port_name)
-            if port_name.startswith('inlet_'):
-                port.add(getattr(self.pyB, self.inlet_variable),
-                         var_name, port.Extensive)
-            elif port_name.startswith('outlet_'):
-                port.add(getattr(self.pyB, self.outlet_variable),
-                         var_name, port.Extensive)
 
     def declare_component_constraints(self, ensys, pyM):
         """
@@ -164,7 +154,7 @@ class Bus(Component):
         """
         The operation of a bus comp. (inlet variable!) is limit by its nominal
         power (MW) multiplied with the number of hours per time step.
-        E.g.: |br| ``Q_INLET[p, t] <= Q_CAP * dt``
+        E.g.: |br| ``Q_IN[p, t] <= Q_CAP * dt``
         """
         # Only required if component has a capacity variable
         if self.capacity_variable is not None:
@@ -183,7 +173,7 @@ class Bus(Component):
         """
         The sum of outlets must equal the sum of the inlets minus the share of
         the transmission losses. A bus component cannot store a commodity.
-        E.g.: |br| ``Q_OUTLET[p, t] == Q_INLET[p, t] * (1 - losses)``
+        E.g.: |br| ``Q_OUT[p, t] == Q_IN[p, t] * (1 - losses)``
         (correction with "hours_per_time_step" not needed)
         """
         # Get variables:

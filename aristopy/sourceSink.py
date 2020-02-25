@@ -6,21 +6,19 @@
 * Last edited: 2020-01-01
 * Created by: Stefan Bruche (TU Berlin)
 """
-import warnings
 import pyomo.environ as pyomo
-import pyomo.network as network
 from aristopy.component import Component
 from aristopy import utils
 
 
 class Source(Component):
     # Source components transfer commodities over the boundary into the system.
-    def __init__(self, ensys, name, basic_variable, inlets=None, outlets=None,
+    def __init__(self, ensys, name, basic_commodity, outlet_connections=None,
                  existence_binary_var=None, operation_binary_var=None,
-                 operation_rate_min=None, operation_rate_max=None,
-                 operation_rate_fix=None,
-                 time_series_data_dict=None, time_series_weight_dict=None,
-                 scalar_params_dict=None, additional_vars=None,
+                 commodity_rate_min=None, commodity_rate_max=None,
+                 commodity_rate_fix=None,
+                 time_series_data=None, time_series_weights=None,
+                 scalar_params=None, additional_vars=None,
                  user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capex_per_capacity=0, capex_if_exist=0,
@@ -33,17 +31,16 @@ class Source(Component):
 
         :param ensys:
         :param name:
-        :param basic_variable:
-        :param inlets:
-        :param outlets:
+        :param basic_commodity:
+        :param outlet_connections:
         :param existence_binary_var:
         :param operation_binary_var: **Should not be used in this Component!**
-        :param operation_rate_min:
-        :param operation_rate_max:
-        :param operation_rate_fix:
-        :param time_series_data_dict:
-        :param time_series_weight_dict:
-        :param scalar_params_dict:
+        :param commodity_rate_min:
+        :param commodity_rate_max:
+        :param commodity_rate_fix:
+        :param time_series_data:
+        :param time_series_weights:
+        :param scalar_params:
         :param additional_vars:
         :param user_expressions:
         :param capacity:
@@ -60,16 +57,12 @@ class Source(Component):
         :param commodity_revenues_time_series:
         """
 
-        Component.__init__(self, ensys, name, basic_variable,
-                           inlets=inlets, outlets=outlets,
+        Component.__init__(self, ensys, name, basic_commodity,
                            existence_binary_var=existence_binary_var,
                            operation_binary_var=operation_binary_var,
-                           operation_rate_min=operation_rate_min,
-                           operation_rate_max=operation_rate_max,
-                           operation_rate_fix=operation_rate_fix,
-                           time_series_data_dict=time_series_data_dict,
-                           time_series_weight_dict=time_series_weight_dict,
-                           scalar_params_dict=scalar_params_dict,
+                           time_series_data=time_series_data,
+                           time_series_weights=time_series_weights,
+                           scalar_params=scalar_params,
                            additional_vars=additional_vars,
                            user_expressions=user_expressions,
                            capacity=capacity,
@@ -80,11 +73,15 @@ class Source(Component):
                            opex_per_capacity=opex_per_capacity,
                            opex_if_exist=opex_if_exist
                            )
-
-        self.modeling_class = 'Src'
-
-        if self.__class__ == Source and inlets is not None:
-            warnings.warn('A "source" should better not have inlet streams!')
+        # todo:Check if list or string, if string convert to list with one entry
+        if self.__class__ == Source:
+            # Check and add outlet connections
+            self.outlet_connections = utils.check_and_convert_to_list(
+                outlet_connections)
+            self.basic_variable = self.basic_commodity + '_OUT'
+            self.outlet_ports_and_vars = \
+                {self.basic_commodity: self.basic_variable}
+            self._add_var(self.basic_variable)
 
         # Check and set sink / source specific input arguments
         self.opex_operation = utils.set_if_positive(opex_operation)
@@ -96,23 +93,16 @@ class Source(Component):
             utils.check_existence_in_dataframe(commodity_revenues_time_series,
                                                self.parameters)
 
+        # Check and set time series for commodity rates (if available)
+        self.op_rate_min, self.op_rate_max, self.op_rate_fix = \
+            utils.check_commodity_rates(self, commodity_rate_min,
+                                        commodity_rate_max, commodity_rate_fix)
+
         # Last step: Add the component to the energy system model instance
         self.add_to_energy_system_model(ensys, name)
 
     def __repr__(self):
         return '<Source: "%s">' % self.name
-
-    def declare_component_ports(self):
-        """
-        Create all ports from dict 'ports_and_vars' and add variables to ports.
-        """
-        # Create ports and assign variables to ports
-        for port_name, var_name in self.ports_and_vars.items():
-            # Declare port
-            setattr(self.pyB, port_name, network.Port())
-            # Add variable to port
-            port = getattr(self.pyB, port_name)
-            port.add(getattr(self.pyB, var_name), var_name, port.Extensive)
 
     # **************************************************************************
     #   Declare component constraints
@@ -140,9 +130,9 @@ class Source(Component):
         self.con_bi_var_ex_and_op_relation(pyM)
         self.con_operation_limit(pyM)
         self.con_couple_op_binary_and_basic_var(pyM)
-        self.con_operation_rate_min(pyM)
-        self.con_operation_rate_max(pyM)
-        self.con_operation_rate_fix(pyM)
+        self.con_commodity_rate_min(pyM)
+        self.con_commodity_rate_max(pyM)
+        self.con_commodity_rate_fix(pyM)
 
     def get_objective_function_contribution(self, ensys, pyM):
         """ Get contribution to the objective function. """
@@ -239,25 +229,82 @@ class Source(Component):
             setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
                 pyM.time_set, rule=con_operation_limit))
 
+    def con_commodity_rate_min(self, pyM):
+        """
+        The basic variable of a component needs to have a minimal value of
+        "commodity_rate_min" in every time step. E.g.: |br|
+        ``Q[p, t] >= op_rate_min[p, t]``
+        (No correction with "hours_per_time_step" needed because it should
+        already be included in the time series for "commodity_rate_min")
+        """
+        # Only required if component has a time series for "commodity_rate_min".
+        if self.op_rate_min is not None:
+            # Get variables:
+            op_min = self.parameters[self.op_rate_min]['values']
+            basic_var = self.variables[self.basic_variable]['pyomo']
+
+            def con_commodity_rate_min(m, p, t):
+                return basic_var[p, t] >= op_min[p, t]
+            setattr(self.pyB, 'con_commodity_rate_min', pyomo.Constraint(
+                pyM.time_set, rule=con_commodity_rate_min))
+
+    def con_commodity_rate_max(self, pyM):
+        """
+        The basic variable of a component can have a maximal value of
+        "commodity_rate_max" in every time step. E.g.: |br|
+        ``Q[p, t] <= op_rate_max[p, t]``
+        (No correction with "hours_per_time_step" needed because it should
+        already be included in the time series for "commodity_rate_max")
+        """
+        # Only required if component has a time series for "commodity_rate_max".
+        if self.op_rate_max is not None:
+            # Get variables:
+            op_max = self.parameters[self.op_rate_max]['values']
+            basic_var = self.variables[self.basic_variable]['pyomo']
+
+            def con_commodity_rate_max(m, p, t):
+                return basic_var[p, t] <= op_max[p, t]
+            setattr(self.pyB, 'con_commodity_rate_max', pyomo.Constraint(
+                pyM.time_set, rule=con_commodity_rate_max))
+
+    def con_commodity_rate_fix(self, pyM):
+        """
+        The basic variable of a component needs to have a value of
+        "commodity_rate_fix" in every time step. E.g.: |br|
+        ``Q[p, t] == op_rate_fix[p, t]``
+        (No correction with "hours_per_time_step" needed because it should
+        already be included in the time series for "commodity_rate_fix")
+        """
+        # Only required if component has a time series for "commodity_rate_fix"
+        if self.op_rate_fix is not None:
+            # Get variables:
+            op_fix = self.parameters[self.op_rate_fix]['values']
+            basic_var = self.variables[self.basic_variable]['pyomo']
+
+            def con_commodity_rate_fix(m, p, t):
+                return basic_var[p, t] == op_fix[p, t]
+            setattr(self.pyB, 'con_commodity_rate_fix', pyomo.Constraint(
+                pyM.time_set, rule=con_commodity_rate_fix))
+
     # ==========================================================================
     #    S E R I A L I Z E
     # ==========================================================================
     def serialize(self):
         comp_dict = super().serialize()
-        comp_dict['operation_rate_min'] = self.op_rate_min
-        comp_dict['operation_rate_max'] = self.op_rate_max
-        comp_dict['operation_rate_fix'] = self.op_rate_fix
+        comp_dict['commodity_rate_min'] = self.op_rate_min
+        comp_dict['commodity_rate_max'] = self.op_rate_max
+        comp_dict['commodity_rate_fix'] = self.op_rate_fix
         return comp_dict
 
 
 class Sink(Source):
     # Sink components transfer commodities over the boundary out of the system.
-    def __init__(self, ensys, name, basic_variable, inlets=None, outlets=None,
-                 existence_binary_var=None,  operation_binary_var=None,
-                 operation_rate_min=None, operation_rate_max=None,
-                 operation_rate_fix=None,
-                 time_series_data_dict=None, time_series_weight_dict=None,
-                 scalar_params_dict=None, additional_vars=None,
+    def __init__(self, ensys, name, basic_commodity, inlet_connections=None,
+                 existence_binary_var=None, operation_binary_var=None,
+                 commodity_rate_min=None, commodity_rate_max=None,
+                 commodity_rate_fix=None,
+                 time_series_data=None, time_series_weights=None,
+                 scalar_params=None, additional_vars=None,
                  user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capex_per_capacity=0, capex_if_exist=0,
@@ -267,26 +314,45 @@ class Sink(Source):
                  ):
         """
         Initialize a sink component. The Sink class inherits from the Source
-        class. Both have the same input parameters. See the Source class for a
-        description of the input parameters.
+        class. Both have the same input parameters with only one exception.
+        The Sink has an "inlet_connections" attribute instead of
+        "inlet_connections".
+
+        :param inlet_connections: TODO: Add description!
         """
 
-        Source.__init__(self, ensys, name, basic_variable, inlets, outlets,
-                        existence_binary_var,  operation_binary_var,
-                        operation_rate_min, operation_rate_max,
-                        operation_rate_fix,
-                        time_series_data_dict, time_series_weight_dict,
-                        scalar_params_dict, additional_vars, user_expressions,
-                        capacity, capacity_min, capacity_max,
-                        capex_per_capacity, capex_if_exist,
-                        opex_per_capacity, opex_if_exist, opex_operation,
-                        commodity_cost, commodity_cost_time_series,
-                        commodity_revenues, commodity_revenues_time_series)
+        Source.__init__(self, ensys, name, basic_commodity,
+                        existence_binary_var=existence_binary_var,
+                        operation_binary_var=operation_binary_var,
+                        commodity_rate_min=commodity_rate_min,
+                        commodity_rate_max=commodity_rate_max,
+                        commodity_rate_fix=commodity_rate_fix,
+                        time_series_data=time_series_data,
+                        time_series_weights=time_series_weights,
+                        scalar_params=scalar_params,
+                        additional_vars=additional_vars,
+                        user_expressions=user_expressions,
+                        capacity=capacity, capacity_min=capacity_min,
+                        capacity_max=capacity_max,
+                        capex_per_capacity=capex_per_capacity,
+                        capex_if_exist=capex_if_exist,
+                        opex_per_capacity=opex_per_capacity,
+                        opex_if_exist=opex_if_exist,
+                        opex_operation=opex_operation,
+                        commodity_cost=commodity_cost,
+                        commodity_cost_time_series=commodity_cost_time_series,
+                        commodity_revenues=commodity_revenues,
+                        commodity_revenues_time_series=
+                        commodity_revenues_time_series)
 
-        self.modeling_class = 'Snk'
-
-        if self.__class__ == Sink and outlets is not None:
-            warnings.warn('A "sink" should better not have outlet streams!')
+        if self.__class__ == Sink:
+            # Check and add inlet connections
+            self.inlet_connections = utils.check_and_convert_to_list(
+                inlet_connections)
+            self.basic_variable = self.basic_commodity + '_IN'
+            self.inlet_ports_and_vars = \
+                {self.basic_commodity: self.basic_variable}
+            self._add_var(self.basic_variable)
 
     def __repr__(self):
         return '<Sink: "%s">' % self.name

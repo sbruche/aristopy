@@ -141,16 +141,15 @@ class EnergySystemModel:
         # **********************************************************************
         # 'components' is a dictionary (component name: component instance)
         # in which all components of the EnergySystemModel instance are stored.
-        # The 'component_model_blocks' is a dictionary (component name: pyomo
-        # block object) in which the pyomo model of the component is stored
-        # (variables, constraints).
-        # The 'connections_dict' is a dictionary that stores the connections of
-        # the component blocks of the energy system model. It is formed from the
-        # specified inlets and outlets and consists of name tuples for sources
-        # and destinations and the connecting variables as a list.
+        # The pyomo block model object (stored variables and constraints) of a
+        # component instance can be accessed via its "pyB" attribute.
         self.components = {}  # name of comp: comp object itself
-        self.component_model_blocks = {}  # name of comp: pyomo Block object
-        self.connections_dict = {}  # dict: (src, dest): [vars]
+
+        # The 'component_connections' is a dict that stores the connections of
+        # the component instances of the energy system model. It is formed from
+        # the specified inlets and outlets and the connecting commodity:
+        # {arc_name: [source instance, destination instance, commodity_name]}
+        self.component_connections = {}  # {arc_name: [src, dest, commodity]}
 
         # 'component_configuration' is a pandas Dataframe to store basic results
         # of the availability and capacity of the modelled components. It is
@@ -591,15 +590,15 @@ class EnergySystemModel:
         # (a) collect the time series data from all components in a DataFrame
         # with unique column names
         # (b) thereby collect the weights for each time series as well in a dict
-        time_series_data_dict, time_series_weight_dict = {}, {}
+        time_series_data, time_series_weights = {}, {}
         for comp in self.components.values():
             if comp.number_in_group == 1:  # Add only once per group
                 data, weights = comp.get_data_for_time_series_aggregation()
-                time_series_data_dict.update(data)
-                time_series_weight_dict.update(weights)
+                time_series_data.update(data)
+                time_series_weights.update(weights)
 
         # Convert data dictionary to pandas DataFrame
-        time_series_data = pd.DataFrame.from_dict(time_series_data_dict)
+        time_series_data = pd.DataFrame.from_dict(time_series_data)
         # Note: Sets index for the time series data.
         # The index is of no further relevance in the energy system model.
         time_series_data.index = \
@@ -620,7 +619,7 @@ class EnergySystemModel:
             number_of_time_steps_per_period * self.hours_per_time_step,
             clusterMethod=cluster_method,
             sortValues=sort_values,
-            weightDict=time_series_weight_dict,
+            weightDict=time_series_weights,
             **kwargs)
 
         # Convert the clustered data to a pandas DataFrame and store the
@@ -763,11 +762,12 @@ class EnergySystemModel:
         self.log.info('    Declare objective function')
 
         def summarize_extra_objective_function_contributions():
-            obj_value = 0
-            for name in self.added_objective_function_contributions.keys():
-                obj_rule = getattr(self, name)
-                obj_value += obj_rule(self.pyM)
-            return obj_value
+            for key, val in self.added_objective_function_contributions.items():
+                obj_rule = getattr(self, key)  # get the function
+                obj_value = obj_rule(self.pyM)  # get returned value
+                # Overwrite the values of the dict
+                self.added_objective_function_contributions[key] = obj_value
+            return sum(self.added_objective_function_contributions.values())
 
         def objective(m):
             NPV = sum(comp.get_objective_function_contribution(self, pyM)
@@ -827,75 +827,206 @@ class EnergySystemModel:
         # **********************************************************************
         #   Component connections
         # **********************************************************************
-        def error_message(name):
+        # Helper functions:
+        # -----------------
+        def component_not_found(component):
             return('\nThe component "{}" or its instances cannot be found in '
                    'the energy system model.\nThe components considered are: {}'
                    '\n Please check the names of your components and inlet and '
-                   'outlet specifications!'.format(name, list(self.components)))
+                   'outlet specifications!'.format(component,
+                                                   list(self.components)))
 
-        # Add inlets and outlets of all components to the 'connection_dict' of
-        # EnSys --> {('src_block', 'dest_block'): [Var1, Var2], ...}
+        def is_conversion(component):
+            if component.__class__.__name__ == 'Conversion':
+                return True
+            return False
+
+        def set_commodity_var(component, port, commodity):
+            """
+            Check if component already has the commodity and add it to the
+            commodities list if not (used to check correctness of connections).
+            Add commodity at inlet or outlet (if not available) and set a name
+            for the attached variable.
+            Add the variable to the variables DataFrame if needed.
+            Note: A commodity can appear on both sides (inlets and outlets).
+            """
+            # Check if commodity is not in the commodities list --> append it
+            if commodity not in component.commodities:
+                component.commodities.append(commodity)
+            if port == 'outlet':
+                # Only add commodity it if it is not already declared at outlet
+                if component.outlet_ports_and_vars.get(commodity) is None:
+                    # Update the port
+                    var_name = commodity + '_OUT'
+                    component.outlet_ports_and_vars[commodity] = var_name
+                    # Add commodity to the variables DataFrame if not available
+                    if var_name not in component.variables.columns:
+                        component._add_var(var_name)
+            elif port == 'inlet':
+                # Only add commodity it if it is not already declared at inlet
+                if component.inlet_ports_and_vars.get(commodity) is None:
+                    # Update the port
+                    var_name = commodity + '_IN'
+                    component.inlet_ports_and_vars[commodity] = var_name
+                    # Add commodity to the variables DataFrame if not available
+                    if var_name not in component.variables.columns:
+                        component._add_var(var_name)
+
+        def set_connection(source, destination, commodity):
+            """
+            Add connections (arcs) to the "component_connections" dict.
+            Update the "var_connections" dictionaries in the components:
+            {'port variable name': 'connected arc name'
+            "var_connections" is used for plotting purposes.
+            """
+            # Add a new connection to "component_connections" if not available
+            arc_name = 'arc-{}-{}-{}'.format(source.name,
+                                             destination.name, commodity)
+
+            if arc_name not in self.component_connections:
+                self.component_connections[arc_name] = [source, destination,
+                                                        commodity]
+
+            # Standard names of the port variables
+            source_var = commodity + '_OUT'
+            destination_var = commodity + '_IN'
+
+            # Update dictionary "var_connections" in the source component
+            if source.var_connections.get(source_var) is None:
+                source.var_connections[source_var] = [arc_name]
+            else:
+                arc_names = source.var_connections[source_var]
+                if arc_name not in arc_names:
+                    arc_names.append(arc_name)
+                    source.var_connections[source_var] = arc_names
+
+            # Update dictionary "var_connections" in the destination component
+            if destination.var_connections.get(destination_var) is None:
+                destination.var_connections[destination_var] = [arc_name]
+            else:
+                arc_names = destination.var_connections[destination_var]
+                if arc_name not in arc_names:
+                    arc_names.append(arc_name)
+                    destination.var_connections[destination_var] = arc_names
+
+        # ----------------------------------------------------------------------
+        # Establish component connections from "inlet_connections" and
+        # "outlet_connections" and add missing port variables in the components.
         for comp_name, comp in self.components.items():
-            #  check if the component has a entry in its inlets dict
-            if comp.inlets is not None:
-                for src, var in comp.inlets.items():
-                    found_src = False  # init
-                    # loop again over all components:
-                    for c in self.components.values():
-                        # For all components whose group_name fits the src name
-                        if c.group_name == src:
-                            # Add vars to dict if not already in the dict keys
-                            if (c.name, comp_name) not in self.connections_dict:
-                                self.connections_dict.update(
-                                    {(c.name, comp_name): var})
-                            else:
-                                # If tuple is in dict, check if all vars already
-                                # exist, if not: append it to 'var_list'
-                                for v in var:
-                                    var_list = self.connections_dict[
-                                        (c.name, comp_name)]
-                                    if v not in var_list:
-                                        var_list.append(v)
-                            found_src = True  # set flag
-                    # Raise if the source or its sub-instances is not found
-                    if not found_src:
-                        raise ValueError(error_message(src))
-            # Do the same for outlets --> just inlets or outlets are enough
-            if comp.outlets is not None:
-                for dest, var in comp.outlets.items():
-                    found_dest = False  # init
-                    for c in self.components.values():
-                        if c.group_name == dest:
-                            if (comp_name, c.name) not in self.connections_dict:
-                                self.connections_dict.update(
-                                    {(comp_name, c.name): var})
-                            else:
-                                for v in var:
-                                    var_list = self.connections_dict[
-                                        (comp_name, c.name)]
-                                    if v not in var_list:
-                                        var_list.append(v)
-                            found_dest = True
-                    if not found_dest:
-                        raise ValueError(error_message(dest))
+            if comp.inlet_connections is not None:
+                if is_conversion(comp):
+                    for commod, src_list in comp.inlet_connections.items():
+                        # Set commodity in the component itself if needed:
+                        set_commodity_var(comp, 'inlet', commod)
+                        # Source exists? Add commodities and variables...
+                        for src_name in src_list:
+                            # loop again over all components:
+                            found_src = False
+                            for c_src in self.components.values():
+                                if c_src.group_name == src_name:
+                                    found_src = True  # found source
+                                    set_commodity_var(c_src, 'outlet', commod)
+                                    set_connection(c_src, comp, commod)
+                            if not found_src:
+                                raise ValueError(component_not_found(src_name))
+                else:  # not a conversion unit
+                    for src_name in comp.inlet_connections:
+                        # loop again over all components:
+                        found_src = False
+                        for c_src in self.components.values():
+                            if c_src.group_name == src_name:
+                                found_src = True  # found source
+                                set_commodity_var(c_src, 'outlet',
+                                                  comp.basic_commodity)
+                                set_connection(c_src, comp,
+                                               comp.basic_commodity)
+                        if not found_src:
+                            raise ValueError(component_not_found(src_name))
+            if comp.outlet_connections is not None:
+                if is_conversion(comp):
+                    for commod, dest_list in comp.outlet_connections.items():
+                        # Set commodity in the component itself if needed:
+                        set_commodity_var(comp, 'outlet', commod)
+                        # Destination exists? Add commodities and variables...
+                        for dest_name in dest_list:
+                            # loop again over all components:
+                            found_dest = False
+                            for c_dest in self.components.values():
+                                if c_dest.group_name == dest_name:
+                                    found_dest = True  # found destination
+                                    set_commodity_var(c_dest, 'inlet', commod)
+                                    set_connection(comp, c_dest, commod)
+                            if not found_dest:
+                                raise ValueError(component_not_found(dest_name))
+                else:  # not a conversion unit
+                    for dest_name in comp.outlet_connections:
+                        # loop again over all components:
+                        found_dest = False
+                        for c_dest in self.components.values():
+                            if c_dest.group_name == dest_name:
+                                found_dest = True  # found destination
+                                set_commodity_var(c_dest, 'inlet',
+                                                  comp.basic_commodity)
+                                set_connection(comp, c_dest,
+                                               comp.basic_commodity)
+                        if not found_dest:
+                            raise ValueError(component_not_found(dest_name))
 
-        # Update the dictionary 'ports_and_vars' according to the entries in the
-        # 'connections_dict' and update the DataFrame 'variables' of the
-        # components if required.
-        for src_dest, var in self.connections_dict.items():
-            # Get the source component
-            src = self.components[src_dest[0]]
-            for v in var:  # 'var' is a list and can hold multiple variables
-                src.ports_and_vars.update({'outlet_' + v: v})
-                if v not in src.variables.columns:
-                    src._add_var(v)  # add with default specifications
-            # Get the destination  component
-            dest = self.components[src_dest[1]]
-            for v in var:
-                dest.ports_and_vars.update({'inlet_' + v: v})
-                if v not in dest.variables.columns:
-                    dest._add_var(v)
+        # Check correctness of connections and set basic variable for conversion
+        for name, comp in self.components.items():
+            # Check that non-conversion components have only one commodity!
+            if not is_conversion(comp):
+                if len(comp.commodities) > 1:
+                    raise ValueError('Commodity error in "%s". Found more than '
+                                     'one commodity: "%s"' % (name,
+                                                              comp.commodities))
+            # Source, Storage, Bus components need exactly one outlet
+            if comp.__class__.__name__ in ['Source', 'Storage', 'Bus']:
+                nbr_of_outlets = len(comp.outlet_ports_and_vars)
+                if nbr_of_outlets != 1:
+                    raise ValueError('"%s" needs one outlet, but "%s" were '
+                                     'found!' % (name, nbr_of_outlets))
+            # Sink, Storage, Bus components need exactly one inlet
+            if comp.__class__.__name__ in ['Sink', 'Storage', 'Bus']:
+                nbr_of_inlets = len(comp.inlet_ports_and_vars)
+                if nbr_of_inlets != 1:
+                    raise ValueError('"%s" needs one inlet, but "%s" were '
+                                     'found!' % (name, nbr_of_inlets))
+            # Sinks don't have outlets
+            if comp.__class__.__name__ == 'Sink':
+                if len(comp.outlet_ports_and_vars) != 0:
+                    raise ValueError('Sink "%s" cannot have outlets!' % name)
+            # Sources don't have inlets
+            if comp.__class__.__name__ == 'Source':
+                if len(comp.inlet_ports_and_vars) != 0:
+                    raise ValueError('Source "%s" cannot have inlets!' % name)
 
+            # Set the name of the basic variable for the conversion components.
+            # Note: If the basic commodity is found in both inlets and outlets,
+            # the inlet is used to set the basic variable.
+            if is_conversion(comp):
+                # 1. Wild card: Variable with name of "basic_commodity" has been
+                # added directly with "additional_vars" keyword --> use it and
+                # don't check if derived variables are found at the ports.
+                if comp.basic_commodity in comp.variables.columns:
+                    comp.basic_variable = comp.basic_commodity
+                # Look for commodity and derived variables at the inlet...
+                elif comp.inlet_ports_and_vars.get(
+                        comp.basic_commodity) is not None:
+                    comp.basic_variable = comp.inlet_ports_and_vars[
+                        comp.basic_commodity]
+                # ... if not found at inlet search for variable at the outlet.
+                elif comp.outlet_ports_and_vars.get(
+                        comp.basic_commodity) is not None:
+                    comp.basic_variable = comp.outlet_ports_and_vars[
+                        comp.basic_commodity]
+                else:
+                    raise ValueError('The basic_commodity is not found in '
+                                     'conversion component "%s"' % name)
+
+        # **********************************************************************
+        #   User Expressions
+        # **********************************************************************
         # Fill the "user_expressions_dict" with data from comp. initialization
         for comp in self.components.values():
             if comp.user_expressions is not None:
@@ -922,25 +1053,22 @@ class EnergySystemModel:
         # Declare all components of the energy system model:
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         for comp in self.components.values():
-            comp.declare_component_model_block(ensys=self, pyM=pyM)
+            comp.declare_component_model_block(pyM=pyM)
             comp.declare_component_variables(pyM=pyM)
             comp.declare_component_ports()
-            comp.declare_component_user_constraints(ensys=self, pyM=pyM)
+            comp.declare_component_user_constraints(pyM=pyM)
             comp.declare_component_constraints(ensys=self, pyM=pyM)
 
-        # Declare arcs from connections dict
-        for src_dest, var in self.connections_dict.items():
-            # Get the pyomo blocks for component connection
-            src_block = self.component_model_blocks.get(src_dest[0])
-            dest_block = self.component_model_blocks.get(src_dest[1])
-
-            for v in var:
-                # Get the ports in the components for each variable
-                outlet = getattr(src_block, 'outlet_'+v)
-                inlet = getattr(dest_block, 'inlet_' + v)
-                # Create an arc to connect two ports
-                setattr(self.pyM, 'arc_'+src_dest[0]+'_'+src_dest[1]+'_'+v,
-                        network.Arc(src=outlet, dest=inlet))
+        # Declare arcs from component connections list:
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        for arc_name, connection in self.component_connections.items():
+            # Get the connected component class instances and the commodity name
+            src, dest, commod = connection[0], connection[1], connection[2]
+            # Get the ports in the component model blocks for each variable
+            outlet = getattr(src.pyB, 'outlet_' + commod)
+            inlet = getattr(dest.pyB, 'inlet_' + commod)
+            # Create an arc to connect two ports
+            setattr(self.pyM, arc_name, network.Arc(src=outlet, dest=inlet))
 
         # Call model transformation factory: Expand the arcs
         pyomo.TransformationFactory("network.expand_arcs").apply_to(pyM)
@@ -1191,13 +1319,40 @@ class EnergySystemModel:
     #   Serialize the content of the class instance and its components
     # ==========================================================================
     def serialize(self):
+
+        def get_arc_variable_values():
+            arc_data = {}
+            for arc_name, connection in self.component_connections.items():
+                # Get the pyomo block for the expanded arc
+                arc_block = getattr(self.pyM, arc_name + '_expanded')
+                # Get connected component class instances and the commodity name
+                src, dest, commod = connection[0], connection[1], connection[2]
+                # We can only get the commodity variable values from the arc
+                # block directly, if the variables are split (not for direct
+                # connection of single outlet with single inlet).
+                if hasattr(arc_block, commod):
+                    arc_var = str(getattr(arc_block, commod).get_values())
+                else:
+                    # Else: Block only holds one equality constraint (IN == OUT)
+                    # --> Directly use the values of the outlet port variable of
+                    # the source or the inlet port variable of the destination.
+                    source_var = commod + '_OUT'
+                    arc_var = str(getattr(src.pyB, source_var).get_values())
+                arc_data[arc_name] = arc_var
+            return arc_data
+
+        def get_added_obj_values():
+            obj_values = {}
+            for key, val in self.added_objective_function_contributions.items():
+                obj_values[key] = pyomo.value(val)
+            return obj_values
+
         components = {}
         for name, comp in self.components.items():
             components[name] = comp.serialize()
 
         return OrderedDict([
             ('model_class', self.__class__.__name__),
-            ('id', id(self)),
             ('number_of_time_steps', self.number_of_time_steps),
             ('hours_per_time_step', self.hours_per_time_step),
             ('is_data_clustered', self.is_data_clustered),
@@ -1209,8 +1364,9 @@ class EnergySystemModel:
             ('period_occurrences', str(self.period_occurrences)),
             ('present value factor', self.pvf),
             ('components', components),
-            ('connections', str(self.connections_dict)),
-            ('opt_results', self.solver_specs),
+            ('arc_variables', get_arc_variable_values()),
+            ('added_objective_function_contributions', get_added_obj_values()),
+            ('opt_results', self.solver_specs)
         ])
 
 

@@ -7,19 +7,17 @@
 * Created by: Stefan Bruche (TU Berlin)
 """
 import pyomo.environ as pyomo
-import pyomo.network as network
 from aristopy.component import Component
 from aristopy import utils
 
 
 class Conversion(Component):
     # A Conversion component converts commodities into each other.
-    def __init__(self, ensys, name, basic_variable, inlets=None, outlets=None,
+    def __init__(self, ensys, name, basic_commodity,
+                 inlet_connections=None, outlet_connections=None,
                  existence_binary_var=None, operation_binary_var=None,
-                 operation_rate_min=None, operation_rate_max=None,
-                 operation_rate_fix=None,
-                 time_series_data_dict=None, time_series_weight_dict=None,
-                 scalar_params_dict=None, additional_vars=None,
+                 time_series_data=None, time_series_weights=None,
+                 scalar_params=None, additional_vars=None,
                  user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capacity_per_module=None, maximal_module_number=None,
@@ -33,17 +31,14 @@ class Conversion(Component):
 
         :param ensys:
         :param name:
-        :param basic_variable:
-        :param inlets:
-        :param outlets:
+        :param basic_commodity:
+        :param inlet_connections:
+        :param outlet_connections:
         :param existence_binary_var:
         :param operation_binary_var:
-        :param operation_rate_min:
-        :param operation_rate_max:
-        :param operation_rate_fix:
-        :param time_series_data_dict:
-        :param time_series_weight_dict:
-        :param scalar_params_dict:
+        :param time_series_data:
+        :param time_series_weights:
+        :param scalar_params:
         :param additional_vars:
         :param user_expressions:
         :param capacity:
@@ -63,16 +58,12 @@ class Conversion(Component):
         :param group_has_operation_order:
         """
 
-        Component.__init__(self, ensys, name, basic_variable,
-                           inlets=inlets, outlets=outlets,
+        Component.__init__(self, ensys, name, basic_commodity,
                            existence_binary_var=existence_binary_var,
                            operation_binary_var=operation_binary_var,
-                           operation_rate_min=operation_rate_min,
-                           operation_rate_max=operation_rate_max,
-                           operation_rate_fix=operation_rate_fix,
-                           time_series_data_dict=time_series_data_dict,
-                           time_series_weight_dict=time_series_weight_dict,
-                           scalar_params_dict=scalar_params_dict,
+                           time_series_data=time_series_data,
+                           time_series_weights=time_series_weights,
+                           scalar_params=scalar_params,
                            additional_vars=additional_vars,
                            user_expressions=user_expressions,
                            capacity=capacity,
@@ -89,7 +80,8 @@ class Conversion(Component):
                            group_has_operation_order=group_has_operation_order
                            )
 
-        self.modeling_class = 'Conv'
+        self.inlet_connections = utils.check_connections(inlet_connections)
+        self.outlet_connections = utils.check_connections(outlet_connections)
 
         # Check and set the value for the minimal relative part-load
         if min_load_rel is not None:
@@ -108,18 +100,6 @@ class Conversion(Component):
 
     def __repr__(self):
         return '<Conversion: "%s">' % self.name
-
-    def declare_component_ports(self):
-        """
-        Create all ports from dict 'ports_and_vars' and add variables to ports.
-        """
-        # Create ports and assign variables to ports
-        for port_name, var_name in self.ports_and_vars.items():
-            # Declare port
-            setattr(self.pyB, port_name, network.Port())
-            # Add variable to port
-            port = getattr(self.pyB, port_name)
-            port.add(getattr(self.pyB, var_name), var_name, port.Extensive)
 
     def declare_component_constraints(self, ensys, pyM):
         """
@@ -149,9 +129,6 @@ class Conversion(Component):
         self.con_operation_limit(pyM)
         self.con_couple_op_binary_and_basic_var(pyM)
         self.con_min_load_rel(pyM)
-        self.con_operation_rate_min(pyM)
-        self.con_operation_rate_max(pyM)
-        self.con_operation_rate_fix(pyM)
         self.con_start_up_cost(ensys, pyM)
         self.con_operation_sym_break(ensys, pyM)
 
@@ -192,7 +169,7 @@ class Conversion(Component):
         if self.opex_operation > 0:
             obj['opex_operation'] = -1 * ensys.pvf * self.opex_operation * sum(
                 basic_var[p, t] * ensys.period_occurrences[p] for p, t in
-                pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
+                pyM.time_set) / ensys.number_of_years
         # ---------------
         #   M I S C
         # ---------------
@@ -201,7 +178,7 @@ class Conversion(Component):
             bi_su = self.variables['BI_SU']['pyomo']  # only available if '>0'
             obj['start_up_cost'] = -1 * ensys.pvf * self.start_up_cost * sum(
                 bi_su[p, t] * ensys.period_occurrences[p] for p, t in
-                pyM.time_set) / ensys.number_of_years  # * ensys.hours_per_time_step
+                pyM.time_set) / ensys.number_of_years
 
         return sum(obj.values())
 
@@ -245,9 +222,9 @@ class Conversion(Component):
 
     def con_operation_limit(self, pyM):
         """
-        The operation variable (ref.: basic variable / basic commodity) of a
-        conversion unit (MWh) is limit by its nominal power (MW) multiplied
-        with the number of hours per time step. E.g.: |br|
+        The operation variable (ref.: basic commodity) of a conversion unit
+        (MWh) is limit by its nominal power (MW) multiplied with the number of
+        hours per time step. E.g.: |br|
         ``Q[p, t] <= Q_CAP * dt``
         """
         # Only required if component has a capacity variable
@@ -334,7 +311,4 @@ class Conversion(Component):
     # ==========================================================================
     def serialize(self):
         comp_dict = super().serialize()
-        comp_dict['operation_rate_min'] = self.op_rate_min
-        comp_dict['operation_rate_max'] = self.op_rate_max
-        comp_dict['operation_rate_fix'] = self.op_rate_fix
         return comp_dict
