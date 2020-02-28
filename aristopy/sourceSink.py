@@ -10,7 +10,10 @@ import pyomo.environ as pyomo
 from aristopy.component import Component
 from aristopy import utils
 
-
+# Todo: Change functionality of commodity_revenues/cost so that also time
+#  series can be used and remove the additional time series keywords. Also
+#  enable commodity rate min/max/fix to use scalar values and extend
+#  functionality of parameters to detect if time series or scalar value is used.
 class Source(Component):
     # Source components transfer commodities over the boundary into the system.
     def __init__(self, ensys, name, basic_commodity, outlet_connections=None,
@@ -294,6 +297,10 @@ class Source(Component):
         comp_dict['commodity_rate_min'] = self.op_rate_min
         comp_dict['commodity_rate_max'] = self.op_rate_max
         comp_dict['commodity_rate_fix'] = self.op_rate_fix
+        comp_dict['commodity_cost_time_series'] = \
+            self.commodity_cost_time_series
+        comp_dict['commodity_revenues_time_series'] = \
+            self.commodity_revenues_time_series
         return comp_dict
 
 

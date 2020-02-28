@@ -4,6 +4,7 @@ aristopy.egg-info
 __pycache__/
 archiv/
 examples/
+data/
 *.build/
 *.dist/
 *.doc/build/

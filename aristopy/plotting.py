@@ -50,9 +50,9 @@ class Plotter:
         self.bar_colors = plt.get_cmap('tab10')(np.linspace(0, 1, 10))
         # Global properties dictionary:
         self.props = {'fig_width': 10, 'fig_height': 6,
-                      'bar_width': 1, 'bar_lw': 0.5, 'line_lw': 2,
+                      'bar_width': 1, 'bar_lw': 0, 'line_lw': 2, 'period_lw': 0,
                       'xlabel': 'Time steps [-]', 'ylabel': '',
-                      'grid': True, 'lgd_ncol': 1, 'lgd_pos': 'best',
+                      'grid': False, 'lgd_ncol': 1, 'lgd_pos': 'best',
                       'save_pgf': False, 'save_pdf': False,
                       'save_png': True, 'dpi': 200, 'pad_inches': None}
 
@@ -147,6 +147,9 @@ class Plotter:
                    color=self.bar_colors[i], zorder=10,
                    edgecolor='black', linewidth=props['bar_lw'])
 
+        # Add horizontal line at y=0
+        ax.axhline(0, color='black', lw=0.8)
+
         ax.set_xlabel(props['xlabel'])
         ax.set_ylabel(props['ylabel'])
         ax.legend(ncol=props['lgd_ncol'], loc=props['lgd_pos'],
@@ -195,7 +198,7 @@ class Plotter:
                      size=16, color='black', ha='center')
         ax.set_xlabel('Time index [period, time step]')
         ax.set_ylabel('Quantity of variable "{}"'.format(variable_name))
-        ax.grid(which='major', linestyle='--', zorder=0)
+        # ax.grid(which='major', linestyle='--', zorder=0)
         ax.legend(framealpha=0.8, edgecolor='black').set_zorder(100)
         fig.tight_layout()
         plt.show()
@@ -400,7 +403,8 @@ class Plotter:
             if self.model_class in ['Source', 'Sink']:
                 count = 0  # init counter (to have different colors for lines)
                 for rate in ['commodity_rate_min', 'commodity_rate_max',
-                             'commodity_rate_fix']:
+                             'commodity_rate_fix', 'commodity_cost_time_series',
+                             'commodity_revenues_time_series']:
                     name, para = self._get_and_convert_variable(rate)
                     if para is not None:
                         idx = self._get_index(
@@ -424,7 +428,7 @@ class Plotter:
             if self.is_clustered and self.single_period is None:
                 for p in range(1, self.nbr_of_periods):
                     x = p * self.nbr_of_ts_per_period * self.dt_plot
-                    ax.axvline(x, color='black', lw=1.5,
+                    ax.axvline(x, color='black', lw=props['period_lw'],
                                linestyle='--', zorder=100)
 
         # Catch Exception if problem occurs and print a message in the title

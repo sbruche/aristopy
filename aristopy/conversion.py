@@ -24,7 +24,8 @@ class Conversion(Component):
                  capex_per_capacity=0, capex_if_exist=0,
                  opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
                  start_up_cost=0, min_load_rel=None, instances_in_group=1,
-                 group_has_existence_order=True, group_has_operation_order=True
+                 group_has_existence_order=True, group_has_operation_order=True,
+                 use_inter_period_formulation=True
                  ):
         """
         Initialize a conversion component.
@@ -87,13 +88,28 @@ class Conversion(Component):
         if min_load_rel is not None:
             utils.is_positive_number(min_load_rel)
             assert min_load_rel <= 1, 'Maximal value for "min_load_rel" is 1!'
+            if self.bi_op is None:
+                raise ValueError('Minimal part-loads require the availability '
+                                 'of a binary operation variable.')
         self.min_load_rel = min_load_rel
 
         # Check and set more conversion specific input arguments
         self.opex_operation = utils.set_if_positive(opex_operation)
         self.start_up_cost = utils.set_if_positive(start_up_cost)  # [€/Start]
+        utils.is_boolean(use_inter_period_formulation)  # check input
+        self.use_inter_period_formulation = use_inter_period_formulation
+
         if self.start_up_cost != 0:
+            if self.bi_op is None:
+                raise ValueError('Start-up cost require the availability '
+                                 'of a binary operation variable.')
+            # Else: add Start-up binary variable
             self._add_var(name='BI_SU', domain='Binary', has_time_set=True)
+            # If inter-period-formulation is requested: add another binary var
+            if self.use_inter_period_formulation:
+                self._add_var(name='BI_SU_INTER', domain='Binary',
+                              has_time_set=False, init=0,
+                              alternative_set='inter_period_time_set')
 
         # Last step: Add the component to the energy system model instance
         self.add_to_energy_system_model(ensys, name, instances_in_group)
@@ -130,6 +146,7 @@ class Conversion(Component):
         self.con_couple_op_binary_and_basic_var(pyM)
         self.con_min_load_rel(pyM)
         self.con_start_up_cost(ensys, pyM)
+        self.con_start_up_cost_inter(ensys, pyM)
         self.con_operation_sym_break(ensys, pyM)
 
     def get_objective_function_contribution(self, ensys, pyM):
@@ -176,10 +193,17 @@ class Conversion(Component):
         # Start-up cost
         if self.start_up_cost > 0:
             bi_su = self.variables['BI_SU']['pyomo']  # only available if '>0'
-            obj['start_up_cost'] = -1 * ensys.pvf * self.start_up_cost * sum(
+            start_cost_intra = -1 * ensys.pvf * self.start_up_cost * sum(
                 bi_su[p, t] * ensys.period_occurrences[p] for p, t in
                 pyM.time_set) / ensys.number_of_years
-
+            if self.use_inter_period_formulation:
+                bi_su_inter = self.variables['BI_SU_INTER']['pyomo']
+                start_cost_inter = -1 * ensys.pvf * self.start_up_cost * sum(
+                    bi_su_inter[p] for p in ensys.periods
+                ) / ensys.number_of_years
+            else:
+                start_cost_inter = 0
+            obj['start_up_cost'] = start_cost_intra + start_cost_inter
         return sum(obj.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -249,35 +273,30 @@ class Conversion(Component):
         """
         # Only required if minimal part-loads should be modelled.
         if self.min_load_rel is not None:
-            # TODO: Add this to the init check!
-            if self.bi_op is None:
-                raise ValueError('Minimal part-loads require the availability '
-                                 'of a binary operation variable.')
+            if self.capacity is not None:  # fixed capacity!
+
+                bi_op = self.variables[self.bi_op]['pyomo']
+                basic_var = self.variables[self.basic_variable]['pyomo']
+                cap = self.capacity
+                min_load = self.min_load_rel
+                dt = self.ensys.hours_per_time_step
+
+                def con_min_load_rel(m, p, t):
+                    return \
+                        basic_var[p, t] >= cap * bi_op[p, t] * min_load * dt
+
+                setattr(self.pyB, 'con_min_load_rel', pyomo.Constraint(
+                    pyM.time_set, rule=con_min_load_rel))
             else:
-                if self.capacity is not None:  # fixed capacity!
-
-                    bi_op = self.variables[self.bi_op]['pyomo']
-                    basic_var = self.variables[self.basic_variable]['pyomo']
-                    cap = self.capacity
-                    min_load = self.min_load_rel
-                    dt = self.ensys.hours_per_time_step
-
-                    def con_min_load_rel(m, p, t):
-                        return \
-                            basic_var[p, t] >= cap * bi_op[p, t] * min_load * dt
-
-                    setattr(self.pyB, 'con_min_load_rel', pyomo.Constraint(
-                        pyM.time_set, rule=con_min_load_rel))
-                else:
-                    # TODO: Add this to the init check!
-                    raise NotImplementedError(
-                        'Minimal part-loads with flexible unit capacity can be '
-                        'modelled but it requires some effort. This feature has'
-                        ' not been implemented yet. Please consider the '
-                        '"user_expressions" attribute to model it yourself.\n '
-                        'E.g.: Q_CAP_OR_OFF[p, t] == CAP * BI_OP[p, t] * dt '
-                        '--> Linearization required (Glover)!,\n '
-                        'Q[p, t] >= Q_CAP_OR_OFF[p, t] * min_load_rel * dt')
+                # TODO: Add this to the init check!
+                raise NotImplementedError(
+                    'Minimal part-loads with flexible unit capacity can be '
+                    'modelled but it requires some effort. This feature has'
+                    ' not been implemented yet. Please consider the '
+                    '"user_expressions" attribute to model it yourself.\n '
+                    'E.g.: Q_CAP_OR_OFF[p, t] == CAP * BI_OP[p, t] * dt '
+                    '--> Linearization required (Glover)!,\n '
+                    'Q[p, t] >= Q_CAP_OR_OFF[p, t] * min_load_rel * dt')
 
     def con_start_up_cost(self, ensys, pyM):
         """
@@ -290,21 +309,44 @@ class Conversion(Component):
         """
         # Only if the start-up cost value is larger than 0
         if self.start_up_cost > 0:
-            if self.bi_op is None:
-                raise ValueError('Start-up cost require the availability '
-                                 'of a binary operation variable.')
-            else:
-                # Get binary variables:
-                bi_op = self.variables[self.bi_op]['pyomo']
-                bi_su = self.variables['BI_SU']['pyomo']
+            # Get binary variables:
+            bi_op = self.variables[self.bi_op]['pyomo']
+            bi_su = self.variables['BI_SU']['pyomo']
 
-                def con_start_up_cost(m, p, t):
-                    if t != 0:  # ensys.time_steps_per_period[0]:  # not in first ts
-                        return 0 <= bi_op[p, t - 1] - bi_op[p, t] + bi_su[p, t]
-                    else:
-                        return pyomo.Constraint.Skip  # free start in first ts
-                setattr(self.pyB, 'con_start_up_cost', pyomo.Constraint(
-                        pyM.time_set, rule=con_start_up_cost))
+            def con_start_up_cost(m, p, t):
+                if t != 0:  # not in first time step of a period
+                    return 0 <= bi_op[p, t - 1] - bi_op[p, t] + bi_su[p, t]
+                else:
+                    return pyomo.Constraint.Skip
+            setattr(self.pyB, 'con_start_up_cost', pyomo.Constraint(
+                pyM.time_set, rule=con_start_up_cost))
+
+    def con_start_up_cost_inter(self, ensys, pyM):
+        """
+        Todo: Add description
+        """
+        # Only if start-up cost are applied, the inter-period formulation is
+        # requested and the data is clustered.
+        if self.start_up_cost > 0 and self.use_inter_period_formulation \
+                and ensys.is_data_clustered:
+            # Get binary variables:
+            bi_op = self.variables[self.bi_op]['pyomo']
+            bi_su_inter = self.variables['BI_SU_INTER']['pyomo']
+
+            def con_start_up_cost_inter(m, p):
+                # not for first period, because there is no precursor to use
+                if not p == ensys.periods[0]:
+
+                    typ_period = ensys.periods_order[p]
+                    prev_typ_period = ensys.periods_order[p-1]
+                    last_ts_idx = pyM.time_set.last()[1]
+
+                    return 0 <= bi_op[prev_typ_period, last_ts_idx] - bi_op[
+                        typ_period, 0] + bi_su_inter[p]
+                else:
+                    return pyomo.Constraint.Skip
+            setattr(self.pyB, 'con_start_up_cost_inter', pyomo.Constraint(
+                ensys.periods, rule=con_start_up_cost_inter))
 
     # ==========================================================================
     #    S E R I A L I Z E

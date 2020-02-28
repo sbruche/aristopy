@@ -28,7 +28,7 @@ class Storage(Component):
                  charge_rate=1, discharge_rate=1, self_discharge=0,
                  charge_efficiency=1, discharge_efficiency=1,
                  soc_min=0, soc_max=1, soc_initial=None,
-                 use_inter_period_formulation=False,
+                 use_inter_period_formulation=True,
                  precise_inter_period_modeling=False
                  ):
         """
