@@ -404,14 +404,22 @@ class Storage(Component):
             soc = self.variables[self.soc_variable]['pyomo']
             cap = self.variables[self.capacity_variable]['pyomo']
 
-            # Only built the constraint if the value for soc_min > 0 or if the
-            # domain of the SOC variable is 'Reals' (this is possible if the
-            # storage component is constructed with the attribute
+            # If the domain of the SOC variable is 'Reals' (this is possible if
+            # the storage component is constructed with the attribute
             # "use_inter_period_formulation"=True but the time series
             # aggregation was not performed before optimization.
+            # ==> Change the domain of SOC to NonNegativeReals.
+            if soc[soc.index_set().first()].domain == pyomo.Reals:
+                # Workaround: "edit_variable" is only working partially (editing
+                # the "variables" and "variables_copy" DataFrames) because the
+                # model is not fully declared yet (flag "is_model_declared" is
+                # still False). Manually overwrite domain of SOC variable here!
+                self.edit_variable(self.soc_variable, domain='NonNegativeReals')
+                soc.domain = pyomo.NonNegativeReals
+
+            # Only built the constraint if the value for soc_min > 0.
             # Otherwise it is already considered by the variable bound (NonNegR)
-            if self.soc_min > 0 or \
-                    soc[soc.index_set().first()].domain == pyomo.Reals:
+            if self.soc_min > 0:
                 def con_minimal_soc(m, p, t):
                     return soc[p, t] >= cap * self.soc_min
 

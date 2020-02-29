@@ -55,11 +55,12 @@ class Logger:
 
         self.logfile = logfile_name
 
-        # Delete all log files in the current working directory
+        # Delete all log files in the directory of the logfile
         if delete_old_logs:
-            for file in os.listdir(os.getcwd()):
+            log_file_dir = os.path.dirname(os.path.abspath(self.logfile))
+            for file in os.listdir(log_file_dir):
                 if file.endswith('.log'):
-                    os.remove(file)
+                    os.remove(os.path.join(log_file_dir, file))
 
         # Dictionary for assigning the possible names (keys) from the dicts
         # "local_log_handler" and "local_log_level" to the classes of aristopy
@@ -166,24 +167,15 @@ class ConsoleLogger:
         :param logfile_name: Name of file to store the redirected output.
         :type logfile_name: string
         """
-        # if os.path.isfile(filename):
-        #     os.remove(filename)
         self.terminal = sys.stdout
         self.filename = logfile_name
 
     def write(self, message):
         self.terminal.write(message)
-        with open(self.filename, 'a') as log:
-            # Sometimes last sign is a new line operator --> avoid empty lines
-            if message[-1] == '\n':
-                log.write(message[:-1])
-            else:
-                log.write(message)
+        with open(self.filename, 'a', newline='\n') as log:
+            log.write(message)
 
     def flush(self):
-        # this flush method is needed for python 3 compatibility.
-        # this handles the flush command by doing nothing.
-        # you might want to specify some extra behavior here.
         pass
 
 

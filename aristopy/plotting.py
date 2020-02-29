@@ -46,8 +46,8 @@ class Plotter:
 
         # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
         self.line_colors = ['black', 'red', 'blue', 'green', 'orange' 'brown']
-        # 'tab10' contains 10 discrete bar_colors (first from 0 to 0.099, ...)
-        self.bar_colors = plt.get_cmap('tab10')(np.linspace(0, 1, 10))
+        # 'tab10' contains 20 discrete bar_colors (first from 0 to 0.049, ...)
+        self.bar_colors = plt.get_cmap('tab20')(np.linspace(0, 1, 20))
         # Global properties dictionary:
         self.props = {'fig_width': 10, 'fig_height': 6,
                       'bar_width': 1, 'bar_lw': 0, 'line_lw': 2, 'period_lw': 0,

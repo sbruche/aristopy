@@ -10,6 +10,7 @@ import copy
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 import pandas as pd
+from numpy import nan
 import operator as oper
 import pyomo.environ as pyomo
 import pyomo.network as network
@@ -510,11 +511,11 @@ class Component(metaclass=ABCMeta):
                         self.ensys.solver.update_var(var_pyomo)
                 else:  # indexed variable
                     for idx in var_pyomo:
-                        if edit_domain == 1:
+                        if edit_domain:
                             var_pyomo[idx].domain = domain
-                        if edit_lb == 1:
+                        if edit_lb:
                             var_pyomo[idx].setlb(lb)
-                        if edit_ub == 1:
+                        if edit_ub:
                             var_pyomo[idx].setub(ub)
                         if self.ensys.is_persistent_model_declared and (
                                 edit_domain or edit_lb or edit_ub):
@@ -547,7 +548,7 @@ class Component(metaclass=ABCMeta):
         series = pd.Series({'BI_EX': bi_ex_val, 'BI_MODULE_EX': bi_mod_ex_val,
                             'CAP': cap_val})
         # Replace numpy NaNs that might occur here and there with None
-        series = series.replace({pd.np.nan: None})
+        series = series.replace({nan: None})
 
         return series
 

@@ -196,11 +196,10 @@ class Conversion(Component):
             start_cost_intra = -1 * ensys.pvf * self.start_up_cost * sum(
                 bi_su[p, t] * ensys.period_occurrences[p] for p, t in
                 pyM.time_set) / ensys.number_of_years
-            if self.use_inter_period_formulation:
+            if self.use_inter_period_formulation and ensys.is_data_clustered:
                 bi_su_inter = self.variables['BI_SU_INTER']['pyomo']
-                start_cost_inter = -1 * ensys.pvf * self.start_up_cost * sum(
-                    bi_su_inter[p] for p in ensys.periods
-                ) / ensys.number_of_years
+                start_cost_inter = -1 * ensys.pvf * self.start_up_cost * pyomo.\
+                    summation(bi_su_inter) / ensys.number_of_years
             else:
                 start_cost_inter = 0
             obj['start_up_cost'] = start_cost_intra + start_cost_inter

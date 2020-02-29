@@ -128,10 +128,11 @@ class EnergySystemModel:
         # The "is_persistent_model_declared" flag states if the model has been
         # declared and assigned to a persistent solver instance.
         self.pyM = None
-        self.solver_specs = {'solver': '', 'time_limit': None,  # Todo: Rework the specs (or remove them) -> especcuially remove solver???!!!
-                             'optimization_specs': '',
-                             'time_series_aggregation': False,
-                             'build_time': 0, 'solve_time': 0}
+        self.run_info = {'solver_name': '',
+                         'time_limit': None, 'optimization_specs': '',
+                         'model_build_time': 0, 'model_solve_time': 0,
+                         'upper_bound': 0, 'lower_bound': 0, 'sense': '',
+                         'solver_status': '', 'termination_condition': ''}
         self.solver = None
         self.is_model_declared = False
         self.is_persistent_model_declared = False
@@ -165,6 +166,7 @@ class EnergySystemModel:
                                                    'alternative_set', 'init',
                                                    'ub', 'lb', 'pyomo'])
         self.added_objective_function_contributions = {}
+        self.added_obj_contributions_results = {}
 
         self.log.info('Initializing EnergySystemModel completed!')
 
@@ -765,9 +767,9 @@ class EnergySystemModel:
             for key, val in self.added_objective_function_contributions.items():
                 obj_rule = getattr(self, key)  # get the function
                 obj_value = obj_rule(self.pyM)  # get returned value
-                # Overwrite the values of the dict
-                self.added_objective_function_contributions[key] = obj_value
-            return sum(self.added_objective_function_contributions.values())
+                # Add the values to the results dict (used to export results)
+                self.added_obj_contributions_results[key] = obj_value
+            return sum(self.added_obj_contributions_results.values())
 
         def objective(m):
             NPV = sum(comp.get_objective_function_contribution(self, pyM)
@@ -1155,10 +1157,8 @@ class EnergySystemModel:
         #   Built persistent model instance (if "persistent_model" is True)
         # **********************************************************************
         if persistent_model:
-            # Store keyword arguments in the EnergySystemModel instance
-            self.solver_specs['solver'] = persistent_solver
-            self.solver_specs['time_series_aggregation'] = \
-                time_series_aggregation
+            # Store persistent solver name
+            self.run_info['solver_name'] = persistent_solver
 
             # Call the persistent solver and assign the solver to "self.solver"
             time_persistent_start = time.time()
@@ -1175,7 +1175,7 @@ class EnergySystemModel:
         self.is_model_declared = True
 
         # Store the build time of the optimize function call in the instance
-        self.solver_specs['build_time'] = int(time.time() - time_start)
+        self.run_info['model_build_time'] = int(time.time() - time_start)
         self.log.info('    Time to declare optimization model: %.2f'
                       % (time.time() - time_start))
 
@@ -1271,19 +1271,18 @@ class EnergySystemModel:
                                    time_limit, optimization_specs, warmstart)
 
         # Store keyword arguments in the EnergySystemModel instance
-        self.solver_specs['time_limit'] = time_limit
-        self.solver_specs['optimization_specs'] = optimization_specs
-        self.solver_specs['time_series_aggregation'] = time_series_aggregation
+        self.run_info['time_limit'] = time_limit
+        self.run_info['optimization_specs'] = optimization_specs
 
         # **********************************************************************
         #   Solve the specified optimization problem
         # **********************************************************************
         # Call a solver from the SolverFactory if the model is not persistent
         if not self.is_persistent_model_declared:
-            self.solver_specs['solver'] = solver
+            self.run_info['solver_name'] = solver
             self.solver = opt.SolverFactory(solver)
         # Set the time limit if specified (only for solver gurobi)
-        if self.solver_specs['time_limit'] is not None and (
+        if self.run_info['time_limit'] is not None and (
                 (persistent_model and persistent_solver == 'gurobi_persistent')
                 or (not persistent_model and solver == 'gurobi')):
             self.solver.options['time_limit'] = time_limit
@@ -1303,10 +1302,19 @@ class EnergySystemModel:
             self.log.info('Solve non-persistent model using %s' % solver)
             solver_info = self.solver.solve(self.pyM, tee=True)
 
-        self.solver_specs['solve_time'] = int(time.time() - time_start)
-        self.log.info('Solver and problem status: \n %s %s'
-                      % (solver_info.solver(), solver_info.problem()))
-        self.log.info('Solve time: %d sec' % self.solver_specs['solve_time'])
+        # Print the solver summary to the screen
+        solver_info.write()
+
+        # Add solve results to the 'run_info' dict
+        self.run_info['upper_bound'] = solver_info.problem.upper_bound
+        self.run_info['lower_bound'] = solver_info.problem.lower_bound
+        self.run_info['sense'] = str(solver_info.problem.sense)
+        self.run_info['solver_status'] = str(solver_info.solver.status)
+        self.run_info['termination_condition'] = str(
+            solver_info.solver.termination_condition)
+
+        self.run_info['model_solve_time'] = int(time.time() - time_start)
+        self.log.info('Solve time: %d sec' % self.run_info['model_solve_time'])
 
         # **********************************************************************
         #   Export results to JSON
@@ -1343,7 +1351,7 @@ class EnergySystemModel:
 
         def get_added_obj_values():
             obj_values = {}
-            for key, val in self.added_objective_function_contributions.items():
+            for key, val in self.added_obj_contributions_results.items():
                 obj_values[key] = pyomo.value(val)
             return obj_values
 
@@ -1366,7 +1374,7 @@ class EnergySystemModel:
             ('components', components),
             ('arc_variables', get_arc_variable_values()),
             ('added_objective_function_contributions', get_added_obj_values()),
-            ('opt_results', self.solver_specs)
+            ('run_info', self.run_info)
         ])
 
 
