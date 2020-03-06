@@ -145,6 +145,14 @@ class Source(Component):
         # Get general required variables:
         basic_var = self.variables[self.basic_variable]['pyomo']
 
+        # Check if the component is completely unconnected. If this is True,
+        # don't use the objective function contributions of this component
+        # (could create infeasibilities!)
+        if len(self.var_connections.keys()) == 0:
+            self.log.warn('Found an unconnected component! Skipped possible '
+                          'objective function contributions.')
+            return 0
+
         # ---------------
         #   C A P E X
         # ---------------

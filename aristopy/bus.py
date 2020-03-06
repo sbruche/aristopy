@@ -25,7 +25,8 @@ class Bus(Component):
                  capacity=None, capacity_min=None, capacity_max=None,
                  # fix_existence=None, oder 1 oder 0
                  capex_per_capacity=0, capex_if_exist=0,
-                 opex_per_capacity=0, opex_if_exist=0, losses=0
+                 opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
+                 losses=0
                  ):
         """
         Initialize a bus component.
@@ -67,6 +68,7 @@ class Bus(Component):
                            )
 
         # Check and set bus (transmission) specific input arguments
+        self.opex_operation = utils.set_if_positive(opex_operation)
         self.losses = utils.set_if_between_zero_and_one(losses)  # relative loss
 
         # Declare create two variables. One for loading and one for unloading.
@@ -120,6 +122,15 @@ class Bus(Component):
         # Alias of the components' objective function dictionary
         obj = self.comp_obj_dict
 
+        # Get the inlet variable:
+        inlet_var = self.variables[self.inlet_variable]['pyomo']
+        # Check if the bus is unconnected. If this is True, don't calculate the
+        # objective function contributions (could create infeasibilities!)
+        if len(self.var_connections.keys()) == 0:
+            self.log.warn('Found an unconnected component! Skipped possible '
+                          'objective function contributions.')
+            return 0
+
         # ---------------
         #   C A P E X
         # ---------------
@@ -144,6 +155,12 @@ class Bus(Component):
         if self.opex_if_exist > 0:
             bi_ex = self.variables[self.bi_ex]['pyomo']
             obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
+
+        # OPEX for operating the bus: Associated with the INLET variable!
+        if self.opex_operation > 0:
+            obj['opex_operation'] = -1 * ensys.pvf * self.opex_operation * sum(
+                inlet_var[p, t] * ensys.period_occurrences[p] for p, t in
+                pyM.time_set) / ensys.number_of_years
 
         return sum(obj.values())
 

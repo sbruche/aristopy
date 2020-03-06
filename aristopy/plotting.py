@@ -47,11 +47,16 @@ class Plotter:
         # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
         self.line_colors = ['black', 'red', 'blue', 'green', 'orange' 'brown']
         # 'tab10' contains 20 discrete bar_colors (first from 0 to 0.049, ...)
-        self.bar_colors = plt.get_cmap('tab20')(np.linspace(0, 1, 20))
+        # Todo: Simply use a colormap and divide it according to needed colors
+        # Extended the available colors with Dark and Accent...
+        self.bar_colors = np.r_[plt.get_cmap('tab20')(np.linspace(0, 1, 20)),
+                                plt.get_cmap('Dark2')(np.linspace(0, 1, 8)),
+                                plt.get_cmap('Accent')(np.linspace(0, 1, 8))]
         # Global properties dictionary:
         self.props = {'fig_width': 10, 'fig_height': 6,
                       'bar_width': 1, 'bar_lw': 0, 'line_lw': 2, 'period_lw': 0,
                       'xlabel': 'Time steps [-]', 'ylabel': '',
+                      'xticks_rotation': 0,
                       'grid': False, 'lgd_ncol': 1, 'lgd_pos': 'best',
                       'save_pgf': False, 'save_pdf': False,
                       'save_png': True, 'dpi': 200, 'pad_inches': None}
@@ -73,6 +78,7 @@ class Plotter:
         props = copy.copy(self.props)
         props['xlabel'] = None  # default
         props['ylabel'] = 'Objective function value (contribution)'  # default
+        props['bar_width'] = 0.8  # default
         # Overwrite props with local kwargs if specified and found.
         for key, val in kwargs.items():
             if key in props.keys():
@@ -85,9 +91,15 @@ class Plotter:
         for comp_name, comp_data in self.data['components'].items():
             # ORDER: capex, opex, start_up, commodity_cost, commodity_revenues
             data = comp_data['comp_obj_dict']
+
+            # Skip the component in the plot if all obj. entries are zero:
+            if sum(abs(i) for i in data.values()) == 0:
+                continue
+
             obj_data[comp_name] = \
                 [data['capex_capacity'] + data['capex_exist'],
-                 data['opex_capacity'] + data['opex_exist'],
+                 data['opex_capacity'] + data['opex_exist'] + data[
+                     'opex_operation'],
                  data['start_up_cost'],
                  data['com_cost_time_indep'] + data['com_cost_time_dep'],
                  data['com_rev_time_indep'] + data['com_rev_time_dep']]
@@ -101,7 +113,8 @@ class Plotter:
         # If objective function contributions have been added via method
         # 'add_objective_function_contribution' in EnergySystemModel:
         added_obj = self.data['added_objective_function_contributions']
-        if added_obj:  # is not empty
+        # if dict is not empty and if the sum of all (abs) entries is not zero
+        if added_obj and sum(abs(i) for i in added_obj.values()) != 0:
             names.append('Added')
             labels.extend(added_obj.keys())
             add_rows = np.zeros(shape=(len(added_obj.keys()), values.shape[1]))
@@ -150,6 +163,7 @@ class Plotter:
         # Add horizontal line at y=0
         ax.axhline(0, color='black', lw=0.8)
 
+        ax.tick_params(axis='x', labelrotation=props['xticks_rotation'])
         ax.set_xlabel(props['xlabel'])
         ax.set_ylabel(props['ylabel'])
         ax.legend(ncol=props['lgd_ncol'], loc=props['lgd_pos'],
@@ -172,7 +186,8 @@ class Plotter:
         plt.close()
 
     # --------------------------------------------------------------------------
-    def quick_plot(self, component_name, variable_name, kind='bar'):
+    def quick_plot(self, component_name, variable_name, kind='bar',
+                   save_plot=False):
         # Set the component and try to find values for the requested var / param
         self.comp = component_name
         data = self._get_values(variable_name)
@@ -194,6 +209,7 @@ class Plotter:
 
         ax.set_xticks(range(len(data)))
         ax.set_xticklabels(list(data.keys()))
+        ax.tick_params(axis='x', labelrotation=self.props['xticks_rotation'])
         ax.set_title('Quickplot for component "{}"'.format(component_name),
                      size=16, color='black', ha='center')
         ax.set_xlabel('Time index [period, time step]')
@@ -201,7 +217,11 @@ class Plotter:
         # ax.grid(which='major', linestyle='--', zorder=0)
         ax.legend(framealpha=0.8, edgecolor='black').set_zorder(100)
         fig.tight_layout()
-        plt.show()
+        if save_plot:
+            fig.savefig('{}_{}.png'.format(component_name, variable_name),
+                        dpi=200)
+        else:
+            plt.show()
 
     # --------------------------------------------------------------------------
     def plot_operation(self, component_name, commodity, level_of_detail=2,
@@ -353,6 +373,8 @@ class Plotter:
 
                 # Plot stacked bars on inlet port:
                 for i, val in enumerate(arc_in_data):
+                    if np.sum(val) == 0:  # skip components with all zeros
+                        continue
                     ax.bar(idx, val, props['bar_width'],
                            bottom=arc_in_data[:i].sum(axis=0), align='edge',
                            label=arc_in_names[i], zorder=5,
@@ -361,6 +383,8 @@ class Plotter:
 
                 # Plot stacked bars on outlet port:
                 for i, val in enumerate(arc_out_data):
+                    if np.sum(val) == 0:  # skip components with all zeros
+                        continue
                     ax.bar(idx, val, props['bar_width'],
                            bottom=arc_out_data[:i].sum(axis=0), align='edge',
                            label=arc_out_names[i], zorder=5,
@@ -436,6 +460,7 @@ class Plotter:
             ax.set_title('PLOTTING FAILED!', size=40, color='red', ha='center')
             print('*** Exception detected while trying to plot:', e)
 
+        ax.tick_params(axis='x', labelrotation=props['xticks_rotation'])
         ax.set_xlabel(props['xlabel'])
         ax.set_ylabel(props['ylabel'])
         ax.legend(ncol=props['lgd_ncol'], loc=props['lgd_pos'],

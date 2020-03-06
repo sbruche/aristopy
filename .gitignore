@@ -5,6 +5,7 @@ __pycache__/
 archiv/
 examples/
 data/
+calculations_oeb-ensys/
 *.build/
 *.dist/
 *.doc/build/
