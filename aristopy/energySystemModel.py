@@ -1075,12 +1075,13 @@ class EnergySystemModel:
         # Call model transformation factory: Expand the arcs
         pyomo.TransformationFactory("network.expand_arcs").apply_to(pyM)
 
+        # Workaround for Pyomo-Versions before 5.6.9:
         # Get all constraints that end with '_split' and deactivate them
         # --> Workaround for Port.Extensive function with indexed variables
         # See: https://groups.google.com/forum/#!topic/pyomo-forum/LaoKMhyu9pA
-        for c in pyM.component_objects(pyomo.Constraint, active=True):
-            if c.name.endswith('_split'):
-                c.deactivate()
+        # for c in pyM.component_objects(pyomo.Constraint, active=True):
+        #     if c.name.endswith('_split'):
+        #         c.deactivate()
 
         # **********************************************************************
         #   Declare additional pyomo objects, added by:

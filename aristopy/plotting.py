@@ -93,7 +93,7 @@ class Plotter:
             data = comp_data['comp_obj_dict']
 
             # Skip the component in the plot if all obj. entries are zero:
-            if sum(abs(i) for i in data.values()) == 0:
+            if sum(abs(i) for i in data.values()) <= 0.01:  # rounding errors
                 continue
 
             obj_data[comp_name] = \
@@ -373,7 +373,7 @@ class Plotter:
 
                 # Plot stacked bars on inlet port:
                 for i, val in enumerate(arc_in_data):
-                    if np.sum(val) == 0:  # skip components with all zeros
+                    if abs(np.sum(val)) <= 0.01:  # skip components with zeros
                         continue
                     ax.bar(idx, val, props['bar_width'],
                            bottom=arc_in_data[:i].sum(axis=0), align='edge',
@@ -383,7 +383,7 @@ class Plotter:
 
                 # Plot stacked bars on outlet port:
                 for i, val in enumerate(arc_out_data):
-                    if np.sum(val) == 0:  # skip components with all zeros
+                    if abs(np.sum(val)) <= 0.01:  # skip components with zeros
                         continue
                     ax.bar(idx, val, props['bar_width'],
                            bottom=arc_out_data[:i].sum(axis=0), align='edge',

@@ -805,7 +805,8 @@ class Component(metaclass=ABCMeta):
             setattr(self.pyB, port_name, network.Port())
             # Add variable to port
             port = getattr(self.pyB, port_name)
-            port.add(getattr(self.pyB, var_name), commod, port.Extensive)
+            port.add(getattr(self.pyB, var_name), commod,
+                     network.Port.Extensive, include_splitfrac=False)
 
         # Create outlet ports
         for commod, var_name in self.outlet_ports_and_vars.items():
@@ -814,7 +815,8 @@ class Component(metaclass=ABCMeta):
             setattr(self.pyB, port_name, network.Port())
             # Add variable to port
             port = getattr(self.pyB, port_name)
-            port.add(getattr(self.pyB, var_name), commod, port.Extensive)
+            port.add(getattr(self.pyB, var_name), commod,
+                     network.Port.Extensive, include_splitfrac=False)
 
     def declare_component_user_constraints(self, pyM):
         reserved_chars = ['*', '/', '+', '-', '(', ')', '==', '>=', '<=', '**']
