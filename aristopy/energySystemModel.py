@@ -18,6 +18,7 @@ from tsam.timeseriesaggregation import TimeSeriesAggregation
 
 from aristopy import utils, logger
 
+# This is a test change in the local git branch "redesign"!
 
 # The EnergySystemModel is the main model container. An instance of the
 # EnergySystemModel class holds the modelled components, the overall pyomo
