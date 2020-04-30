@@ -9,6 +9,7 @@ calculations_oeb-ensys/
 *.build/
 *.dist/
 *.doc/build/
+tests/temp/*
 
 # ignore file types 
 *.pyc

@@ -1,3 +1,4 @@
+import os
 import copy
 import json
 import ast
@@ -18,6 +19,11 @@ from aristopy import utils
 
 class Plotter:
     def __init__(self, json_file):
+
+        # Leave if no results file available
+        if not os.path.isfile(json_file):
+            self.data = None
+            return
 
         self.json_file = json_file  # name / path to the json-file
 
@@ -73,6 +79,8 @@ class Plotter:
         :param kwargs:
         :return:
         """
+        if self.data is None:
+            return
 
         # Get the global plotting properties of the Plotter class (defaults)
         props = copy.copy(self.props)
@@ -187,7 +195,10 @@ class Plotter:
 
     # --------------------------------------------------------------------------
     def quick_plot(self, component_name, variable_name, kind='bar',
-                   save_plot=False):
+                   save_plot=False, file_name=None):
+        if self.data is None:
+            return
+
         # Set the component and try to find values for the requested var / param
         self.comp = component_name
         data = self._get_values(variable_name)
@@ -218,8 +229,9 @@ class Plotter:
         ax.legend(framealpha=0.8, edgecolor='black').set_zorder(100)
         fig.tight_layout()
         if save_plot:
-            fig.savefig('{}_{}.png'.format(component_name, variable_name),
-                        dpi=200)
+            f_name = file_name + '.png' if file_name is not None \
+                else '{}_{}.png'.format(component_name, variable_name)
+            fig.savefig(f_name, dpi=200)
         else:
             plt.show()
 
@@ -242,6 +254,8 @@ class Plotter:
         :param kwargs:
         :return:
         """
+        if self.data is None:
+            return
 
         # Check the user input:
         utils.check_plot_operation_input(

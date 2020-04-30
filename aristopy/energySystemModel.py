@@ -6,6 +6,7 @@
 * Last edited: 2020-01-01
 * Created by: Stefan Bruche (TU Berlin)
 """
+import os
 import time
 import json
 from collections import OrderedDict
@@ -151,6 +152,7 @@ class EnergySystemModel:
         # the specified inlets and outlets and the connecting commodity:
         # {arc_name: [source instance, destination instance, commodity_name]}
         self.component_connections = {}  # {arc_name: [src, dest, commodity]}
+        # Todo: Add a warning if the ensys model has unconnected components!
 
         # 'component_configuration' is a pandas Dataframe to store basic results
         # of the availability and capacity of the modelled components. It is
@@ -1187,7 +1189,7 @@ class EnergySystemModel:
                  persistent_model=False, persistent_solver='gurobi_persistent',
                  time_series_aggregation=False, solver='gurobi',
                  time_limit=None, optimization_specs='', warmstart=False,
-                 results_file='results.json'):
+                 results_file='results.json', tee=True):
         """
         Optimize the specified energy system for which a pyomo ConcreteModel
         instance is built or called upon.
@@ -1245,7 +1247,11 @@ class EnergySystemModel:
         :type warmstart: boolean
 
         :param results_file: Name of the results file (format: .json)
-        :type results_file: string
+        :type results_file: string or None
+
+        :param tee: Show solver output
+            |br| * Default: True
+        :type tee: Boolean
         """
         self.log.info('Call of function "optimize"')
 
@@ -1294,17 +1300,17 @@ class EnergySystemModel:
             self.solver.set_options(optimization_specs)
             self.log.info('Solve non-persistent model using %s' % solver)
             solver_info = self.solver.solve(self.pyM, warmstart=warmstart,
-                                            tee=True)
+                                            tee=tee)
         elif self.is_persistent_model_declared:
             self.log.info('Solve persistent model using %s' % solver)
             self.solver.set_options(optimization_specs)
-            solver_info = self.solver.solve(tee=True)
+            solver_info = self.solver.solve(tee=tee)
         else:
             self.log.info('Solve non-persistent model using %s' % solver)
-            solver_info = self.solver.solve(self.pyM, tee=True)
+            solver_info = self.solver.solve(self.pyM, tee=tee)
 
         # Print the solver summary to the screen
-        solver_info.write()
+        # solver_info.write()
 
         # Add solve results to the 'run_info' dict
         self.run_info['upper_bound'] = solver_info.problem.upper_bound
@@ -1320,9 +1326,16 @@ class EnergySystemModel:
         # **********************************************************************
         #   Export results to JSON
         # **********************************************************************
-        # Write results to a json-file
-        with open(results_file, 'w') as f:
-            f.write(json.dumps(self.serialize(), indent=2))
+        # Write results to a json-file with a specified name.
+        # Delete the results_file if exception is thrown.
+        if results_file:
+            try:
+                with open(results_file, 'w') as f:
+                    f.write(json.dumps(self.serialize(), indent=2))
+            except (ValueError or json.JSONDecodeError):
+                self.log.error('Problem encountered while writing json-export.')
+                if os.path.isfile(results_file):
+                    os.remove(results_file)
 
     # ==========================================================================
     #   Serialize the content of the class instance and its components

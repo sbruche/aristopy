@@ -3,5 +3,7 @@ numpy>=1.11.3
 pyomo>=5.6.9
 tsam>=1.0.3
 xlrd>=1.0.0
-sphinx_rtd_theme>=0.4.3
+openpyxl
 matplotlib
+sphinx_rtd_theme>=0.4.3
+pytest
