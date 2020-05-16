@@ -1,3 +1,18 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+** The solar classes **
+
+Please note: The classes SolarData, SolarThermalCollector and PVSystem require
+the availability of the Python module 'pvLib'. The module is not provided with
+the standard installation of aristopy. If you want to use the solar classes,
+consider installing the module in your current environment, e.g., via
+>> pip install pvlib
+For further information see: https://pvlib-python.readthedocs.io/en/stable/
+
+* Last edited: 2020-06-01
+* Created by: Stefan Bruche (TU Berlin)
+"""
 import pandas as pd
 try:
     import pvlib
