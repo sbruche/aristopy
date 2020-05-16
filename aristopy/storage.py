@@ -374,8 +374,9 @@ class Storage(Component):
 
     def con_soc_inter_period_balance(self, ensys, pyM):
         """
-        Eq. VIII
-
+        Calculate next inter-period SOC from the previous one and the SOC in the
+        last intra-period time step. Also account for self-discharge losses
+        associated with SOC_INTER --> results in steps in the overall SOC line!
         """
         if self.use_inter_period_formulation and ensys.is_data_clustered:
             # Get variables:

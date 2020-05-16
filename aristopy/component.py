@@ -247,6 +247,11 @@ class Component(metaclass=ABCMeta):
     def __repr__(self):
         return '<Component: "%s">' % self.name
 
+    def pprint(self):
+        """ Easy access to pretty print functionality of pyomo model Block """
+        if isinstance(self.pyB, pyomo.Block):
+            self.pyB.pprint()
+
     # ==========================================================================
     #    A D D   C O M P O N E N T   T O   T H E   E N S Y S - M O D E L
     # ==========================================================================
