@@ -12,4 +12,5 @@ from .storage import Storage
 from .bus import Bus
 from .logger import Logger
 from .utils import check_logger_input
+from .solar import SolarData, SolarThermalCollector, PVSystem
 from .plotting import Plotter
