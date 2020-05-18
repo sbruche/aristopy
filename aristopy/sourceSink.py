@@ -17,7 +17,8 @@ from aristopy import utils
 class Source(Component):
     # Source components transfer commodities over the boundary into the system.
     def __init__(self, ensys, name, basic_commodity, outlet_connections=None,
-                 existence_binary_var=None, operation_binary_var=None,
+                 outlets=None,
+                 has_existence_binary_var=False, has_operation_binary_var=False,
                  commodity_rate_min=None, commodity_rate_max=None,
                  commodity_rate_fix=None,
                  time_series_data=None, time_series_weights=None,
@@ -36,8 +37,8 @@ class Source(Component):
         :param name:
         :param basic_commodity:
         :param outlet_connections:
-        :param existence_binary_var:
-        :param operation_binary_var: **Should not be used in this Component!**
+        :param has_existence_binary_var:
+        :param has_operation_binary_var: Should not be used in this Component!
         :param commodity_rate_min:
         :param commodity_rate_max:
         :param commodity_rate_fix:
@@ -61,8 +62,8 @@ class Source(Component):
         """
 
         Component.__init__(self, ensys, name, basic_commodity,
-                           existence_binary_var=existence_binary_var,
-                           operation_binary_var=operation_binary_var,
+                           has_existence_binary_var=has_existence_binary_var,
+                           has_operation_binary_var=has_operation_binary_var,
                            time_series_data=time_series_data,
                            time_series_weights=time_series_weights,
                            scalar_params=scalar_params,
@@ -158,24 +159,24 @@ class Source(Component):
         # ---------------
         # CAPEX depending on capacity
         if self.capex_per_capacity > 0:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
 
             # CAPEX depending on existence of component
         if self.capex_if_exist > 0:
-            bi_ex = self.variables[self.bi_ex]['pyomo']
+            bi_ex = self.variables['BI_EX']['pyomo']
             obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
         # ---------------
         #   O P E X
         # ---------------
         # OPEX depending on capacity
         if self.opex_per_capacity > 0:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
 
         # OPEX depending on existence of sink / source
         if self.opex_if_exist > 0:
-            bi_ex = self.variables[self.bi_ex]['pyomo']
+            bi_ex = self.variables['BI_EX']['pyomo']
             obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
 
         # OPEX for operating the sink / source
@@ -228,9 +229,9 @@ class Source(Component):
         ``Q[p, t] <= Q_CAP * dt``
         """
         # Only required if component has a capacity variable
-        if self.capacity_variable is not None:
+        if self.has_capacity_var:
             # Get variables:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
             dt = self.ensys.hours_per_time_step
 
@@ -315,7 +316,7 @@ class Source(Component):
 class Sink(Source):
     # Sink components transfer commodities over the boundary out of the system.
     def __init__(self, ensys, name, basic_commodity, inlet_connections=None,
-                 existence_binary_var=None, operation_binary_var=None,
+                 has_existence_binary_var=None, has_operation_binary_var=None,
                  commodity_rate_min=None, commodity_rate_max=None,
                  commodity_rate_fix=None,
                  time_series_data=None, time_series_weights=None,
@@ -337,8 +338,8 @@ class Sink(Source):
         """
 
         Source.__init__(self, ensys, name, basic_commodity,
-                        existence_binary_var=existence_binary_var,
-                        operation_binary_var=operation_binary_var,
+                        has_existence_binary_var=has_existence_binary_var,
+                        has_operation_binary_var=has_operation_binary_var,
                         commodity_rate_min=commodity_rate_min,
                         commodity_rate_max=commodity_rate_max,
                         commodity_rate_fix=commodity_rate_fix,

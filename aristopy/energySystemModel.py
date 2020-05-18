@@ -495,7 +495,7 @@ class EnergySystemModel:
                                     icc_expr += (1 - var_bi_mod_ex[idx])
 
                 # If existence binaries should be used and are available in comp
-                if include_existence and comp.bi_ex is not None:
+                if include_existence and comp.has_bi_ex:
                     # ----------------------------------------------------------
                     # *** Special case: ***
                     # If a component has a binary existence variable and binary
@@ -517,7 +517,7 @@ class EnergySystemModel:
                         continue
                     # ----------------------------------------------------------
                     # Check if variable is constructed and has a value
-                    var_bi_ex = comp.variables[comp.bi_ex]['pyomo']
+                    var_bi_ex = comp.variables['BI_EX']['pyomo']
                     if var_bi_ex is not None and var_bi_ex.value is not None:
                         # Append variable to ICC expression
                         if var_bi_ex.value < 0.5:

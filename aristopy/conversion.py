@@ -15,7 +15,7 @@ class Conversion(Component):
     # A Conversion component converts commodities into each other.
     def __init__(self, ensys, name, basic_commodity,
                  inlet_connections=None, outlet_connections=None,
-                 existence_binary_var=None, operation_binary_var=None,
+                 has_existence_binary_var=None, has_operation_binary_var=None,
                  time_series_data=None, time_series_weights=None,
                  scalar_params=None, additional_vars=None,
                  user_expressions=None,
@@ -35,8 +35,8 @@ class Conversion(Component):
         :param basic_commodity:
         :param inlet_connections:
         :param outlet_connections:
-        :param existence_binary_var:
-        :param operation_binary_var:
+        :param has_existence_binary_var:
+        :param has_operation_binary_var:
         :param time_series_data:
         :param time_series_weights:
         :param scalar_params:
@@ -60,8 +60,8 @@ class Conversion(Component):
         """
 
         Component.__init__(self, ensys, name, basic_commodity,
-                           existence_binary_var=existence_binary_var,
-                           operation_binary_var=operation_binary_var,
+                           has_existence_binary_var=has_existence_binary_var,
+                           has_operation_binary_var=has_operation_binary_var,
                            time_series_data=time_series_data,
                            time_series_weights=time_series_weights,
                            scalar_params=scalar_params,
@@ -88,7 +88,7 @@ class Conversion(Component):
         if min_load_rel is not None:
             utils.is_positive_number(min_load_rel)
             assert min_load_rel <= 1, 'Maximal value for "min_load_rel" is 1!'
-            if self.bi_op is None:
+            if not self.has_bi_op:
                 raise ValueError('Minimal part-loads require the availability '
                                  'of a binary operation variable.')
         self.min_load_rel = min_load_rel
@@ -100,7 +100,7 @@ class Conversion(Component):
         self.use_inter_period_formulation = use_inter_period_formulation
 
         if self.start_up_cost != 0:
-            if self.bi_op is None:
+            if not self.has_bi_op:
                 raise ValueError('Start-up cost require the availability '
                                  'of a binary operation variable.')
             # Else: add Start-up binary variable
@@ -162,24 +162,24 @@ class Conversion(Component):
         # ---------------
         # CAPEX depending on capacity
         if self.capex_per_capacity > 0:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
 
         # CAPEX depending on existence of component
         if self.capex_if_exist > 0:
-            bi_ex = self.variables[self.bi_ex]['pyomo']
+            bi_ex = self.variables['BI_EX']['pyomo']
             obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
         # ---------------
         #   O P E X
         # ---------------
         # OPEX depending on capacity
         if self.opex_per_capacity > 0:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
 
         # OPEX depending on existence of component
         if self.opex_if_exist > 0:
-            bi_ex = self.variables[self.bi_ex]['pyomo']
+            bi_ex = self.variables['BI_EX']['pyomo']
             obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
 
         # OPEX for operating the conversion unit
@@ -213,11 +213,11 @@ class Conversion(Component):
         TODO: Add description!
         """
         if self.number_in_group > 1 and self.group_has_existence_order:
-            bi_ex = self.variables[self.bi_ex]['pyomo']
+            bi_ex = self.variables['BI_EX']['pyomo']
             # Get 'bi_ex' of the previous component in the sequence
             prior = self.group_name + '_{}'.format(self.number_in_group - 1)
             prior_comp = ensys.components[prior]
-            bi_ex_prior = prior_comp.variables[prior_comp.bi_ex]['pyomo']
+            bi_ex_prior = prior_comp.variables['BI_EX']['pyomo']
 
             def con_existence_sym_break(m):
                 return bi_ex <= bi_ex_prior
@@ -233,10 +233,10 @@ class Conversion(Component):
         """
         if self.number_in_group > 1 and self.group_has_operation_order:
             # Get variables:
-            bi_op = self.variables[self.bi_op]['pyomo']
+            bi_op = self.variables['BI_OP']['pyomo']
             prior = self.group_name + '_{}'.format(self.number_in_group - 1)
             prior_comp = ensys.components[prior]
-            bi_op_prior = prior_comp.variables[prior_comp.bi_op]['pyomo']
+            bi_op_prior = prior_comp.variables['BI_OP']['pyomo']
 
             def con_operation_sym_break(m, p, t):
                 return bi_op[p, t] <= bi_op_prior[p, t]
@@ -251,9 +251,9 @@ class Conversion(Component):
         ``Q[p, t] <= Q_CAP * dt``
         """
         # Only required if component has a capacity variable
-        if self.capacity_variable is not None:
+        if self.has_capacity_var:
             # Get variables:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
             dt = self.ensys.hours_per_time_step
 
@@ -274,7 +274,7 @@ class Conversion(Component):
         if self.min_load_rel is not None:
             if self.capacity is not None:  # fixed capacity!
 
-                bi_op = self.variables[self.bi_op]['pyomo']
+                bi_op = self.variables['BI_OP']['pyomo']
                 basic_var = self.variables[self.basic_variable]['pyomo']
                 cap = self.capacity
                 min_load = self.min_load_rel
@@ -304,12 +304,12 @@ class Conversion(Component):
         (bi_op=1) from one time step to the next, the binary start-up variable
         must take a value of 1. For shut-down and remaining ON or OFF, status
         variable can take both values but objective function forces it to be 0.
-        E.g.: |br| ``0 <= BI_OP[t-1] - BI_OP[t] + BI_SU[t]``
+        |br| ``0 <= BI_OP[t-1] - BI_OP[t] + BI_SU[t]``
         """
         # Only if the start-up cost value is larger than 0
         if self.start_up_cost > 0:
             # Get binary variables:
-            bi_op = self.variables[self.bi_op]['pyomo']
+            bi_op = self.variables['BI_OP']['pyomo']
             bi_su = self.variables['BI_SU']['pyomo']
 
             def con_start_up_cost(m, p, t):
@@ -329,7 +329,7 @@ class Conversion(Component):
         if self.start_up_cost > 0 and self.use_inter_period_formulation \
                 and ensys.is_data_clustered:
             # Get binary variables:
-            bi_op = self.variables[self.bi_op]['pyomo']
+            bi_op = self.variables['BI_OP']['pyomo']
             bi_su_inter = self.variables['BI_SU_INTER']['pyomo']
 
             def con_start_up_cost_inter(m, p):

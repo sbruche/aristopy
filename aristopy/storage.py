@@ -16,7 +16,7 @@ class Storage(Component):
     # Storage components store commodities and transfer them between time steps.
     def __init__(self, ensys, name, basic_commodity,
                  inlet_connections=None, outlet_connections=None,
-                 existence_binary_var=None,
+                 has_existence_binary_var=False,
                  time_series_data=None, time_series_weights=None,
                  scalar_params=None, additional_vars=None,
                  user_expressions=None,
@@ -39,7 +39,7 @@ class Storage(Component):
         :param basic_commodity:
         :param inlet_connections:
         :param outlet_connections:
-        :param existence_binary_var:
+        :param has_existence_binary_var:
         :param time_series_data:
         :param time_series_weights:
         :param scalar_params:
@@ -69,7 +69,7 @@ class Storage(Component):
             capacity_max = 1e6
 
         Component.__init__(self, ensys, name, basic_commodity,
-                           existence_binary_var=existence_binary_var,
+                           has_existence_binary_var=has_existence_binary_var,
                            time_series_data=time_series_data,
                            time_series_weights=time_series_weights,
                            scalar_params=scalar_params,
@@ -199,24 +199,24 @@ class Storage(Component):
         # ---------------
         # CAPEX depending on capacity
         if self.capex_per_capacity > 0:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
 
         # CAPEX depending on existence of component
         if self.capex_if_exist > 0:
-            bi_ex = self.variables[self.bi_ex]['pyomo']
+            bi_ex = self.variables['BI_EX']['pyomo']
             obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
         # ---------------
         #   O P E X
         # ---------------
         # OPEX depending on capacity
         if self.opex_per_capacity > 0:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
 
         # OPEX depending on existence of storage unit
         if self.opex_if_exist > 0:
-            bi_ex = self.variables[self.bi_ex]['pyomo']
+            bi_ex = self.variables['BI_EX']['pyomo']
             obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
 
         # OPEX for charging and discharging the storage
@@ -238,7 +238,7 @@ class Storage(Component):
         ``Q_SOC[p, t] <= Q_CAP``
         """
         # Get variables:
-        cap = self.variables[self.capacity_variable]['pyomo']
+        cap = self.variables['CAP']['pyomo']
         soc = self.variables[self.soc_variable]['pyomo']
 
         def con_operation_limit(m, p, t):
@@ -273,7 +273,7 @@ class Storage(Component):
         """
         XXX
         """
-        cap = self.variables[self.capacity_variable]['pyomo']
+        cap = self.variables['CAP']['pyomo']
         charge = self.variables[self.charge_variable]['pyomo']
         dt = ensys.hours_per_time_step
 
@@ -287,7 +287,7 @@ class Storage(Component):
         """
         XXX
         """
-        cap = self.variables[self.capacity_variable]['pyomo']
+        cap = self.variables['CAP']['pyomo']
         discharge = self.variables[self.discharge_variable]['pyomo']
         dt = ensys.hours_per_time_step
 
@@ -336,7 +336,7 @@ class Storage(Component):
         if self.soc_initial is not None:
             # Get variables:
             soc = self.variables[self.soc_variable]['pyomo']
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
 
             if self.use_inter_period_formulation and ensys.is_data_clustered:
                 soc_inter = self.variables[self.soc_inter_variable]['pyomo']
@@ -403,7 +403,7 @@ class Storage(Component):
         if not self.use_inter_period_formulation or not ensys.is_data_clustered:
             # Get variables:
             soc = self.variables[self.soc_variable]['pyomo']
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
 
             # Todo: Causes errors when calculating iteratively because this
             #  formulation changes the bounds permanently to NonNegativeReals.
@@ -454,7 +454,7 @@ class Storage(Component):
 
             # Get variables:
             soc = self.variables[self.soc_variable]['pyomo']
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             soc_max = self.variables[self.soc_max_variable]['pyomo']
             soc_min = self.variables[self.soc_min_variable]['pyomo']
             soc_inter = self.variables[self.soc_inter_variable]['pyomo']
@@ -511,7 +511,7 @@ class Storage(Component):
 
             # Get variables:
             soc = self.variables[self.soc_variable]['pyomo']
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             soc_inter = self.variables[self.soc_inter_variable]['pyomo']
             dt = ensys.hours_per_time_step
 

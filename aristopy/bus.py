@@ -17,7 +17,7 @@ class Bus(Component):
     # They can also be used to model transmission lines between different sites.
     def __init__(self, ensys, name, basic_commodity,
                  inlet_connections=None, outlet_connections=None,
-                 existence_binary_var=None,
+                 has_existence_binary_var=None,
                  time_series_data=None,
                  time_series_weights=None,
                  scalar_params=None, additional_vars=None,
@@ -36,7 +36,7 @@ class Bus(Component):
         :param basic_commodity:
         :param inlet_connections:
         :param outlet_connections:
-        :param existence_binary_var:
+        :param has_existence_binary_var:
         :param time_series_data:
         :param time_series_weights:
         :param scalar_params:
@@ -53,7 +53,7 @@ class Bus(Component):
         """
 
         Component.__init__(self, ensys, name, basic_commodity,
-                           existence_binary_var=existence_binary_var,
+                           has_existence_binary_var=has_existence_binary_var,
                            time_series_data=time_series_data,
                            time_series_weights=time_series_weights,
                            scalar_params=scalar_params,
@@ -136,24 +136,24 @@ class Bus(Component):
         # ---------------
         # CAPEX depending on capacity
         if self.capex_per_capacity > 0:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
 
         # CAPEX depending on existence of component
         if self.capex_if_exist > 0:
-            bi_ex = self.variables[self.bi_ex]['pyomo']
+            bi_ex = self.variables['BI_EX']['pyomo']
             obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
         # ---------------
         #   O P E X
         # ---------------
         # OPEX depending on capacity
         if self.opex_per_capacity > 0:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
 
         # OPEX depending on existence of component
         if self.opex_if_exist > 0:
-            bi_ex = self.variables[self.bi_ex]['pyomo']
+            bi_ex = self.variables['BI_EX']['pyomo']
             obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
 
         # OPEX for operating the bus: Associated with the INLET variable!
@@ -174,9 +174,9 @@ class Bus(Component):
         E.g.: |br| ``Q_IN[p, t] <= Q_CAP * dt``
         """
         # Only required if component has a capacity variable
-        if self.capacity_variable is not None:
+        if self.has_capacity_var:
             # Get variables:
-            cap = self.variables[self.capacity_variable]['pyomo']
+            cap = self.variables['CAP']['pyomo']
             inlet_var = self.variables[self.inlet_variable]['pyomo']
             dt = self.ensys.hours_per_time_step
 

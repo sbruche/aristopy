@@ -30,7 +30,7 @@ def test_export_and_plot():
     chp = ar.Conversion(ensys=es, name='chp', basic_commodity='Q',
                         inlet_connections={'F': 'gas_src'},
                         outlet_connections={'Q': 'bus', 'P': 'elec_snk'},
-                        capex_per_capacity=600e3, operation_binary_var='BI_OP',
+                        capex_per_capacity=600e3, has_operation_binary_var=True,
                         start_up_cost=10e3, min_load_rel=0.5,
                         capacity=4, user_expressions=['Q_OUT == 0.5 * F_IN',
                                                       'P_OUT == 0.4 * F_IN'])
