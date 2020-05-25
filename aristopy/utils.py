@@ -13,6 +13,40 @@ import pyomo.environ as pyomo
 import aristopy
 
 
+def check_and_set_flows(data):
+    """
+    Function to check if the provided data for inlet and outlet keywords only
+    contains instances of aristopy's Flow class.
+
+    :return: list of aristopy flow instances
+    """
+    exception = ValueError("Invalid data type for inlet or outlet argument! "
+                           "Please provide instances of aristopy's Flow class!")
+    if data is None:
+        return []
+    elif isinstance(data, aristopy.Flow):
+        return [data]
+    elif isinstance(data, list):
+        flow_list = []
+        for item in data:
+            if isinstance(item, aristopy.Flow):
+                # Loop again over list and check if multiple Flows with same
+                # commodity but different variable names are provided in a comp.
+                # E.g. prevent, inlet=[ar.Flow('COMM_1', 'snk_1', 'NAME_1'),
+                #                      ar.Flow('COMM_1', 'snk_2', 'NAME_2')]
+                for flow in flow_list:
+                    if flow.commodity == item.commodity and \
+                            flow.var_name != item.var_name:
+                        raise ValueError('Found Flows with same commodity but '
+                                         'different variable names in a comp.')
+                flow_list.append(item)
+            else:
+                raise exception
+        return flow_list
+    else:
+        raise exception
+
+
 def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
                           aggregate_by='sum'):
     """
@@ -60,7 +94,6 @@ def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
 
 def check_logger_input(logfile, delete_old, default_handler, local_handler,
                        default_level, local_level, screen_to_log):
-
     is_string(logfile), is_boolean(delete_old), is_boolean(screen_to_log)
 
     if default_handler not in ['file', 'stream']:
@@ -95,6 +128,7 @@ def set_if_positive(data):
     # type float or integer and data >= 0.
     is_positive_number(data)
     return data
+
 
 def set_if_between_zero_and_one(data):
     """  Check the input data for positivity and value less or equal one. """
@@ -348,6 +382,7 @@ def disassemble_user_expression(expr):
                     expr = expr[len(store_string):len(expr)]  # -> expr = ''
     return expr_part
 
+
 # ==============================================================================
 #    S I M P L I F Y   U S E R   C O N S T R A I N T
 # ==============================================================================
@@ -437,7 +472,7 @@ def simplify_user_constraint(df):
                 # 'found_minus_sign' and delete surrounding columns
                 if found_minus_sign:
                     df[idx] = df[lhs_idx] ** (-1 * df[rhs_idx])
-                    df.drop([idx+2, idx+1, idx-1], axis=1, inplace=True)
+                    df.drop([idx + 2, idx + 1, idx - 1], axis=1, inplace=True)
                 else:
                     df[idx] = df[lhs_idx] ** df[rhs_idx]
                     df.drop([idx + 1, idx - 1], axis=1, inplace=True)
@@ -468,7 +503,7 @@ def simplify_user_constraint(df):
                         df[idx] = df[lhs_idx] / (-1 * df[rhs_idx])
                     else:  # obj == '*'
                         df[idx] = df[lhs_idx] * (-1 * df[rhs_idx])
-                    df.drop([idx+2, idx+1, idx-1], axis=1, inplace=True)
+                    df.drop([idx + 2, idx + 1, idx - 1], axis=1, inplace=True)
                 else:
                     if obj == '/':
                         df[idx] = df[lhs_idx] / df[rhs_idx]
@@ -527,7 +562,7 @@ def simplify_user_constraint(df):
                         df[idx] = df[lhs_idx] + (-1 * df[rhs_idx])
                     else:  # obj == '-'
                         df[idx] = df[lhs_idx] - (-1 * df[rhs_idx])
-                    df.drop([idx+2, idx+1, idx-1], axis=1, inplace=True)
+                    df.drop([idx + 2, idx + 1, idx - 1], axis=1, inplace=True)
                 else:
                     if obj == '+':
                         df[idx] = df[lhs_idx] + df[rhs_idx]
@@ -578,6 +613,8 @@ def simplify_user_constraint(df):
 
     # Return the left and right hand side dicts and the operator sign
     return lhs, op, rhs
+
+
 # ==============================================================================
 
 def check_add_icc(which, inc_exist, inc_mod):
@@ -708,7 +745,7 @@ def check_relax_integrality(which, inc_exist, inc_mod, inc_time, store_vars):
         raise TypeError('The "which_instances" keyword can either take string '
                         '"all" or can hold a list of component names!')
     is_boolean(inc_exist), is_boolean(inc_mod), is_boolean(inc_time), \
-        is_boolean(store_vars)
+    is_boolean(store_vars)
 
 
 def is_boolean(value):

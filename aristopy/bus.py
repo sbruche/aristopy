@@ -15,8 +15,8 @@ from aristopy.component import Component
 class Bus(Component):
     # A Bus component collects and transfers a commodity.
     # They can also be used to model transmission lines between different sites.
-    def __init__(self, ensys, name, basic_commodity,
-                 inlet_connections=None, outlet_connections=None,
+    def __init__(self, ensys, name, basic_variable='inlet_variable',
+                 inlet=None, outlet=None,
                  has_existence_binary_var=None,
                  time_series_data=None,
                  time_series_weights=None,
@@ -33,9 +33,9 @@ class Bus(Component):
 
         :param ensys:
         :param name:
-        :param basic_commodity:
-        :param inlet_connections:
-        :param outlet_connections:
+        :param basic_variable:
+        :param inlet:
+        :param outlet:
         :param has_existence_binary_var:
         :param time_series_data:
         :param time_series_weights:
@@ -52,7 +52,8 @@ class Bus(Component):
         :param losses:
         """
 
-        Component.__init__(self, ensys, name, basic_commodity,
+        Component.__init__(self, ensys, name, basic_variable=basic_variable,
+                           inlet=inlet, outlet=outlet,
                            has_existence_binary_var=has_existence_binary_var,
                            time_series_data=time_series_data,
                            time_series_weights=time_series_weights,
@@ -71,21 +72,9 @@ class Bus(Component):
         self.opex_operation = utils.set_if_positive(opex_operation)
         self.losses = utils.set_if_between_zero_and_one(losses)  # relative loss
 
-        # Declare create two variables. One for loading and one for unloading.
-        self.inlet_variable = self.basic_commodity + '_IN'
-        self.outlet_variable = self.basic_commodity + '_OUT'
-        self._add_var(self.inlet_variable)
-        self._add_var(self.outlet_variable)
-
-        # Check and add inlet and outlet connections
-        self.inlet_connections = utils.check_and_convert_to_list(
-            inlet_connections)
-        self.outlet_connections = utils.check_and_convert_to_list(
-            outlet_connections)
-        self.inlet_ports_and_vars = \
-            {self.basic_commodity: self.inlet_variable}
-        self.outlet_ports_and_vars = \
-            {self.basic_commodity: self.outlet_variable}
+        # Store the names for the loading and unloading variables
+        self.inlet_variable = self.inlet[0].var_name
+        self.outlet_variable = self.outlet[0].var_name
 
         # Last step: Add the component to the energy system model instance
         self.add_to_energy_system_model(ensys, name)

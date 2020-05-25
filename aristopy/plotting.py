@@ -298,13 +298,13 @@ class Plotter:
             # the component and get the associated port variables.
             var_in_name, var_out_name = None, None  # init
             if commodity in self.data['components'][self.comp][
-                    'inlet_ports_and_vars'].keys():
+                    'inlet_commod_and_var_names'].keys():
                 var_in_name = self.data['components'][self.comp][
-                    'inlet_ports_and_vars'][commodity]
+                    'inlet_commod_and_var_names'][commodity]
             if commodity in self.data['components'][self.comp][
-                    'outlet_ports_and_vars'].keys():
+                    'outlet_commod_and_var_names'].keys():
                 var_out_name = self.data['components'][self.comp][
-                    'outlet_ports_and_vars'][commodity]
+                    'outlet_commod_and_var_names'][commodity]
 
             if level_of_detail == 1:
                 # --------------------------------------------------------------

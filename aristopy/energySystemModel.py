@@ -833,54 +833,17 @@ class EnergySystemModel:
         # **********************************************************************
         # Helper functions:
         # -----------------
-        def component_not_found(component):
+        def component_not_found(c_name):
             return('\nThe component "{}" or its instances cannot be found in '
                    'the energy system model.\nThe components considered are: {}'
                    '\n Please check the names of your components and inlet and '
-                   'outlet specifications!'.format(component,
-                                                   list(self.components)))
-
-        def is_conversion(component):
-            if component.__class__.__name__ == 'Conversion':
-                return True
-            return False
-
-        def set_commodity_var(component, port, commodity):
-            """
-            Check if component already has the commodity and add it to the
-            commodities list if not (used to check correctness of connections).
-            Add commodity at inlet or outlet (if not available) and set a name
-            for the attached variable.
-            Add the variable to the variables DataFrame if needed.
-            Note: A commodity can appear on both sides (inlets and outlets).
-            """
-            # Check if commodity is not in the commodities list --> append it
-            if commodity not in component.commodities:
-                component.commodities.append(commodity)
-            if port == 'outlet':
-                # Only add commodity it if it is not already declared at outlet
-                if component.outlet_ports_and_vars.get(commodity) is None:
-                    # Update the port
-                    var_name = commodity + '_OUT'
-                    component.outlet_ports_and_vars[commodity] = var_name
-                    # Add commodity to the variables DataFrame if not available
-                    if var_name not in component.variables.columns:
-                        component._add_var(var_name)
-            elif port == 'inlet':
-                # Only add commodity it if it is not already declared at inlet
-                if component.inlet_ports_and_vars.get(commodity) is None:
-                    # Update the port
-                    var_name = commodity + '_IN'
-                    component.inlet_ports_and_vars[commodity] = var_name
-                    # Add commodity to the variables DataFrame if not available
-                    if var_name not in component.variables.columns:
-                        component._add_var(var_name)
+                   'outlet specs!'.format(c_name, list(self.components)))
 
         def set_connection(source, destination, commodity):
             """
             Add connections (arcs) to the "component_connections" dict.
             Update the "var_connections" dictionaries in the components:
-            {'port variable name': 'connected arc name'
+            {'variable name': 'connected arc name'
             "var_connections" is used for plotting purposes.
             """
             # Add a new connection to "component_connections" if not available
@@ -891,9 +854,15 @@ class EnergySystemModel:
                 self.component_connections[arc_name] = [source, destination,
                                                         commodity]
 
-            # Standard names of the port variables
-            source_var = commodity + '_OUT'
-            destination_var = commodity + '_IN'
+            # Get the commodity variables from comp. and raise if not available
+            if source.outlet_commod_and_var_names.get(commodity) is None:
+                raise ValueError('Commodity "%s" not found at outlet of "%s"'
+                                 % (commodity, source.name))
+            source_var = source.outlet_commod_and_var_names[commodity]
+            if destination.inlet_commod_and_var_names.get(commodity) is None:
+                raise ValueError('Commodity "%s" not found at inlet of "%s"'
+                                 % (commodity, destination.name))
+            destination_var = destination.inlet_commod_and_var_names[commodity]
 
             # Update dictionary "var_connections" in the source component
             if source.var_connections.get(source_var) is None:
@@ -914,119 +883,81 @@ class EnergySystemModel:
                     destination.var_connections[destination_var] = arc_names
 
         # ----------------------------------------------------------------------
-        # Establish component connections from "inlet_connections" and
-        # "outlet_connections" and add missing port variables in the components.
+        # Establish component connections from "inlet" and "outlet"
         for comp_name, comp in self.components.items():
-            if comp.inlet_connections is not None:
-                if is_conversion(comp):
-                    for commod, src_list in comp.inlet_connections.items():
-                        # Set commodity in the component itself if needed:
-                        set_commodity_var(comp, 'inlet', commod)
-                        # Source exists? Add commodities and variables...
-                        for src_name in src_list:
-                            # loop again over all components:
-                            found_src = False
-                            for c_src in self.components.values():
-                                if c_src.group_name == src_name:
-                                    found_src = True  # found source
-                                    set_commodity_var(c_src, 'outlet', commod)
-                                    set_connection(c_src, comp, commod)
-                            if not found_src:
-                                raise ValueError(component_not_found(src_name))
-                else:  # not a conversion unit
-                    for src_name in comp.inlet_connections:
-                        # loop again over all components:
-                        found_src = False
-                        for c_src in self.components.values():
-                            if c_src.group_name == src_name:
-                                found_src = True  # found source
-                                set_commodity_var(c_src, 'outlet',
-                                                  comp.basic_commodity)
-                                set_connection(c_src, comp,
-                                               comp.basic_commodity)
-                        if not found_src:
-                            raise ValueError(component_not_found(src_name))
-            if comp.outlet_connections is not None:
-                if is_conversion(comp):
-                    for commod, dest_list in comp.outlet_connections.items():
-                        # Set commodity in the component itself if needed:
-                        set_commodity_var(comp, 'outlet', commod)
-                        # Destination exists? Add commodities and variables...
-                        for dest_name in dest_list:
-                            # loop again over all components:
-                            found_dest = False
-                            for c_dest in self.components.values():
-                                if c_dest.group_name == dest_name:
-                                    found_dest = True  # found destination
-                                    set_commodity_var(c_dest, 'inlet', commod)
-                                    set_connection(comp, c_dest, commod)
-                            if not found_dest:
-                                raise ValueError(component_not_found(dest_name))
-                else:  # not a conversion unit
-                    for dest_name in comp.outlet_connections:
-                        # loop again over all components:
-                        found_dest = False
-                        for c_dest in self.components.values():
-                            if c_dest.group_name == dest_name:
-                                found_dest = True  # found destination
-                                set_commodity_var(c_dest, 'inlet',
-                                                  comp.basic_commodity)
-                                set_connection(comp, c_dest,
-                                               comp.basic_commodity)
-                        if not found_dest:
-                            raise ValueError(component_not_found(dest_name))
+            # Loop over inlets ...
+            for flow in comp.inlet:
+                if flow.link is not None:
+                    # loop again over all components:
+                    found_src = False
+                    for c_src in self.components.values():
+                        if c_src.group_name == flow.link:
+                            found_src = True  # found source
+                            set_connection(c_src, comp, flow.commodity)
+                    if not found_src:
+                        raise ValueError(component_not_found(flow.link))
+            # Loop over outlets ...
+            for flow in comp.outlet:
+                if flow.link is not None:
+                    # loop again over all components:
+                    found_dest = False
+                    for c_dest in self.components.values():
+                        if c_dest.group_name == flow.link:
+                            found_dest = True  # found destination
+                            set_connection(comp, c_dest, flow.commodity)
+                    if not found_dest:
+                        raise ValueError(component_not_found(flow.link))
 
-        # Check correctness of connections and set basic variable for conversion
+        #     print('name:        ', comp_name)
+        #     print('inlet:       ', comp.inlet)
+        #     print('outlet:      ', comp.outlet)
+        #     print('commods:     ', comp.commodities)
+        #     print('inl_com_var: ', comp.inlet_commod_and_var_names)
+        #     print('outl_com_var:', comp.outlet_commod_and_var_names)
+        #     print('basic_var:   ', comp.basic_variable)
+        #     print('var_connect: ', comp.var_connections)
+        #     print('------------------------------')
+        # print(self.component_connections)
+
+        # Check correctness of connections
         for name, comp in self.components.items():
             # Check that non-conversion components have only one commodity!
-            if not is_conversion(comp):
+            if comp.__class__.__name__ != 'Conversion':
                 if len(comp.commodities) > 1:
                     raise ValueError('Commodity error in "%s". Found more than '
                                      'one commodity: "%s"' % (name,
                                                               comp.commodities))
             # Source, Storage, Bus components need exactly one outlet
             if comp.__class__.__name__ in ['Source', 'Storage', 'Bus']:
-                nbr_of_outlets = len(comp.outlet_ports_and_vars)
+                nbr_of_outlets = len(comp.outlet_commod_and_var_names)
                 if nbr_of_outlets != 1:
                     raise ValueError('"%s" needs one outlet, but "%s" were '
                                      'found!' % (name, nbr_of_outlets))
             # Sink, Storage, Bus components need exactly one inlet
             if comp.__class__.__name__ in ['Sink', 'Storage', 'Bus']:
-                nbr_of_inlets = len(comp.inlet_ports_and_vars)
+                nbr_of_inlets = len(comp.inlet_commod_and_var_names)
                 if nbr_of_inlets != 1:
                     raise ValueError('"%s" needs one inlet, but "%s" were '
                                      'found!' % (name, nbr_of_inlets))
             # Sinks don't have outlets
             if comp.__class__.__name__ == 'Sink':
-                if len(comp.outlet_ports_and_vars) != 0:
+                if len(comp.outlet_commod_and_var_names) != 0:
                     raise ValueError('Sink "%s" cannot have outlets!' % name)
             # Sources don't have inlets
             if comp.__class__.__name__ == 'Source':
-                if len(comp.inlet_ports_and_vars) != 0:
+                if len(comp.inlet_commod_and_var_names) != 0:
                     raise ValueError('Source "%s" cannot have inlets!' % name)
 
-            # Set the name of the basic variable for the conversion components.
-            # Note: If the basic commodity is found in both inlets and outlets,
-            # the inlet is used to set the basic variable.
-            if is_conversion(comp):
-                # 1. Wild card: Variable with name of "basic_commodity" has been
-                # added directly with "additional_vars" keyword --> use it and
-                # don't check if derived variables are found at the ports.
-                if comp.basic_commodity in comp.variables.columns:
-                    comp.basic_variable = comp.basic_commodity
-                # Look for commodity and derived variables at the inlet...
-                elif comp.inlet_ports_and_vars.get(
-                        comp.basic_commodity) is not None:
-                    comp.basic_variable = comp.inlet_ports_and_vars[
-                        comp.basic_commodity]
-                # ... if not found at inlet search for variable at the outlet.
-                elif comp.outlet_ports_and_vars.get(
-                        comp.basic_commodity) is not None:
-                    comp.basic_variable = comp.outlet_ports_and_vars[
-                        comp.basic_commodity]
-                else:
-                    raise ValueError('The basic_commodity is not found in '
-                                     'conversion component "%s"' % name)
+            # Raise if component has inlet or outlet commodity without
+            # connection to an arc
+            for commod, var in comp.inlet_commod_and_var_names.items():
+                if comp.var_connections.get(var) is None:
+                    raise ValueError('Inlet commodity "%s" of component "%s" is'
+                                     ' unconnected!' % (commod, comp.name))
+            for commod, var in comp.outlet_commod_and_var_names.items():
+                if comp.var_connections.get(var) is None:
+                    raise ValueError('Outlet commodity "%s" of component "%s" '
+                                     'is unconnected!' % (commod, comp.name))
 
         # **********************************************************************
         #   User Expressions
@@ -1358,7 +1289,7 @@ class EnergySystemModel:
                     # Else: Block only holds one equality constraint (IN == OUT)
                     # --> Directly use the values of the outlet port variable of
                     # the source or the inlet port variable of the destination.
-                    source_var = commod + '_OUT'
+                    source_var = src.outlet_commod_and_var_names[commod]
                     arc_var = str(getattr(src.pyB, source_var).get_values())
                 arc_data[arc_name] = arc_var
             return arc_data

@@ -13,8 +13,8 @@ from aristopy import utils
 
 class Conversion(Component):
     # A Conversion component converts commodities into each other.
-    def __init__(self, ensys, name, basic_commodity,
-                 inlet_connections=None, outlet_connections=None,
+    def __init__(self, ensys, name, basic_variable,
+                 inlet=None, outlet=None,
                  has_existence_binary_var=None, has_operation_binary_var=None,
                  time_series_data=None, time_series_weights=None,
                  scalar_params=None, additional_vars=None,
@@ -32,9 +32,9 @@ class Conversion(Component):
 
         :param ensys:
         :param name:
-        :param basic_commodity:
-        :param inlet_connections:
-        :param outlet_connections:
+        :param basic_variable:
+        :param inlet:
+        :param outlet:
         :param has_existence_binary_var:
         :param has_operation_binary_var:
         :param time_series_data:
@@ -59,7 +59,8 @@ class Conversion(Component):
         :param group_has_operation_order:
         """
 
-        Component.__init__(self, ensys, name, basic_commodity,
+        Component.__init__(self, ensys, name, basic_variable=basic_variable,
+                           inlet=inlet, outlet=outlet,
                            has_existence_binary_var=has_existence_binary_var,
                            has_operation_binary_var=has_operation_binary_var,
                            time_series_data=time_series_data,
@@ -80,9 +81,6 @@ class Conversion(Component):
                            group_has_existence_order=group_has_existence_order,
                            group_has_operation_order=group_has_operation_order
                            )
-
-        self.inlet_connections = utils.check_connections(inlet_connections)
-        self.outlet_connections = utils.check_connections(outlet_connections)
 
         # Check and set the value for the minimal relative part-load
         if min_load_rel is not None:

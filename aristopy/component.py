@@ -32,7 +32,8 @@ class Component(metaclass=ABCMeta):
     # components which can be added to the energy system model (source, sink,
     # storage, conversion, ...). All of these components inherit from the
     # Component class.
-    def __init__(self, ensys, name, basic_commodity,
+    def __init__(self, ensys, name, basic_variable,
+                 inlet=None, outlet=None,
                  has_existence_binary_var=False, has_operation_binary_var=False,
                  time_series_data=None, time_series_weights=None,
                  scalar_params=None, additional_vars=None,
@@ -52,7 +53,9 @@ class Component(metaclass=ABCMeta):
 
         :param ensys:
         :param name:
-        :param basic_commodity:
+        :param basic_variable:
+        :param inlet:
+        :param outlet:
         :param has_existence_binary_var: (boolean)
         :param has_operation_binary_var: (boolean)
         :param time_series_data: (dict)
@@ -85,14 +88,6 @@ class Component(metaclass=ABCMeta):
         self.number_in_group = 1  # dito
         self.pyB = None  # pyomo simple Block object
 
-        # Component connections, ports, variables, commodities:
-        self.inlet_connections = None
-        self.outlet_connections = None
-        self.inlet_ports_and_vars = {}  # @inlet: {commod: port_variable_name}
-        self.outlet_ports_and_vars = {}  # @outlet: {commod: port_variable_name}
-        self.commodities = [basic_commodity]  # init
-        self.var_connections = {}  # {port_variable_name: [connected_arc_names]}
-
         # V A R I A B L E S:
         # ------------------
         # Initialize an empty pandas DataFrame to store the component variables
@@ -104,17 +99,6 @@ class Component(metaclass=ABCMeta):
         self.variables_copy = pd.DataFrame(index=['domain', 'has_time_set',
                                                   'alternative_set', 'init',
                                                   'ub', 'lb'])
-
-        # Every component has a basic commodity and a derived basic variable
-        # (except from storage and bus).
-        # The basic variable is used to restrict capacities, set operation rates
-        # and calculate capex and opex. If the basic commodity is specified on
-        # an inlet and an outlet port at the same time, the inlet variable is
-        # used as basic variable.
-        # For conversion components the basic variable is set during declaration
-        utils.is_string(basic_commodity)
-        self.basic_commodity = basic_commodity
-        self.basic_variable = None  # Name of basic var -> specif. in components
 
         # Check and set input values for capacities:
         self.capacity, self.capacity_min, self.capacity_max, \
@@ -241,6 +225,67 @@ class Component(metaclass=ABCMeta):
                 user_expressions)
         # 'user_expression_dict' holds converted expr -> filled in declaration
         self.user_expressions_dict = {}
+
+        # C O M P O N E N T   C O N N E C T I O N S:
+        # ------------------------------------------
+        # Check and add inlet and outlets (list of aristopy Flows)
+        self.inlet = utils.check_and_set_flows(inlet)
+        self.outlet = utils.check_and_set_flows(outlet)
+
+        # List of component commodities (present at inlet and outlet)
+        self.commodities = []  # init
+        # Dicts for commodities and their respective variable names
+        self.inlet_commod_and_var_names = {}  # @inlet: {commod: var_name}
+        self.outlet_commod_and_var_names = {}  # @outlet:{commod: var_name}
+
+        for flow in self.inlet:
+            # Add commodity to the commodities list if not available:
+            if flow.commodity not in self.commodities:
+                self.commodities.append(flow.commodity)
+            # Add variable to variables DataFrame if not available:
+            if flow.var_name not in self.variables:
+                self._add_var(flow.var_name)
+            # Only add commodity it if it is not already declared at inlet
+            if self.inlet_commod_and_var_names.get(flow.commodity) is None:
+                self.inlet_commod_and_var_names[flow.commodity] = flow.var_name
+
+        for flow in self.outlet:
+            # Check variable name at outlet has not already been used at inlet
+            if flow.var_name in self.inlet_commod_and_var_names.values():
+                raise ValueError(
+                    'Commodity "%s" is found at inlet and outlet of '
+                    'component "%s" with the same variable name "%s". '
+                    'Please use different names for both sides!'
+                    % (flow.commodity, name, flow.var_name))
+            # Add commodity to the commodities list if not available:
+            if flow.commodity not in self.commodities:
+                self.commodities.append(flow.commodity)
+            # Add variable to variables DataFrame if not available:
+            if flow.var_name not in self.variables:
+                self._add_var(flow.var_name)
+            # Only add commodity it if it is not already declared at outlet
+            if self.outlet_commod_and_var_names.get(flow.commodity) is None:
+                self.outlet_commod_and_var_names[flow.commodity] = flow.var_name
+
+        # Every component has a basic variable. It is used to restrict
+        # capacities, set operation rates and calculate capex and opex. Usually,
+        # the basic variable is referring to a commodity on the inlet or the
+        # outlet of the component.
+        if basic_variable == 'inlet_variable':
+            self.basic_variable = self.inlet[0].var_name
+        elif basic_variable == 'outlet_variable':
+            self.basic_variable = self.outlet[0].var_name
+        elif basic_variable in self.variables:
+            self.basic_variable = basic_variable
+        else:
+            raise ValueError('Name of the basic variable for component "%s" is '
+                             'unknown. Please use defaults "inlet_variable" or '
+                             '"outlet_variable" to use the variable name of a '
+                             'connected Flow, or manually add the variable with'
+                             ' the "additional_vars" keyword.' % name)
+
+        # Dict used for plotting. Updated during EnergySystemModel declaration.
+        self.var_connections = {}  # {var_name: [connected_arc_names]}
 
         self.log = None  # Init: Local logger of the component instance
 
@@ -795,11 +840,11 @@ class Component(metaclass=ABCMeta):
 
     def declare_component_ports(self):
         """
-        Create all ports from dictionaries the 'inlet_ports_and_vars' and
-        'outlet_ports_and_vars' and add the variables to the ports.
+        Create all ports from dictionaries the 'inlet_commod_and_var_names' and
+        'outlet_commod_and_var_names' and add the variables to the ports.
         """
         # Create inlet ports
-        for commod, var_name in self.inlet_ports_and_vars.items():
+        for commod, var_name in self.inlet_commod_and_var_names.items():
             # Declare port
             port_name = 'inlet_' + commod
             setattr(self.pyB, port_name, network.Port())
@@ -809,7 +854,7 @@ class Component(metaclass=ABCMeta):
                      network.Port.Extensive, include_splitfrac=False)
 
         # Create outlet ports
-        for commod, var_name in self.outlet_ports_and_vars.items():
+        for commod, var_name in self.outlet_commod_and_var_names.items():
             # Declare port
             port_name = 'outlet_' + commod
             setattr(self.pyB, port_name, network.Port())
@@ -1079,8 +1124,8 @@ class Component(metaclass=ABCMeta):
             ('variables', self.get_variable_values()),
             ('parameters', self.get_parameter_values()),
             ('commodities', self.commodities),
-            ('inlet_ports_and_vars', self.inlet_ports_and_vars),
-            ('outlet_ports_and_vars', self.outlet_ports_and_vars),
+            ('inlet_commod_and_var_names', self.inlet_commod_and_var_names),
+            ('outlet_commod_and_var_names', self.outlet_commod_and_var_names),
             ('basic_variable', self.basic_variable),
             ('var_connections', self.var_connections),
             ('comp_obj_dict', self.get_obj_values())

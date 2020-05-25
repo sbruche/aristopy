@@ -16,8 +16,8 @@ from aristopy import utils
 #  functionality of parameters to detect if time series or scalar value is used.
 class Source(Component):
     # Source components transfer commodities over the boundary into the system.
-    def __init__(self, ensys, name, basic_commodity, outlet_connections=None,
-                 outlets=None,
+    def __init__(self, ensys, name, basic_variable='outlet_variable',
+                 inlet=None, outlet=None,
                  has_existence_binary_var=False, has_operation_binary_var=False,
                  commodity_rate_min=None, commodity_rate_max=None,
                  commodity_rate_fix=None,
@@ -35,8 +35,9 @@ class Source(Component):
 
         :param ensys:
         :param name:
-        :param basic_commodity:
-        :param outlet_connections:
+        :param basic_variable:
+        :param inlet: ** Only accepts None for instances of Source **
+        :param outlet:
         :param has_existence_binary_var:
         :param has_operation_binary_var: Should not be used in this Component!
         :param commodity_rate_min:
@@ -60,8 +61,13 @@ class Source(Component):
         :param commodity_revenues:
         :param commodity_revenues_time_series:
         """
+        # The 'inlet' keyword should not be changed from default value 'None'
+        if self.__class__ == Source and inlet is not None:
+            raise ValueError('Source "%s" cannot have inlet Flows!' % name)
 
-        Component.__init__(self, ensys, name, basic_commodity,
+        Component.__init__(self, ensys, name,
+                           inlet=inlet, outlet=outlet,
+                           basic_variable=basic_variable,
                            has_existence_binary_var=has_existence_binary_var,
                            has_operation_binary_var=has_operation_binary_var,
                            time_series_data=time_series_data,
@@ -77,15 +83,6 @@ class Source(Component):
                            opex_per_capacity=opex_per_capacity,
                            opex_if_exist=opex_if_exist
                            )
-        # todo:Check if list or string, if string convert to list with one entry
-        if self.__class__ == Source:
-            # Check and add outlet connections
-            self.outlet_connections = utils.check_and_convert_to_list(
-                outlet_connections)
-            self.basic_variable = self.basic_commodity + '_OUT'
-            self.outlet_ports_and_vars = \
-                {self.basic_commodity: self.basic_variable}
-            self._add_var(self.basic_variable)
 
         # Check and set sink / source specific input arguments
         self.opex_operation = utils.set_if_positive(opex_operation)
@@ -315,7 +312,8 @@ class Source(Component):
 
 class Sink(Source):
     # Sink components transfer commodities over the boundary out of the system.
-    def __init__(self, ensys, name, basic_commodity, inlet_connections=None,
+    def __init__(self, ensys, name, basic_variable='inlet_variable',
+                 inlet=None,
                  has_existence_binary_var=None, has_operation_binary_var=None,
                  commodity_rate_min=None, commodity_rate_max=None,
                  commodity_rate_fix=None,
@@ -331,13 +329,13 @@ class Sink(Source):
         """
         Initialize a sink component. The Sink class inherits from the Source
         class. Both have the same input parameters with only one exception.
-        The Sink has an "inlet_connections" attribute instead of
-        "inlet_connections".
+        The Sink has an "inlet" attribute instead of "outlet".
 
-        :param inlet_connections: TODO: Add description!
+        :param inlet: TODO: Add description!
         """
 
-        Source.__init__(self, ensys, name, basic_commodity,
+        Source.__init__(self, ensys, name, basic_variable=basic_variable,
+                        inlet=inlet,
                         has_existence_binary_var=has_existence_binary_var,
                         has_operation_binary_var=has_operation_binary_var,
                         commodity_rate_min=commodity_rate_min,
@@ -360,15 +358,6 @@ class Sink(Source):
                         commodity_revenues=commodity_revenues,
                         commodity_revenues_time_series=
                         commodity_revenues_time_series)
-
-        if self.__class__ == Sink:
-            # Check and add inlet connections
-            self.inlet_connections = utils.check_and_convert_to_list(
-                inlet_connections)
-            self.basic_variable = self.basic_commodity + '_IN'
-            self.inlet_ports_and_vars = \
-                {self.basic_commodity: self.basic_variable}
-            self._add_var(self.basic_variable)
 
     def __repr__(self):
         return '<Sink: "%s">' % self.name
