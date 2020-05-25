@@ -19,23 +19,26 @@ def test_run_minimal_example():
     es = ar.EnergySystemModel(number_of_time_steps=3, hours_per_time_step=1,
                               interest_rate=0.05, economic_lifetime=20)
     # Add source, conversions and sinks
-    gas_source = ar.Source(ensys=es, name='gas_source', basic_commodity='Fuel',
-                           commodity_cost=20,
-                           outlet_connections=['gas_boiler', 'chp_unit'])
+    gas_source = ar.Source(ensys=es, name='gas_source', commodity_cost=20,
+                           outlet=ar.Flow('Fuel'))
     gas_boiler = ar.Conversion(ensys=es, name='gas_boiler',
-                               basic_commodity='Heat',
+                               basic_variable='Heat',
+                               inlet=ar.Flow('Fuel', 'gas_source'),
+                               outlet=ar.Flow('Heat', 'heat_sink'),
                                capacity_max=150, capex_per_capacity=60e3,
-                               user_expressions='Heat_OUT == 0.9 * Fuel_IN')
-    chp_unit = ar.Conversion(ensys=es, name='chp_unit', basic_commodity='Elec',
+                               user_expressions='Heat == 0.9 * Fuel')
+    chp_unit = ar.Conversion(ensys=es, name='chp_unit', basic_variable='Elec',
+                             inlet=ar.Flow('Fuel', 'gas_source'),
+                             outlet=[ar.Flow('Heat', 'heat_sink'),
+                                     ar.Flow('Elec', 'elec_sink')],
                              capacity_max=100, capex_per_capacity=600e3,
-                             user_expressions=['Heat_OUT == 0.5 * Fuel_IN',
-                                               'Elec_OUT == 0.4 * Fuel_IN'])
-    heat_sink = ar.Sink(ensys=es, name='heat_sink', basic_commodity='Heat',
-                        inlet_connections=['gas_boiler', 'chp_unit'],
+                             user_expressions=['Heat == 0.5 * Fuel',
+                                               'Elec == 0.4 * Fuel'])
+    heat_sink = ar.Sink(ensys=es, name='heat_sink', inlet=ar.Flow('Heat'),
                         commodity_rate_fix='heat_demand',
                         time_series_data={'heat_demand': [100, 200, 150]})
-    elec_sink = ar.Sink(ensys=es, name='elec_sink', basic_commodity='Elec',
-                        inlet_connections='chp_unit', commodity_revenues=30)
+    elec_sink = ar.Sink(ensys=es, name='elec_sink', inlet=ar.Flow('Elec'),
+                        commodity_revenues=30)
     es.optimize(solver=solver, tee=False, results_file=None)
 
     assert es.pyM.Obj() == pytest.approx(-3.4914796e+08)
