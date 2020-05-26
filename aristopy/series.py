@@ -43,6 +43,3 @@ class Series:
 
 if __name__ == '__main__':
     series = Series(name='my_data', data=[1, 2, 3], weighting_factor=0.8)
-
-    for key, val in series.__dict__.items():
-        print(key, val)

@@ -691,6 +691,10 @@ class Component(metaclass=ABCMeta):
     #    A D D   P A R A M E T E R
     # ==========================================================================
     def _add_param(self, name, tsam_weight=1, init=None):
+        # Make sure the parameter name is unique in the Dataframe
+        if name in self.parameters:
+            raise ValueError('Parameter with name "%s" already found in the '
+                             'DataFrame. Please use a different name.' % name)
         # If input is integer or float, flag 'has_time_set' is set to False.
         # Else, (input: numpy array, list, dict or pandas series) flag -> True
         has_time_set = False if isinstance(init, (int, float)) else True

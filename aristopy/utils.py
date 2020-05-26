@@ -3,7 +3,7 @@
 """
 ** Utility functions **
 
-* Last edited: 2020-01-01
+* Last edited: 2020-06-01
 * Created by: Stefan Bruche (TU Berlin)
 """
 import warnings
@@ -49,11 +49,11 @@ def check_and_set_flows(data):
 
 def check_and_set_time_series_data(data):
     """
-     Function to check if the provided content of the time_series_data argument
+    Function to check if the provided content of the time_series_data argument
     only contains instances of aristopy's Series class.
 
-     :return: list of aristopy Series instances
-     """
+    :return: list of aristopy Series instances
+    """
     exception = ValueError("Invalid data type for time_series_data argument! "
                            "Please provide instances of aristopy Series class!")
     if data is None:
@@ -204,16 +204,29 @@ def check_add_constraint(name, has_time_set, alternative_set, rule):
         raise TypeError('The "rule" keyword needs to hold a callable object!')
 
 
-def check_and_set_scalar_or_time_series(ensys, data):
-    """ XXX """
-    scalar, time_series = None, None  # init
-    if data is not None:
-        if isinstance(data, float) or isinstance(data, int):
-            is_positive_number(data)  # raise error if value not >= 0
-            scalar = data
-        else:
-            time_series = check_and_convert_time_series(ensys, data)
-    return scalar, time_series
+def check_and_set_cost_and_revenues(comp, data):
+    """ Function to check the input for commodity cost and revenues.
+        Can handle integers, floats and aristopy's Series class instances.
+
+        Function returns:
+        * scalar as a int or float value (or None)
+        * series name of time_series in the parameter DF (or None)
+    """
+    scalar_value, time_series_name = None, None  # init
+    if isinstance(data, (int, float)):
+        is_positive_number(data)  # raise error if value not >= 0
+        scalar_value = data
+    # if aristopy Series is provided --> add it to the parameters DataFrame
+    elif isinstance(data, aristopy.Series):
+        conv_data = check_and_convert_time_series(comp.ensys, data.data)
+        comp._add_param(data.name, init=conv_data,
+                        tsam_weight=data.weighting_factor)
+        time_series_name = data.name
+    else:
+        raise ValueError('Found invalid data type for commodity cost or revenue'
+                         ' in component "%s". Please provide float, integer, or'
+                         ' aristopy Series.' % comp.name)
+    return scalar_value, time_series_name
 
 
 def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
@@ -266,8 +279,9 @@ def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
     return cap, cap_min, cap_max, cap_per_mod, max_mod_nbr
 
 
-def check_commodity_rates(comp, rate_min, rate_max, rate_fix):
-    """  Check input values for commodity rate arguments. """
+def check_and_set_commodity_rates(comp, rate_min, rate_max, rate_fix):
+    """  Check input values for commodity rate arguments and add the data to
+        the parameters DataFrame of the component """
     # Show warning if rate_fix is specified and rate_min or rate_max as well.
     # --> set rate_min and rate_max to None.
     if rate_fix is not None and (rate_min or rate_max is not None):
@@ -276,29 +290,36 @@ def check_commodity_rates(comp, rate_min, rate_max, rate_fix):
                       '"commodity_rate_min" and "commodity_rate_max" are not '
                       'required and are set to None.')
 
-    # Names are strings (if not None)
-    # Raise error if an commodity rate is specified and its name is not in the
-    # 'parameters' dictionary of the component (if not None)
-    for rate in [rate_min, rate_max, rate_fix]:
-        check_existence_in_dataframe(rate, comp.parameters)
+    # Check if data types are correct and add data to parameters DataFrame
+    def _check_and_set_rate(data, name):
+        if isinstance(data, (int, float)):
+            comp._add_param(name, init=data)
+        elif isinstance(data, aristopy.Series):
+            conv_data = check_and_convert_time_series(comp.ensys, data.data)
+            comp._add_param(data.name, init=conv_data,
+                            tsam_weight=data.weighting_factor)
+            name = data.name
+        elif isinstance(data, type(None)):
+            name = None
+        else:
+            raise ValueError('Found invalid data type for commodity rate in '
+                             'component "%s". Please provide float, integer, '
+                             'aristopy Series, or None.' % comp.name)
+        return name
+
+    rate_min = _check_and_set_rate(rate_min, 'commodity_rate_min')
+    rate_max = _check_and_set_rate(rate_max, 'commodity_rate_max')
+    rate_fix = _check_and_set_rate(rate_fix, 'commodity_rate_fix')
+
     # Raise error if min is larger than max at a certain position in the series
-    if rate_min and rate_max is not None and (
-            comp.parameters[rate_min]['full_resolution'] >
-            comp.parameters[rate_max]['full_resolution']).all():
-        raise ValueError('The series "commodity_rate_min" has at least one '
-                         'value that is larger than "commodity_rate_max".')
+    if rate_min and rate_max is not None and not (
+            np.array(comp.parameters[rate_max]['full_resolution']) >=
+            np.array(comp.parameters[rate_min]['full_resolution'])).all():
+        raise ValueError('The series "commodity_rate_min" of component "%s" has'
+                         ' at least one value that is larger than '
+                         '"commodity_rate_max".' % comp.name)
+
     return rate_min, rate_max, rate_fix
-
-
-def check_existence_in_dataframe(name, df):
-    """ Raise an error if a name is not in the columns of a pandas DataFrame """
-    if name is not None:
-        is_string(name)
-        if name not in df.columns:
-            raise ValueError('Cannot find an attribute with the name "{}" in '
-                             'the DataFrame. Available names are: {}.'
-                             .format(name, list(df.columns)))
-    return name
 
 
 def check_and_convert_to_list(value):

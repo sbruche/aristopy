@@ -10,10 +10,7 @@ import pyomo.environ as pyomo
 from aristopy.component import Component
 from aristopy import utils
 
-# Todo: Change functionality of commodity_revenues/cost so that also time
-#  series can be used and remove the additional time series keywords. Also
-#  enable commodity rate min/max/fix to use scalar values and extend
-#  functionality of parameters to detect if time series or scalar value is used.
+
 class Source(Component):
     # Source components transfer commodities over the boundary into the system.
     def __init__(self, ensys, name, basic_variable='outlet_variable',
@@ -26,13 +23,9 @@ class Source(Component):
                  capacity=None, capacity_min=None, capacity_max=None,
                  capex_per_capacity=0, capex_if_exist=0,
                  opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
-                 commodity_cost=0, commodity_cost_time_series=None,
-                 commodity_revenues=0, commodity_revenues_time_series=None
+                 commodity_cost=0, commodity_revenues=0
                  ):
 
-        # Folgende Keywords sollen aristopy series nehmen können.
-        # commodity_rate_min, commodity_rate_max, commodity_rate_fix,
-        # time_series_data, commodity_cost, commodity_revenues
         """
         Initialize a source component.
 
@@ -59,9 +52,7 @@ class Source(Component):
         :param opex_if_exist:
         :param opex_operation:
         :param commodity_cost:
-        :param commodity_cost_time_series:
         :param commodity_revenues:
-        :param commodity_revenues_time_series:
         """
         # The 'inlet' keyword should not be changed from default value 'None'
         if self.__class__ == Source and inlet is not None:
@@ -87,18 +78,17 @@ class Source(Component):
 
         # Check and set sink / source specific input arguments
         self.opex_operation = utils.set_if_positive(opex_operation)
-        self.commodity_cost = utils.set_if_positive(commodity_cost)
-        self.commodity_revenues = utils.set_if_positive(commodity_revenues)
-        self.commodity_cost_time_series = utils.check_existence_in_dataframe(
-            commodity_cost_time_series, self.parameters)
-        self.commodity_revenues_time_series = \
-            utils.check_existence_in_dataframe(commodity_revenues_time_series,
-                                               self.parameters)
+
+        self.commodity_cost, self.commodity_cost_time_series = \
+            utils.check_and_set_cost_and_revenues(self, commodity_cost)
+        self.commodity_revenues, self.commodity_revenues_time_series = \
+            utils.check_and_set_cost_and_revenues(self, commodity_revenues)
 
         # Check and set time series for commodity rates (if available)
         self.op_rate_min, self.op_rate_max, self.op_rate_fix = \
-            utils.check_commodity_rates(self, commodity_rate_min,
-                                        commodity_rate_max, commodity_rate_fix)
+            utils.check_and_set_commodity_rates(
+                self, commodity_rate_min, commodity_rate_max,
+                commodity_rate_fix)
 
         # Last step: Add the component to the energy system model instance
         self.add_to_energy_system_model(ensys, name)
@@ -252,9 +242,13 @@ class Source(Component):
             # Get variables:
             op_min = self.parameters[self.op_rate_min]['values']
             basic_var = self.variables[self.basic_variable]['pyomo']
+            has_time_set = self.parameters[self.op_rate_min]['has_time_set']
 
             def con_commodity_rate_min(m, p, t):
-                return basic_var[p, t] >= op_min[p, t]
+                if has_time_set:
+                    return basic_var[p, t] >= op_min[p, t]
+                else:
+                    return basic_var[p, t] >= op_min
             setattr(self.pyB, 'con_commodity_rate_min', pyomo.Constraint(
                 pyM.time_set, rule=con_commodity_rate_min))
 
@@ -271,9 +265,13 @@ class Source(Component):
             # Get variables:
             op_max = self.parameters[self.op_rate_max]['values']
             basic_var = self.variables[self.basic_variable]['pyomo']
+            has_time_set = self.parameters[self.op_rate_max]['has_time_set']
 
             def con_commodity_rate_max(m, p, t):
-                return basic_var[p, t] <= op_max[p, t]
+                if has_time_set:
+                    return basic_var[p, t] <= op_max[p, t]
+                else:
+                    return basic_var[p, t] <= op_max
             setattr(self.pyB, 'con_commodity_rate_max', pyomo.Constraint(
                 pyM.time_set, rule=con_commodity_rate_max))
 
@@ -290,9 +288,13 @@ class Source(Component):
             # Get variables:
             op_fix = self.parameters[self.op_rate_fix]['values']
             basic_var = self.variables[self.basic_variable]['pyomo']
+            has_time_set = self.parameters[self.op_rate_fix]['has_time_set']
 
             def con_commodity_rate_fix(m, p, t):
-                return basic_var[p, t] == op_fix[p, t]
+                if has_time_set:
+                    return basic_var[p, t] == op_fix[p, t]
+                else:
+                    return basic_var[p, t] == op_fix
             setattr(self.pyB, 'con_commodity_rate_fix', pyomo.Constraint(
                 pyM.time_set, rule=con_commodity_rate_fix))
 
@@ -323,8 +325,7 @@ class Sink(Source):
                  capacity=None, capacity_min=None, capacity_max=None,
                  capex_per_capacity=0, capex_if_exist=0,
                  opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
-                 commodity_cost=0, commodity_cost_time_series=None,
-                 commodity_revenues=0, commodity_revenues_time_series=None
+                 commodity_cost=0, commodity_revenues=0
                  ):
         """
         Initialize a sink component. The Sink class inherits from the Source
@@ -353,10 +354,7 @@ class Sink(Source):
                         opex_if_exist=opex_if_exist,
                         opex_operation=opex_operation,
                         commodity_cost=commodity_cost,
-                        commodity_cost_time_series=commodity_cost_time_series,
-                        commodity_revenues=commodity_revenues,
-                        commodity_revenues_time_series=
-                        commodity_revenues_time_series)
+                        commodity_revenues=commodity_revenues)
 
     def __repr__(self):
         return '<Sink: "%s">' % self.name
