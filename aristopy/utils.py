@@ -47,6 +47,31 @@ def check_and_set_flows(data):
         raise exception
 
 
+def check_and_set_time_series_data(data):
+    """
+     Function to check if the provided content of the time_series_data argument
+    only contains instances of aristopy's Series class.
+
+     :return: list of aristopy Series instances
+     """
+    exception = ValueError("Invalid data type for time_series_data argument! "
+                           "Please provide instances of aristopy Series class!")
+    if data is None:
+        return []
+    elif isinstance(data, aristopy.Series):
+        return [data]
+    elif isinstance(data, list):
+        series_list = []
+        for item in data:
+            if isinstance(item, aristopy.Series):
+                series_list.append(item)
+            else:
+                raise exception
+        return series_list
+    else:
+        raise exception
+
+
 def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
                           aggregate_by='sum'):
     """
@@ -274,22 +299,6 @@ def check_existence_in_dataframe(name, df):
                              'the DataFrame. Available names are: {}.'
                              .format(name, list(df.columns)))
     return name
-
-
-def check_connections(data):
-    """ The inlet and outlet attributes for conversion components need to be of
-    type dict. If a single string is given as value, it is converted to a list
-    with length 1. """
-    if data is not None:
-        if not isinstance(data, dict):
-            raise ValueError('The inlet and outlet_connections of conversion '
-                             'components needs to be dictionaries!')
-        for key, val in data.items():
-            if isinstance(val, str):
-                data[key] = [val]  # to list
-            if not isinstance(key, str):
-                raise TypeError('Dictionary keys need to be of type string.')
-    return data
 
 
 def check_and_convert_to_list(value):

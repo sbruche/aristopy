@@ -16,9 +16,8 @@ class Conversion(Component):
     def __init__(self, ensys, name, basic_variable,
                  inlet=None, outlet=None,
                  has_existence_binary_var=None, has_operation_binary_var=None,
-                 time_series_data=None, time_series_weights=None,
-                 scalar_params=None, additional_vars=None,
-                 user_expressions=None,
+                 time_series_data=None, scalar_params=None,
+                 additional_vars=None, user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capacity_per_module=None, maximal_module_number=None,
                  capex_per_capacity=0, capex_if_exist=0,
@@ -38,7 +37,6 @@ class Conversion(Component):
         :param has_existence_binary_var:
         :param has_operation_binary_var:
         :param time_series_data:
-        :param time_series_weights:
         :param scalar_params:
         :param additional_vars:
         :param user_expressions:
@@ -64,7 +62,6 @@ class Conversion(Component):
                            has_existence_binary_var=has_existence_binary_var,
                            has_operation_binary_var=has_operation_binary_var,
                            time_series_data=time_series_data,
-                           time_series_weights=time_series_weights,
                            scalar_params=scalar_params,
                            additional_vars=additional_vars,
                            user_expressions=user_expressions,

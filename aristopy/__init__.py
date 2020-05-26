@@ -15,3 +15,4 @@ from .utils import check_logger_input
 from .solar import SolarData, SolarThermalCollector, PVSystem
 from .plotting import Plotter
 from .flow import Flow
+from .series import Series

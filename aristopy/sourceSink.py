@@ -21,15 +21,18 @@ class Source(Component):
                  has_existence_binary_var=False, has_operation_binary_var=False,
                  commodity_rate_min=None, commodity_rate_max=None,
                  commodity_rate_fix=None,
-                 time_series_data=None, time_series_weights=None,
-                 scalar_params=None, additional_vars=None,
-                 user_expressions=None,
+                 time_series_data=None, scalar_params=None,
+                 additional_vars=None, user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capex_per_capacity=0, capex_if_exist=0,
                  opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
                  commodity_cost=0, commodity_cost_time_series=None,
                  commodity_revenues=0, commodity_revenues_time_series=None
                  ):
+
+        # Folgende Keywords sollen aristopy series nehmen können.
+        # commodity_rate_min, commodity_rate_max, commodity_rate_fix,
+        # time_series_data, commodity_cost, commodity_revenues
         """
         Initialize a source component.
 
@@ -44,7 +47,6 @@ class Source(Component):
         :param commodity_rate_max:
         :param commodity_rate_fix:
         :param time_series_data:
-        :param time_series_weights:
         :param scalar_params:
         :param additional_vars:
         :param user_expressions:
@@ -71,7 +73,6 @@ class Source(Component):
                            has_existence_binary_var=has_existence_binary_var,
                            has_operation_binary_var=has_operation_binary_var,
                            time_series_data=time_series_data,
-                           time_series_weights=time_series_weights,
                            scalar_params=scalar_params,
                            additional_vars=additional_vars,
                            user_expressions=user_expressions,
@@ -317,9 +318,8 @@ class Sink(Source):
                  has_existence_binary_var=None, has_operation_binary_var=None,
                  commodity_rate_min=None, commodity_rate_max=None,
                  commodity_rate_fix=None,
-                 time_series_data=None, time_series_weights=None,
-                 scalar_params=None, additional_vars=None,
-                 user_expressions=None,
+                 time_series_data=None, scalar_params=None,
+                 additional_vars=None, user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capex_per_capacity=0, capex_if_exist=0,
                  opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
@@ -342,7 +342,6 @@ class Sink(Source):
                         commodity_rate_max=commodity_rate_max,
                         commodity_rate_fix=commodity_rate_fix,
                         time_series_data=time_series_data,
-                        time_series_weights=time_series_weights,
                         scalar_params=scalar_params,
                         additional_vars=additional_vars,
                         user_expressions=user_expressions,

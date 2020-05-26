@@ -35,9 +35,8 @@ class Component(metaclass=ABCMeta):
     def __init__(self, ensys, name, basic_variable,
                  inlet=None, outlet=None,
                  has_existence_binary_var=False, has_operation_binary_var=False,
-                 time_series_data=None, time_series_weights=None,
-                 scalar_params=None, additional_vars=None,
-                 user_expressions=None,
+                 time_series_data=None, scalar_params=None,
+                 additional_vars=None, user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capacity_per_module=None, maximal_module_number=None,
                  capex_per_capacity=0, capex_if_exist=0,
@@ -58,8 +57,7 @@ class Component(metaclass=ABCMeta):
         :param outlet:
         :param has_existence_binary_var: (boolean)
         :param has_operation_binary_var: (boolean)
-        :param time_series_data: (dict)
-        :param time_series_weights: (dict)
+        :param time_series_data:
         :param scalar_params: (dict)
         :param additional_vars:
         :param user_expressions:
@@ -108,7 +106,7 @@ class Component(metaclass=ABCMeta):
                                            maximal_module_number)
 
         # Specify a capacity variable (with standard name "CAP") if capacities
-        # are stated and add it to variables dict.
+        # are stated and add it to variables DataFrame.
         # Set 'capacity_max' as upper bound for the capacity variable "CAP".
         # Lower bound is only used if component is built (depends on status of
         # the existence binary variable if specified) --> see constraints!
@@ -174,20 +172,13 @@ class Component(metaclass=ABCMeta):
             for key, val in scalar_params.items():
                 self._add_param(key, init=val)
 
-        # Add time series data from 'time_series_data'
-        if time_series_data is not None:
-            for key, val in time_series_data.items():
-                data = utils.check_and_convert_time_series(ensys, val)
-                self._add_param(key, init=data)
-        # Add weights for time series data if required. Default weight = 1.
-        if time_series_weights is not None:
-            utils.check_user_dict('ts_weight_dict', time_series_weights)
-            for param, weight in time_series_weights.items():
-                if param in self.parameters.columns:
-                    self.parameters[param].loc['tsam_weight'] = weight
-                else:
-                    raise ValueError('Parameter "{}" is unknown for component '
-                                     '"{}"!'.format(param, self.name))
+        # Add time series data from argument 'time_series_data'
+        # Check that it only holds instances of aristopy's Series class
+        series_list = utils.check_and_set_time_series_data(time_series_data)
+        for series in series_list:
+            data = utils.check_and_convert_time_series(ensys, series.data)
+            self._add_param(series.name, init=data,
+                            tsam_weight=series.weighting_factor)
 
         # Check and set the input values for the cost parameters and prevent
         # invalid parameter combinations.
@@ -702,8 +693,7 @@ class Component(metaclass=ABCMeta):
     def _add_param(self, name, tsam_weight=1, init=None):
         # If input is integer or float, flag 'has_time_set' is set to False.
         # Else, (input: numpy array, list, dict or pandas series) flag -> True
-        has_time_set = False \
-            if isinstance(init, int) or isinstance(init, float) else True
+        has_time_set = False if isinstance(init, (int, float)) else True
         # Append data to DataFrame
         series = pd.Series({'tsam_weight': tsam_weight,
                             'has_time_set': has_time_set,
