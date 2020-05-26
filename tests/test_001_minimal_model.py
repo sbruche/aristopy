@@ -35,8 +35,8 @@ def test_run_minimal_example():
                              user_expressions=['Heat == 0.5 * Fuel',
                                                'Elec == 0.4 * Fuel'])
     heat_sink = ar.Sink(ensys=es, name='heat_sink', inlet=ar.Flow('Heat'),
-                        commodity_rate_fix='heat_demand',
-                        time_series_data={'heat_demand': [100, 200, 150]})
+                        commodity_rate_fix=ar.Series('heat_demand',
+                                                     [100, 200, 150]))
     elec_sink = ar.Sink(ensys=es, name='elec_sink', inlet=ar.Flow('Elec'),
                         commodity_revenues=30)
     es.optimize(solver=solver, tee=False, results_file=None)

@@ -43,8 +43,8 @@ def test_storage_example():
                        commodity_revenues=42)
 
     heat_snk = ar.Sink(ensys=es, name='heat_snk', inlet=ar.Flow('Q', 'bus'),
-                       commodity_rate_fix='demand',
-                       time_series_data={'demand': [4, 4, 6, 6, 10, 10, 4, 4]})
+                       commodity_rate_fix=ar.Series('demand',
+                                                    [4, 4, 6, 6, 10, 10, 4, 4]))
 
     # Run the model as it is and assert the obj. fct. value
     es.optimize(declares_optimization_problem=True,
