@@ -74,7 +74,7 @@ class Component(metaclass=ABCMeta):
         :param group_has_existence_order:
         :param group_has_operation_order:
         """
-        # Documentation: see file "components_attributes_description.txt".
+        # Todo: Documentation: see file "components_attributes_description.txt".
 
         utils.is_energy_system_model_instance(ensys)
         self.ensys = ensys
@@ -166,7 +166,7 @@ class Component(metaclass=ABCMeta):
                                               'values', 'full_resolution',
                                               'aggregated'])
 
-        # Add scalar parameters from dictionary 'scalar_params'
+        # Add scalar parameters from dict 'scalar_params' {param_name: value}
         if scalar_params is not None:
             utils.check_user_dict('scalar_params', scalar_params)
             for key, val in scalar_params.items():
@@ -176,6 +176,7 @@ class Component(metaclass=ABCMeta):
         # Check that it only holds instances of aristopy's Series class
         series_list = utils.check_and_set_time_series_data(time_series_data)
         for series in series_list:
+            # Make sure time series has correct length and index
             data = utils.check_and_convert_time_series(ensys, series.data)
             self._add_param(series.name, init=data,
                             tsam_weight=series.weighting_factor)
@@ -201,10 +202,7 @@ class Component(metaclass=ABCMeta):
         self.comp_obj_dict = {'capex_capacity': 0, 'capex_exist': 0,
                               'opex_capacity': 0, 'opex_exist': 0,
                               'opex_operation': 0,
-                              'com_cost_time_indep': 0,
-                              'com_cost_time_dep': 0,
-                              'com_rev_time_indep': 0,
-                              'com_rev_time_dep': 0,
+                              'commodity_cost': 0, 'commodity_revenues': 0,
                               'start_up_cost': 0}
 
         # U S E R   E X P R E S S I O N S:

@@ -109,8 +109,8 @@ class Plotter:
                  data['opex_capacity'] + data['opex_exist'] + data[
                      'opex_operation'],
                  data['start_up_cost'],
-                 data['com_cost_time_indep'] + data['com_cost_time_dep'],
-                 data['com_rev_time_indep'] + data['com_rev_time_dep']]
+                 data['commodity_cost'],
+                 data['commodity_revenues']]
 
         names = list(obj_data.keys())
         # to vertically stacked and transposed array (1. row: capex, 2. opex,..)

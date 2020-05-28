@@ -177,7 +177,7 @@ class Source(Component):
         # ---------------
         # Time-independent cost of a commodity (scalar cost value)
         if self.commodity_cost is not None:
-            obj['com_cost_time_indep'] = \
+            obj['commodity_cost'] = \
                 -1 * ensys.pvf * self.commodity_cost * sum(
                     basic_var[p, t] * ensys.period_occurrences[p]
                     for p, t in pyM.time_set) / ensys.number_of_years
@@ -185,13 +185,13 @@ class Source(Component):
         # Time-dependent cost of a commodity (time series cost values)
         if self.commodity_cost_time_series is not None:
             cost_ts = self.parameters[self.commodity_cost_time_series]['values']
-            obj['com_cost_time_dep'] = -1 * ensys.pvf * sum(
+            obj['commodity_cost'] = -1 * ensys.pvf * sum(
                 cost_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
                 for p, t in pyM.time_set) / ensys.number_of_years
 
         # Time-independent revenues for of a commodity (scalar revenue value)
         if self.commodity_revenues is not None:
-            obj['com_rev_time_indep'] = \
+            obj['commodity_revenues'] = \
                 ensys.pvf * self.commodity_revenues * sum(
                     basic_var[p, t] * ensys.period_occurrences[p]
                     for p, t in pyM.time_set) / ensys.number_of_years
@@ -200,7 +200,7 @@ class Source(Component):
         if self.commodity_revenues_time_series is not None:
             rev_ts = self.parameters[
                 self.commodity_revenues_time_series]['values']
-            obj['com_rev_time_dep'] = ensys.pvf * sum(
+            obj['commodity_revenues'] = ensys.pvf * sum(
                 rev_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
                 for p, t in pyM.time_set) / ensys.number_of_years
 
