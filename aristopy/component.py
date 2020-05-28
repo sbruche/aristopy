@@ -207,11 +207,8 @@ class Component(metaclass=ABCMeta):
 
         # U S E R   E X P R E S S I O N S:
         # --------------------------------
-        self.user_expressions = None
-        # Add 'user_expressions' are converted to a list of strings
-        if user_expressions is not None:
-            self.user_expressions = utils.check_and_convert_to_list(
-                user_expressions)
+        # Add 'user_expressions' (type: list of strings, or empty list)
+        self.user_expressions = utils.check_and_set_user_expr(user_expressions)
         # 'user_expression_dict' holds converted expr -> filled in declaration
         self.user_expressions_dict = {}
 

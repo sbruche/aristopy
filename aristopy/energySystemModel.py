@@ -964,9 +964,8 @@ class EnergySystemModel:
         # **********************************************************************
         # Fill the "user_expressions_dict" with data from comp. initialization
         for comp in self.components.values():
-            if comp.user_expressions is not None:
-                for expr in comp.user_expressions:
-                    comp.add_expression(expr)
+            for expr in comp.user_expressions:
+                comp.add_expression(expr)
 
         # **********************************************************************
         #   Initialize mathematical model (ConcreteModel) instance

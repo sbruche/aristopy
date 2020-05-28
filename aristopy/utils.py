@@ -61,13 +61,9 @@ def check_and_set_time_series_data(data):
     elif isinstance(data, aristopy.Series):
         return [data]
     elif isinstance(data, list):
-        series_list = []
-        for item in data:
-            if isinstance(item, aristopy.Series):
-                series_list.append(item)
-            else:
-                raise exception
-        return series_list
+        if any(not isinstance(item, aristopy.Series) for item in data):
+            raise exception
+        return data
     else:
         raise exception
 
@@ -323,6 +319,7 @@ def check_and_set_commodity_rates(comp, rate_min, rate_max, rate_fix):
 
 
 def check_and_convert_to_list(value):
+    # todo: delete this!
     """ Value should be of type list or a string that can be converted to a
     single string in a list of length 1. """
     if isinstance(value, str):
@@ -334,6 +331,26 @@ def check_and_convert_to_list(value):
     else:
         raise TypeError('The type of input "{}" should be a list or a single '
                         'string.'.format(value))
+
+def check_and_set_user_expr(data):
+    """
+    Function to check if the provided content of the user_expressions argument
+    contains a string, or a list of strings, or None.
+
+    :return: list (of strings)
+    """
+    exception = ValueError("Invalid data type for user_expressions argument! "
+                           "Please provide (list of) strings, or None!")
+    if data is None:
+        return []
+    elif isinstance(data, str):
+        return [data]
+    elif isinstance(data, list):
+        if any(not isinstance(item, str) for item in data):
+            raise exception
+        return data
+    else:
+        raise exception
 
 
 def check_user_dict(name, user_dict):
