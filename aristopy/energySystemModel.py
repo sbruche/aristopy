@@ -157,7 +157,7 @@ class EnergySystemModel:
         # of the availability and capacity of the modelled components. It is
         # used to export (and import) the configuration results.
         self.component_configuration = pd.DataFrame(
-            index=['BI_EX', 'BI_MODULE_EX', 'CAP'])
+            index=[utils.BI_EX, utils.BI_MODULE_EX, utils.CAP])
 
         # DataFrames and dictionaries to store additionally added pyomo objects
         # (variables and constraints) and objective function contributions.
@@ -268,9 +268,9 @@ class EnergySystemModel:
         of all modelled components as pandas Series and collects and returns
         them in a pandas DataFrame. The configuration features are (if exist):
 
-        * the binary existence variable (BI_EX),
-        * the binary existence variables of modules (BI_MODULE_EX)
-        * the component capacity variable (of the main commodity)
+        * the binary existence variable (utils.BI_EX),
+        * the binary existence variables of modules (utils.BI_MODULE_EX)
+        * the component capacity variable (utils.CAP)
 
         :returns: The configuration of all components of the model instance.
         :rtype: pandas DataFrame
@@ -466,7 +466,7 @@ class EnergySystemModel:
                 # If existence modules binaries should be used and are available
                 if include_modules and comp.capacity_per_module is not None:
                     # Check if variable is constructed
-                    var_bi_mod_ex = comp.variables['BI_MODULE_EX']['pyomo']
+                    var_bi_mod_ex = comp.variables[utils.BI_MODULE_EX]['pyomo']
                     if var_bi_mod_ex is not None:
                         # Check in every index in variable if it has a value
                         for idx in var_bi_mod_ex:
@@ -490,7 +490,8 @@ class EnergySystemModel:
                         continue  # skip the rest und go to next item in loop
                     elif not include_modules and comp.capacity_per_module is \
                             not None:
-                        var_bi_mod_ex = comp.variables['BI_MODULE_EX']['pyomo']
+                        var_bi_mod_ex = comp.variables[utils.BI_MODULE_EX][
+                            'pyomo']
                         if var_bi_mod_ex is not None:
                             if var_bi_mod_ex[1].value is not None:
                                 if var_bi_mod_ex[1].value < 0.5:
@@ -500,7 +501,7 @@ class EnergySystemModel:
                         continue
                     # ----------------------------------------------------------
                     # Check if variable is constructed and has a value
-                    var_bi_ex = comp.variables['BI_EX']['pyomo']
+                    var_bi_ex = comp.variables[utils.BI_EX]['pyomo']
                     if var_bi_ex is not None and var_bi_ex.value is not None:
                         # Append variable to ICC expression
                         if var_bi_ex.value < 0.5:
@@ -890,17 +891,7 @@ class EnergySystemModel:
                             set_connection(comp, c_dest, flow.commodity)
                     if not found_dest:
                         raise ValueError(component_not_found(flow.link))
-
-        #     print('name:        ', comp_name)
-        #     print('inlet:       ', comp.inlet)
-        #     print('outlet:      ', comp.outlet)
-        #     print('commods:     ', comp.commodities)
-        #     print('inl_com_var: ', comp.inlet_commod_and_var_names)
-        #     print('outl_com_var:', comp.outlet_commod_and_var_names)
-        #     print('basic_var:   ', comp.basic_variable)
-        #     print('var_connect: ', comp.var_connections)
-        #     print('------------------------------')
-        # print(self.component_connections)
+        # ----------------------------------------------------------------------
 
         # Check correctness of connections
         for name, comp in self.components.items():

@@ -99,10 +99,10 @@ class Conversion(Component):
                 raise ValueError('Start-up cost require the availability '
                                  'of a binary operation variable.')
             # Else: add Start-up binary variable
-            self._add_var(name='BI_SU', domain='Binary', has_time_set=True)
+            self._add_var(name=utils.BI_SU, domain='Binary', has_time_set=True)
             # If inter-period-formulation is requested: add another binary var
             if self.use_inter_period_formulation:
-                self._add_var(name='BI_SU_INTER', domain='Binary',
+                self._add_var(name=utils.BI_SU_INTER, domain='Binary',
                               has_time_set=False, init=0,
                               alternative_set='inter_period_time_set')
 
@@ -157,24 +157,24 @@ class Conversion(Component):
         # ---------------
         # CAPEX depending on capacity
         if self.capex_per_capacity > 0:
-            cap = self.variables['CAP']['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
             obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
 
         # CAPEX depending on existence of component
         if self.capex_if_exist > 0:
-            bi_ex = self.variables['BI_EX']['pyomo']
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
             obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
         # ---------------
         #   O P E X
         # ---------------
         # OPEX depending on capacity
         if self.opex_per_capacity > 0:
-            cap = self.variables['CAP']['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
             obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
 
         # OPEX depending on existence of component
         if self.opex_if_exist > 0:
-            bi_ex = self.variables['BI_EX']['pyomo']
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
             obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
 
         # OPEX for operating the conversion unit
@@ -187,12 +187,12 @@ class Conversion(Component):
         # ---------------
         # Start-up cost
         if self.start_up_cost > 0:
-            bi_su = self.variables['BI_SU']['pyomo']  # only available if '>0'
+            bi_su = self.variables[utils.BI_SU]['pyomo']  # only avail. if '>0'
             start_cost_intra = -1 * ensys.pvf * self.start_up_cost * sum(
                 bi_su[p, t] * ensys.period_occurrences[p] for p, t in
                 pyM.time_set) / ensys.number_of_years
             if self.use_inter_period_formulation and ensys.is_data_clustered:
-                bi_su_inter = self.variables['BI_SU_INTER']['pyomo']
+                bi_su_inter = self.variables[utils.BI_SU_INTER]['pyomo']
                 start_cost_inter = -1 * ensys.pvf * self.start_up_cost * pyomo.\
                     summation(bi_su_inter) / ensys.number_of_years
             else:
@@ -208,11 +208,11 @@ class Conversion(Component):
         TODO: Add description!
         """
         if self.number_in_group > 1 and self.group_has_existence_order:
-            bi_ex = self.variables['BI_EX']['pyomo']
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
             # Get 'bi_ex' of the previous component in the sequence
             prior = self.group_name + '_{}'.format(self.number_in_group - 1)
             prior_comp = ensys.components[prior]
-            bi_ex_prior = prior_comp.variables['BI_EX']['pyomo']
+            bi_ex_prior = prior_comp.variables[utils.BI_EX]['pyomo']
 
             def con_existence_sym_break(m):
                 return bi_ex <= bi_ex_prior
@@ -228,10 +228,10 @@ class Conversion(Component):
         """
         if self.number_in_group > 1 and self.group_has_operation_order:
             # Get variables:
-            bi_op = self.variables['BI_OP']['pyomo']
+            bi_op = self.variables[utils.BI_OP]['pyomo']
             prior = self.group_name + '_{}'.format(self.number_in_group - 1)
             prior_comp = ensys.components[prior]
-            bi_op_prior = prior_comp.variables['BI_OP']['pyomo']
+            bi_op_prior = prior_comp.variables[utils.BI_OP]['pyomo']
 
             def con_operation_sym_break(m, p, t):
                 return bi_op[p, t] <= bi_op_prior[p, t]
@@ -243,12 +243,12 @@ class Conversion(Component):
         The operation variable (ref.: basic commodity) of a conversion unit
         (MWh) is limit by its nominal power (MW) multiplied with the number of
         hours per time step. E.g.: |br|
-        ``Q[p, t] <= Q_CAP * dt``
+        ``Q[p, t] <= CAP * dt``
         """
         # Only required if component has a capacity variable
         if self.has_capacity_var:
             # Get variables:
-            cap = self.variables['CAP']['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
             dt = self.ensys.hours_per_time_step
 
@@ -299,13 +299,13 @@ class Conversion(Component):
         (bi_op=1) from one time step to the next, the binary start-up variable
         must take a value of 1. For shut-down and remaining ON or OFF, status
         variable can take both values but objective function forces it to be 0.
-        |br| ``0 <= BI_OP[t-1] - BI_OP[t] + BI_SU[t]``
+        E.g.: |br| ``0 <= BI_OP[t-1] - BI_OP[t] + BI_SU[t]``
         """
         # Only if the start-up cost value is larger than 0
         if self.start_up_cost > 0:
             # Get binary variables:
-            bi_op = self.variables['BI_OP']['pyomo']
-            bi_su = self.variables['BI_SU']['pyomo']
+            bi_op = self.variables[utils.BI_OP]['pyomo']
+            bi_su = self.variables[utils.BI_SU]['pyomo']
 
             def con_start_up_cost(m, p, t):
                 if t != 0:  # not in first time step of a period
@@ -324,8 +324,8 @@ class Conversion(Component):
         if self.start_up_cost > 0 and self.use_inter_period_formulation \
                 and ensys.is_data_clustered:
             # Get binary variables:
-            bi_op = self.variables['BI_OP']['pyomo']
-            bi_su_inter = self.variables['BI_SU_INTER']['pyomo']
+            bi_op = self.variables[utils.BI_OP]['pyomo']
+            bi_su_inter = self.variables[utils.BI_SU_INTER]['pyomo']
 
             def con_start_up_cost_inter(m, p):
                 # not for first period, because there is no precursor to use

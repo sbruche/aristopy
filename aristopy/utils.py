@@ -12,6 +12,24 @@ import numpy as np
 import pyomo.environ as pyomo
 import aristopy
 
+# ==============================================================================
+# GLOBAL VARIABLE NAMES:
+# ----------------------
+# These names (strings) are used to create the constraints of the optimization
+# model. They can be applied for manual scripting of expressions inside of the
+# components. E.g., user_expressions='CAP <= 42 * BI_EX'
+CAP = 'CAP'                    # component capacity variable
+BI_EX = 'BI_EX'                # binary existence variable
+BI_OP = 'BI_OP'                # binary operation variable
+BI_MODULE_EX = 'BI_MODULE_EX'  # binary existence variable of component modules
+BI_SU = 'BI_SU'                # binary start-up variable of conversion units
+BI_SU_INTER = 'BI_SU_INTER'    # binary start-up var. (inter-period time-steps)
+SOC = 'SOC'                    # State of charge var. of storage components
+SOC_MAX = 'SOC_MAX'            # State of charge var. for maximal energy content
+SOC_MIN = 'SOC_MIN'            # State of charge var. for minimal energy content
+SOC_INTER = 'SOC_INTER'        # State of charge var. (inter-period time-steps)
+# ==============================================================================
+
 
 def check_and_set_flows(data):
     """

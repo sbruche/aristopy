@@ -106,32 +106,32 @@ class Component(metaclass=ABCMeta):
                                            capacity_per_module,
                                            maximal_module_number)
 
-        # Specify a capacity variable (with standard name "CAP") if capacities
-        # are stated and add it to variables DataFrame.
-        # Set 'capacity_max' as upper bound for the capacity variable "CAP".
+        # Specify a capacity variable (with standard name -> see: utils.CAP) if
+        # capacities are stated and add it to variables DataFrame.
+        # Set 'capacity_max' as upper bound for the capacity variable.
         # Lower bound is only used if component is built (depends on status of
         # the existence binary variable if specified) --> see constraints!
         self.has_capacity_var = True \
             if self.capacity_min or self.capacity_max is not None else False
         if self.has_capacity_var:
-            self._add_var('CAP', has_time_set=False, ub=self.capacity_max)
+            self._add_var(utils.CAP, has_time_set=False, ub=self.capacity_max)
 
         if self.capacity_per_module is not None:
             # add binary variables for the existence of modules of a component
-            self._add_var(name='BI_MODULE_EX', has_time_set=False,
+            self._add_var(name=utils.BI_MODULE_EX, has_time_set=False,
                           alternative_set=range(1, self.maximal_module_number
                                                 + 1),  # 1 to end inclusive
                           domain='Binary')
 
         # Add binary variables for existence and operation with standard names
-        # ("BI_EX", and "BI_OP", respectively) if required:
+        # (see: utils.BI_EX, and utils.BI_OP, respectively) if required:
         self.has_bi_ex = has_existence_binary_var
         if self.has_bi_ex:
-            self._add_var(name='BI_EX', domain='Binary', has_time_set=False)
+            self._add_var(name=utils.BI_EX, domain='Binary', has_time_set=False)
 
         self.has_bi_op = has_operation_binary_var
         if self.has_bi_op:
-            self._add_var(name='BI_OP', domain='Binary', has_time_set=True)
+            self._add_var(name=utils.BI_OP, domain='Binary', has_time_set=True)
 
         if self.capacity_max is None and (self.has_bi_op or self.has_bi_ex):
             raise ValueError('An over-estimator is required if a binary '
@@ -417,13 +417,13 @@ class Component(metaclass=ABCMeta):
         # Loop through the DataFrame "variables"
         for v in self.variables.columns:
             # Include the global existence variable:
-            if include_existence and v == 'BI_EX':
+            if include_existence and v == utils.BI_EX:
                 if store_previous_variables:
                     store_copy_of_variable(v, self.variables[v])
                 relax_variable(self.variables[v])
                 # self.log.debug('Relax integrality of variable: "%s"' % v)
             # Include the module existence variables:
-            elif include_modules and v == 'BI_MODULE_EX':
+            elif include_modules and v == utils.BI_MODULE_EX:
                 if store_previous_variables:
                     store_copy_of_variable(v, self.variables[v])
                 relax_variable(self.variables[v])
@@ -566,9 +566,9 @@ class Component(metaclass=ABCMeta):
         """
         This function exports the component configuration data (results of the
         optimization) as a pandas Series. The features are (if exist):
-        |br| * the binary existence variable (BI_EX),
-        |br| * the binary existence variables of modules (BI_MODULE_EX)
-        |br| * the component capacity variable (CAP of the main commodity)
+        |br| * the binary existence variable (utils.BI_EX),
+        |br| * the binary existence variables of modules (utils.BI_MODULE_EX)
+        |br| * the component capacity variable (of main commodity, utils.CAP)
 
         :return: The configuration of the modelled component instance.
         :rtype: pandas Series
@@ -576,18 +576,19 @@ class Component(metaclass=ABCMeta):
         bi_ex_val, bi_mod_ex_val, cap_val = None, None, None
 
         if self.has_bi_ex:
-            bi_ex_val = self.variables['BI_EX']['pyomo'].value
+            bi_ex_val = self.variables[utils.BI_EX]['pyomo'].value
 
         if self.capacity_per_module is not None:
-            var = self.variables['BI_MODULE_EX']['pyomo']
+            var = self.variables[utils.BI_MODULE_EX]['pyomo']
             bi_mod_ex_val = {i: var[i].value for i in range(
                 1, self.maximal_module_number + 1)}  # equiv. to pyomo.RangeSet
 
         if self.has_capacity_var:
-            cap_val = self.variables['CAP']['pyomo'].value
+            cap_val = self.variables[utils.CAP]['pyomo'].value
 
-        series = pd.Series({'BI_EX': bi_ex_val, 'BI_MODULE_EX': bi_mod_ex_val,
-                            'CAP': cap_val})
+        series = pd.Series({utils.BI_EX: bi_ex_val,
+                            utils.BI_MODULE_EX: bi_mod_ex_val,
+                            utils.CAP: cap_val})
         # Replace numpy NaNs that might occur here and there with None
         series = series.replace({nan: None})
 
@@ -598,10 +599,11 @@ class Component(metaclass=ABCMeta):
                                        store_previous_variables=True):
         """
         # TODO: Do i need to round imported values? (especially binary)
-        Function to load a pandas Series (index=['BI_EX', 'BI_MODULE_EX',
-        'CAP']) with configuration specifications (binary existence variables
-        and capacity variable values). The values are used to fix a specific
-        component configuration (for example from other model runs).
+        Function to load a pandas Series (index=[utils.BI_EX,
+        utils.BI_MODULE_EX, utils.CAP]) with configuration specifications
+        (binary existence variables and capacity variable values). The values
+        are used to fix a specific component configuration (for example from
+        other model runs).
 
         :param data: The configuration of the modelled component instance.
         :type data: pandas Series
@@ -639,53 +641,56 @@ class Component(metaclass=ABCMeta):
                 self.variables_copy[name] = series
 
         # EXISTENCE VARIABLE: Fix if required and available in model and data
-        if fix_existence and self.has_bi_ex and data['BI_EX'] is not None:
+        if fix_existence and self.has_bi_ex and data[utils.BI_EX] is not None:
             # Backup of variables in "variables_copy" if requested for resetting
             if store_previous_variables:
-                store_copy_of_variable(name='BI_EX',
-                                       var=self.variables['BI_EX'])
+                store_copy_of_variable(name=utils.BI_EX,
+                                       var=self.variables[utils.BI_EX])
             # Always possible to set bounds (also if not declared)
-            self.variables['BI_EX']['lb'] = data['BI_EX']
-            self.variables['BI_EX']['ub'] = data['BI_EX']
+            self.variables[utils.BI_EX]['lb'] = data[utils.BI_EX]
+            self.variables[utils.BI_EX]['ub'] = data[utils.BI_EX]
             if self.ensys.is_model_declared:  # model / variables are declared
-                self.variables['BI_EX']['pyomo'].fix(data['BI_EX'])
+                self.variables[utils.BI_EX]['pyomo'].fix(data[utils.BI_EX])
                 # additional step required for persistent model
                 if self.ensys.is_persistent_model_declared:
                     self.ensys.solver.update_var(
-                        self.variables['BI_EX']['pyomo'])
+                        self.variables[utils.BI_EX]['pyomo'])
 
         # MODULE EXISTENCE VARIABLE: Fix if required and available
         if fix_modules and self.capacity_per_module is not None \
-                and data['BI_MODULE_EX'] is not None:
+                and data[utils.BI_MODULE_EX] is not None:
             # Backup of variables in "variables_copy" if requested for resetting
             if store_previous_variables:
-                store_copy_of_variable(name='BI_MODULE_EX',
-                                       var=self.variables['BI_MODULE_EX'])
+                store_copy_of_variable(name=utils.BI_MODULE_EX,
+                                       var=self.variables[utils.BI_MODULE_EX])
             # Always possible to set bounds (also if not declared)
-            self.variables['BI_MODULE_EX']['lb'] = data['BI_MODULE_EX']
-            self.variables['BI_MODULE_EX']['ub'] = data['BI_MODULE_EX']
+            self.variables[utils.BI_MODULE_EX]['lb'] = data[utils.BI_MODULE_EX]
+            self.variables[utils.BI_MODULE_EX]['ub'] = data[utils.BI_MODULE_EX]
             if self.ensys.is_model_declared:
                 for i in range(1, self.maximal_module_number + 1):
-                    self.variables['BI_MODULE_EX']['pyomo'][i].fix(
-                        data['BI_MODULE_EX'][i])
+                    self.variables[utils.BI_MODULE_EX]['pyomo'][i].fix(
+                        data[utils.BI_MODULE_EX][i])
                     # additional step required for persistent model
                     if self.ensys.is_persistent_model_declared:
                         self.ensys.solver.update_var(
-                            self.variables['BI_MODULE_EX']['pyomo'][i])
+                            self.variables[utils.BI_MODULE_EX]['pyomo'][i])
 
         # CAPACITY VARIABLE: Fix if required and available in model and data
-        if fix_capacity and self.has_capacity_var and data['CAP'] is not None:
+        if fix_capacity and self.has_capacity_var \
+                and data[utils.CAP] is not None:
             # Backup of variables in "variables_copy" if requested for resetting
             if store_previous_variables:
-                store_copy_of_variable(name='CAP', var=self.variables['CAP'])
+                store_copy_of_variable(name=utils.CAP,
+                                       var=self.variables[utils.CAP])
             # Always possible to set bounds (also if not declared)
-            self.variables['CAP']['lb'] = data['CAP']
-            self.variables['CAP']['ub'] = data['CAP']
+            self.variables[utils.CAP]['lb'] = data[utils.CAP]
+            self.variables[utils.CAP]['ub'] = data[utils.CAP]
             if self.ensys.is_model_declared:  # model / variables are declared
-                self.variables['CAP']['pyomo'].fix(data['CAP'])
+                self.variables[utils.CAP]['pyomo'].fix(data[utils.CAP])
                 # additional step required for persistent model
                 if self.ensys.is_persistent_model_declared:
-                    self.ensys.solver.update_var(self.variables['CAP']['pyomo'])
+                    self.ensys.solver.update_var(
+                        self.variables[utils.CAP]['pyomo'])
 
     # ==========================================================================
     #    A D D   P A R A M E T E R
@@ -965,11 +970,11 @@ class Component(metaclass=ABCMeta):
         Couples the global existence binary variable with the capacity variable.
         If component does not exist, capacity must take a value of 0.
         Availability of required 'capacity_max' is checked in initialization.
-        |br| ``CAP <= BI_EX * capacity_max``
+        E.g.: |br| ``CAP <= BI_EX * capacity_max``
         """
         if self.has_bi_ex:
-            bi_ex = self.variables['BI_EX']['pyomo']
-            cap = self.variables['CAP']['pyomo']
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
             cap_max = self.capacity_max
 
             def con_couple_bi_ex_and_cap(m):
@@ -981,18 +986,18 @@ class Component(metaclass=ABCMeta):
         """
         Specify the minimum (nominal) capacity of a component (based on its
         basic variable). If a binary existence variable is declared, the minimal
-        capacity is only used if the component exists. |br|
+        capacity is only used if the component exists. E.g.: |br|
         ``CAP >= capacity_min * BI_EX``  or |br|
         ``CAP >= capacity_min`` |br|
         (The maximal capacity is initially set by an upper variable bound.)
         """
         if self.capacity_min is not None:
-            cap = self.variables['CAP']['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
             cap_min = self.capacity_min
 
             def con_cap_min(m):
                 if self.has_bi_ex:
-                    bi_ex = self.variables['BI_EX']['pyomo']
+                    bi_ex = self.variables[utils.BI_EX]['pyomo']
                     return cap >= cap_min * bi_ex
                 else:
                     return cap >= cap_min
@@ -1001,12 +1006,12 @@ class Component(metaclass=ABCMeta):
     def con_cap_modular(self):
         """
         The nominal capacity of a component is calculated as a product of the
-        capacity per module and the number of existing modules. |br|
+        capacity per module and the number of existing modules. E.g.: |br|
         ``CAP == capacity_per_module * summation(BI_MODULE_EX)``
         """
         if self.capacity_per_module is not None:
-            cap = self.variables['CAP']['pyomo']
-            bi_mod = self.variables['BI_MODULE_EX']['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
+            bi_mod = self.variables[utils.BI_MODULE_EX]['pyomo']
             cap_per_mod = self.capacity_per_module
 
             def con_cap_modular(m):
@@ -1020,7 +1025,7 @@ class Component(metaclass=ABCMeta):
         E.g.: |br| ``BI_MODULE_EX[2] <= BI_MODULE_EX[1]``
         """
         if self.capacity_per_module is not None:
-            bi_mod = self.variables['BI_MODULE_EX']['pyomo']
+            bi_mod = self.variables[utils.BI_MODULE_EX]['pyomo']
 
             def con_modular_sym_break(m, nr):
                 if nr != 1:
@@ -1035,12 +1040,12 @@ class Component(metaclass=ABCMeta):
         """
         Couples the global existence binary variable with the binary existence
         status of the first module. All other modules are indirectly coupled
-        via symmetry break constraints. |br|
+        via symmetry break constraints. E.g.: |br|
         ``BI_EX >= BI_MODULE_EX[1]``
         """
         if self.has_bi_ex and self.capacity_per_module is not None:
-            bi_ex = self.variables['BI_EX']['pyomo']
-            bi_mod = self.variables['BI_MODULE_EX']['pyomo']
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
+            bi_mod = self.variables[utils.BI_MODULE_EX]['pyomo']
 
             def con_couple_existence_and_modular(m):
                 if self.maximal_module_number >= 1:
@@ -1056,14 +1061,14 @@ class Component(metaclass=ABCMeta):
     def con_bi_var_ex_and_op_relation(self, pyM):
         """
         Relationship between the binary variables for existence and operation.
-        A component can only be operated if it does exist. |br|
+        A component can only be operated if it does exist. E.g.: |br|
         ``BI_OP[p, t] <= BI_EX``
         """
         # Only required if both binary variables are considered
         if self.has_bi_ex and self.has_bi_op:
             # Get variables:
-            bi_ex = self.variables['BI_EX']['pyomo']
-            bi_op = self.variables['BI_OP']['pyomo']
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
+            bi_op = self.variables[utils.BI_OP]['pyomo']
 
             def con_bi_var_ex_and_op_relation(m, p, t):
                 return bi_op[p, t] <= bi_ex
@@ -1080,7 +1085,7 @@ class Component(metaclass=ABCMeta):
         (with reference to its basic variable).
         E.g.: |br|
         ``Q[p, t] <= CAP * dt``  (conversion, sink, source) or |br|
-        ``Q_SOC[p, t] <= CAP`` (storage) or |br|
+        ``SOC[p, t] <= CAP`` (storage) or |br|
         ``Q_INLET[p, t] <= CAP * dt`` (bus)
         """
         raise NotImplementedError
@@ -1095,7 +1100,7 @@ class Component(metaclass=ABCMeta):
         """
         if self.has_bi_op and self.capacity_max is not None:
             # Get variables:
-            bi_op = self.variables['BI_OP']['pyomo']
+            bi_op = self.variables[utils.BI_OP]['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
             cap_max = self.capacity_max
             dt = self.ensys.hours_per_time_step

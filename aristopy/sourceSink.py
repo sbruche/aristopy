@@ -147,24 +147,24 @@ class Source(Component):
         # ---------------
         # CAPEX depending on capacity
         if self.capex_per_capacity > 0:
-            cap = self.variables['CAP']['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
             obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
 
             # CAPEX depending on existence of component
         if self.capex_if_exist > 0:
-            bi_ex = self.variables['BI_EX']['pyomo']
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
             obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
         # ---------------
         #   O P E X
         # ---------------
         # OPEX depending on capacity
         if self.opex_per_capacity > 0:
-            cap = self.variables['CAP']['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
             obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
 
         # OPEX depending on existence of sink / source
         if self.opex_if_exist > 0:
-            bi_ex = self.variables['BI_EX']['pyomo']
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
             obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
 
         # OPEX for operating the sink / source
@@ -214,12 +214,12 @@ class Source(Component):
         The operation variable (ref.: basic variable / basic commodity) of a
         sink / source unit (MWh) is limit by its nominal power (MW) multiplied
         with the number of hours per time step. E.g.: |br|
-        ``Q[p, t] <= Q_CAP * dt``
+        ``Q[p, t] <= CAP * dt``
         """
         # Only required if component has a capacity variable
         if self.has_capacity_var:
             # Get variables:
-            cap = self.variables['CAP']['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
             dt = self.ensys.hours_per_time_step
 

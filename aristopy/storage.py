@@ -110,24 +110,20 @@ class Storage(Component):
 
         # Create a state of charge (SOC) variable and if the inter-period
         # formulation is selected create an additional inter-period SOC variable
-        self.soc_variable = 'SOC'
         if not self.use_inter_period_formulation:
-            self._add_var(self.soc_variable, has_time_set=False,
+            self._add_var(utils.SOC, has_time_set=False,
                           alternative_set='intra_period_time_set')  # NonNegReal
         # use inter-period formulation:
         else:
-            self._add_var(self.soc_variable, domain='Reals', has_time_set=False,
+            self._add_var(utils.SOC, domain='Reals', has_time_set=False,
                           alternative_set='intra_period_time_set')  # Real
-            self.soc_inter_variable = 'SOC_INTER'
-            self._add_var(self.soc_inter_variable, has_time_set=False,
+            self._add_var(utils.SOC_INTER, has_time_set=False,
                           alternative_set='inter_period_time_set')
             if not self.precise_inter_period_modeling:
-                self.soc_max_variable = 'SOC_MAX'
-                self.soc_min_variable = 'SOC_MIN'
-                self._add_var(self.soc_max_variable, has_time_set=False,
+                self._add_var(utils.SOC_MAX, has_time_set=False,
                               alternative_set='typical_periods_set',
                               domain='Reals')
-                self._add_var(self.soc_min_variable, has_time_set=False,
+                self._add_var(utils.SOC_MIN, has_time_set=False,
                               alternative_set='typical_periods_set',
                               domain='Reals')
 
@@ -185,24 +181,24 @@ class Storage(Component):
         # ---------------
         # CAPEX depending on capacity
         if self.capex_per_capacity > 0:
-            cap = self.variables['CAP']['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
             obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
 
         # CAPEX depending on existence of component
         if self.capex_if_exist > 0:
-            bi_ex = self.variables['BI_EX']['pyomo']
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
             obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
         # ---------------
         #   O P E X
         # ---------------
         # OPEX depending on capacity
         if self.opex_per_capacity > 0:
-            cap = self.variables['CAP']['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
             obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
 
         # OPEX depending on existence of storage unit
         if self.opex_if_exist > 0:
-            bi_ex = self.variables['BI_EX']['pyomo']
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
             obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
 
         # OPEX for charging and discharging the storage
@@ -221,11 +217,11 @@ class Storage(Component):
         """
         The operation of a storage component (state of charge) is limit by its
         nominal capacity E.g.: |br|
-        ``Q_SOC[p, t] <= Q_CAP``
+        ``SOC[p, t] <= CAP``
         """
         # Get variables:
-        cap = self.variables['CAP']['pyomo']
-        soc = self.variables[self.soc_variable]['pyomo']
+        cap = self.variables[utils.CAP]['pyomo']
+        soc = self.variables[utils.SOC]['pyomo']
 
         def con_operation_limit(m, p, t):
             return soc[p, t] <= cap
@@ -244,7 +240,7 @@ class Storage(Component):
         # Get variables:
         charge = self.variables[self.charge_variable]['pyomo']
         discharge = self.variables[self.discharge_variable]['pyomo']
-        soc = self.variables[self.soc_variable]['pyomo']
+        soc = self.variables[utils.SOC]['pyomo']
         dt = ensys.hours_per_time_step
 
         def con_soc_balance(m, p, t):
@@ -259,7 +255,7 @@ class Storage(Component):
         """
         XXX
         """
-        cap = self.variables['CAP']['pyomo']
+        cap = self.variables[utils.CAP]['pyomo']
         charge = self.variables[self.charge_variable]['pyomo']
         dt = ensys.hours_per_time_step
 
@@ -273,7 +269,7 @@ class Storage(Component):
         """
         XXX
         """
-        cap = self.variables['CAP']['pyomo']
+        cap = self.variables[utils.CAP]['pyomo']
         discharge = self.variables[self.discharge_variable]['pyomo']
         dt = ensys.hours_per_time_step
 
@@ -290,10 +286,10 @@ class Storage(Component):
         TODO: Extend explanation!
         """
         # Get variables:
-        soc = self.variables[self.soc_variable]['pyomo']
+        soc = self.variables[utils.SOC]['pyomo']
 
         if self.use_inter_period_formulation and ensys.is_data_clustered:
-            soc_inter = self.variables[self.soc_inter_variable]['pyomo']
+            soc_inter = self.variables[utils.SOC_INTER]['pyomo']
 
             def con_cyclic_condition_inter(m):
                 last_idx = pyM.inter_period_time_set.last()
@@ -321,11 +317,11 @@ class Storage(Component):
         """
         if self.soc_initial is not None:
             # Get variables:
-            soc = self.variables[self.soc_variable]['pyomo']
-            cap = self.variables['CAP']['pyomo']
+            soc = self.variables[utils.SOC]['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
 
             if self.use_inter_period_formulation and ensys.is_data_clustered:
-                soc_inter = self.variables[self.soc_inter_variable]['pyomo']
+                soc_inter = self.variables[utils.SOC_INTER]['pyomo']
 
                 def con_soc_inter_initial(m):
                     return soc_inter[0] == cap * self.soc_initial
@@ -350,7 +346,7 @@ class Storage(Component):
         """
         if self.use_inter_period_formulation and ensys.is_data_clustered:
             # Get variables:
-            soc = self.variables[self.soc_variable]['pyomo']
+            soc = self.variables[utils.SOC]['pyomo']
 
             def con_soc_intra_period_start(m, p):
                 return soc[p, 0] == 0
@@ -366,8 +362,8 @@ class Storage(Component):
         """
         if self.use_inter_period_formulation and ensys.is_data_clustered:
             # Get variables:
-            soc = self.variables[self.soc_variable]['pyomo']
-            soc_inter = self.variables[self.soc_inter_variable]['pyomo']
+            soc = self.variables[utils.SOC]['pyomo']
+            soc_inter = self.variables[utils.SOC_INTER]['pyomo']
             dt = ensys.hours_per_time_step
 
             def con_soc_inter_period_balance(m, p):
@@ -388,8 +384,8 @@ class Storage(Component):
         """
         if not self.use_inter_period_formulation or not ensys.is_data_clustered:
             # Get variables:
-            soc = self.variables[self.soc_variable]['pyomo']
-            cap = self.variables['CAP']['pyomo']
+            soc = self.variables[utils.SOC]['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
 
             # Todo: Causes errors when calculating iteratively because this
             #  formulation changes the bounds permanently to NonNegativeReals.
@@ -406,7 +402,7 @@ class Storage(Component):
             # model is not fully declared yet (flag "is_model_declared" is
             # still False). Manually overwrite domain of SOC variable here!
             # if soc[soc.index_set().first()].domain == pyomo.Reals:
-            #    self.edit_variable(self.soc_variable,
+            #    self.edit_variable(utils.SOC,
             #                       domain='NonNegativeReals')
             #    soc.domain = pyomo.NonNegativeReals
             # Only built the constraint if the value for soc_min > 0.
@@ -439,11 +435,11 @@ class Storage(Component):
                 and not self.precise_inter_period_modeling:
 
             # Get variables:
-            soc = self.variables[self.soc_variable]['pyomo']
-            cap = self.variables['CAP']['pyomo']
-            soc_max = self.variables[self.soc_max_variable]['pyomo']
-            soc_min = self.variables[self.soc_min_variable]['pyomo']
-            soc_inter = self.variables[self.soc_inter_variable]['pyomo']
+            soc = self.variables[utils.SOC]['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
+            soc_max = self.variables[utils.SOC_MAX]['pyomo']
+            soc_min = self.variables[utils.SOC_MIN]['pyomo']
+            soc_inter = self.variables[utils.SOC_INTER]['pyomo']
             dt = ensys.hours_per_time_step
 
             # The variable "SOC_MAX" of a typical period is larger than all
@@ -496,9 +492,9 @@ class Storage(Component):
                 and self.precise_inter_period_modeling:
 
             # Get variables:
-            soc = self.variables[self.soc_variable]['pyomo']
-            cap = self.variables['CAP']['pyomo']
-            soc_inter = self.variables[self.soc_inter_variable]['pyomo']
+            soc = self.variables[utils.SOC]['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
+            soc_inter = self.variables[utils.SOC_INTER]['pyomo']
             dt = ensys.hours_per_time_step
 
             # The inter-period SOC at the beginning of a period minus the self
@@ -532,7 +528,6 @@ class Storage(Component):
         comp_dict = super().serialize()
         comp_dict['charge_variable'] = self.charge_variable
         comp_dict['discharge_variable'] = self.discharge_variable
-        comp_dict['soc_variable'] = self.soc_variable
-        if hasattr(self, 'soc_inter_variable'):
-            comp_dict['soc_inter_variable'] = self.soc_inter_variable
+        comp_dict['soc_variable'] = utils.SOC
+        comp_dict['soc_inter_variable'] = utils.SOC_INTER
         return comp_dict
