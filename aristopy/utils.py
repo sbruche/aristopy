@@ -160,23 +160,6 @@ def set_if_between_zero_and_one(data):
     return data
 
 
-def check_add_variable(name, domain, has_time_set, alternative_set, ub, lb):
-    """ Check the user input of the function 'add_variable' that can be used to
-        manually add variables to the main model instance. """
-    is_string(name)
-    if domain not in ['Binary', 'NonNegativeReals', 'Reals']:
-        raise TypeError('Select the domain of the variable from "Binary", '
-                        '"NonNegativeReals", "Reals"')
-    is_boolean(has_time_set)
-    if alternative_set is not None and not hasattr(alternative_set, '__iter__'):
-        raise TypeError('The "alternative_set" keyword requires a iterable '
-                        'Python object!')
-    if ub is not None:
-        is_number(ub)
-    if lb is not None:
-        is_number(lb)
-
-
 def is_dataframe(data):
     if not isinstance(data, pd.DataFrame):
         raise TypeError('The data needs to be imported as a pandas DataFrame!')
@@ -318,19 +301,27 @@ def check_and_set_commodity_rates(comp, rate_min, rate_max, rate_fix):
     return rate_min, rate_max, rate_fix
 
 
-def check_and_convert_to_list(value):
-    # todo: delete this!
-    """ Value should be of type list or a string that can be converted to a
-    single string in a list of length 1. """
-    if isinstance(value, str):
-        return [value]
-    elif isinstance(value, list):
-        return value
-    elif value is None:
-        return None
+def check_add_vars_input(data):
+    """
+    Function to check the input of components "additional_vars" argument and
+    the "add_variable" function of the energy system model instance. Input is
+    required as instances of aristopy's Var class (multiple -> arranged in list)
+
+    :return: list (of aristopy Var instances)
+    """
+    exception = ValueError("Invalid data type for added variable! "
+                           "Please provide instances of aristopy's Var class!")
+    if data is None:
+        return []
+    elif isinstance(data, aristopy.Var):
+        return [data]
+    elif isinstance(data, list):
+        if any(not isinstance(item, aristopy.Var) for item in data):
+            raise exception
+        return data
     else:
-        raise TypeError('The type of input "{}" should be a list or a single '
-                        'string.'.format(value))
+        raise exception
+
 
 def check_and_set_user_expr(data):
     """
@@ -353,13 +344,14 @@ def check_and_set_user_expr(data):
         raise exception
 
 
-def check_user_dict(name, user_dict):
-    if not isinstance(user_dict, dict):
-        raise ValueError('"{}" needs to be a dictionary!'.format(name))
-    for key, val in user_dict.items():
+def check_scalar_params_dict(data):
+    """ Function to check the input of the "scalar_params" argument. """
+    if not isinstance(data, dict):
+        raise ValueError('"scalar_params" need to be provided as a dictionary!')
+    for key, val in data.items():
         if not isinstance(key, str):
-            raise TypeError('Check "{}". Keys need to be strings!'.format(name))
-        is_number(val)  # type is int or float
+            raise TypeError('Check "scalar_params". Keys need to be strings!')
+        is_number(val)  # value type: integer or float
 
 
 def check_and_convert_time_series(ensys, data):
@@ -664,28 +656,20 @@ def simplify_user_constraint(df):
 
 # ==============================================================================
 
-def check_add_icc(which, inc_exist, inc_mod):
-    if which != 'all' and not isinstance(which, list):
-        raise TypeError(
-            'The "which_instances" keyword can either take string '
-            '"all" or can hold a list of component names!')
-    is_boolean(inc_exist), is_boolean(inc_mod)
-
-
 def check_clustering_input(number_of_typical_periods,
                            number_of_time_steps_per_period,
                            number_of_time_steps):
     is_strictly_positive_int(number_of_typical_periods)
     is_strictly_positive_int(number_of_time_steps_per_period)
-    if not number_of_time_steps % number_of_time_steps_per_period == 0:  # TODO: There should be a possibility to use other period lengths as well
+    if not number_of_time_steps % number_of_time_steps_per_period == 0:
         raise ValueError('The number_of_time_steps_per_period has to be an '
                          'integer divisor of the total number of time steps '
                          'considered in the energy system model.')
     if number_of_time_steps < \
             number_of_typical_periods * number_of_time_steps_per_period:
         raise ValueError('The product of the number_of_typical_periods and the '
-                         ' number_of_time_steps_per_period has to be smaller'
-                         ' than the total number of considered time steps.')
+                         'number_of_time_steps_per_period has to be smaller '
+                         'than the total number of considered time steps.')
 
 
 def check_declare_optimization_problem_input(time_series_aggregation,
@@ -725,7 +709,7 @@ def check_optimize_input(time_series_aggregation, persistent_model,
         raise ValueError('The warmstart parameter has to be a boolean.')
 
 
-def input_check_energy_system_model(number_of_time_steps, hours_per_time_step,
+def check_energy_system_model_input(number_of_time_steps, hours_per_time_step,
                                     interest_rate, economic_lifetime, logging):
     """ Check the correctness of the user input for the initialization of an
     EnergySystemModel instance. """
@@ -736,24 +720,6 @@ def input_check_energy_system_model(number_of_time_steps, hours_per_time_step,
 
     if logging is not None and not isinstance(logging, aristopy.Logger):
         raise TypeError('"logging" only takes instances of the class "Logger"')
-
-
-def check_design_parameters(has_cap, has_is_built, is_built_fix,
-                            cap_min, cap_max):
-    """ Check input arguments of design parameters and their combinations. """
-    for val, var in zip([has_cap, has_is_built, is_built_fix],
-                        ['has_capacity_variable',
-                         'has_is_built_binary_variable', 'is_built_fix']):
-        if not isinstance(val, bool):
-            raise ValueError('The domain of the variable {} has to be boolean.'
-                             .format(var))
-    if not has_cap and has_is_built:
-        raise ValueError('Capacity variables are required, when '
-                         'has_is_built_binary_variable is set to True.')
-    if cap_min is not None:
-        is_positive_number(cap_min)
-    if cap_max is not None:
-        is_positive_number(cap_max)
 
 
 def check_edit_var_input(variable, store_vars, **kwargs):
@@ -774,25 +740,6 @@ def check_edit_var_input(variable, store_vars, **kwargs):
                                 '"Binary", "NonNegativeReals", "Reals"')
         if key == 'has_time_set':
             is_boolean(val)
-
-
-# TODO: Used somewhere? Delete it if not!
-def check_fix_existence_input(which, val, inc_mods, fix_cap):
-    if which != 'all' and which != 'current' and not isinstance(which, list):
-        raise TypeError('The "which_instance" keyword can either take strings '
-                        '"all" or "current" or can hold a list of integers!')
-    if val != 1 and val != 0 and val != 'current':
-        raise TypeError('The "value" keyword can either hold the integers 1 or '
-                        '0 or the string "current"!')
-    is_boolean(inc_mods), is_boolean(fix_cap)
-
-
-def check_relax_integrality(which, inc_exist, inc_mod, inc_time, store_vars):
-    if which != 'all' and not isinstance(which, list):
-        raise TypeError('The "which_instances" keyword can either take string '
-                        '"all" or can hold a list of component names!')
-    is_boolean(inc_exist), is_boolean(inc_mod), is_boolean(inc_time), \
-    is_boolean(store_vars)
 
 
 def is_boolean(value):
@@ -826,7 +773,7 @@ def is_pyomo_object(obj):
 
 def is_strictly_positive_int(value):
     """ Check if the input argument is a strictly positive integer. """
-    if not type(value) == int:
+    if not isinstance(value, int):
         raise TypeError('The input argument has to be an integer.')
     if not value > 0:
         raise ValueError('The input argument has to be strictly positive.')

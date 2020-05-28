@@ -65,7 +65,7 @@ class EnergySystemModel:
         :type logging: None or instance of aristopy class "Logger"
         """
         # Check user input:
-        utils.input_check_energy_system_model(
+        utils.check_energy_system_model_input(
             number_of_time_steps, hours_per_time_step, interest_rate,
             economic_lifetime, logging)
 
@@ -152,7 +152,6 @@ class EnergySystemModel:
         # the specified inlets and outlets and the connecting commodity:
         # {arc_name: [source instance, destination instance, commodity_name]}
         self.component_connections = {}  # {arc_name: [src, dest, commodity]}
-        # Todo: Add a warning if the ensys model has unconnected components!
 
         # 'component_configuration' is a pandas Dataframe to store basic results
         # of the availability and capacity of the modelled components. It is
@@ -213,9 +212,12 @@ class EnergySystemModel:
         self.log.info('Call of function "relax_integrality"')
 
         # Check user input
-        utils.check_relax_integrality(which_instances, include_existence,
-                                      include_modules, include_time_dependent,
-                                      store_previous_variables)
+        if which_instances != 'all' and not isinstance(which_instances, list):
+            raise TypeError('"which_instances" takes string "all" or holds '
+                            'a list of component names!')
+        utils.is_boolean(include_existence), utils.is_boolean(include_modules)
+        utils.is_boolean(include_time_dependent)
+        utils.is_boolean(store_previous_variables)
 
         # Run the 'relax_integrality' function in the desired components
         for name, comp in self.components.items():
@@ -327,51 +329,29 @@ class EnergySystemModel:
                     data, fix_existence, fix_modules, fix_capacity,
                     store_previous_variables)
 
-    def add_variable(self, name, domain='NonNegativeReals', has_time_set=True,
-                     alternative_set=None, ub=None, lb=None, init=None):
+    def add_variable(self, var):
         """
         Function to manually add pyomo variables to the main model container
-        (ConcreteModel: pyM) of the energy system model instance. The attributes
-        of the variables are stored in DataFrame "added_variables" and later
-        initialized during the function call 'declare_optimization_problem'.
+        (ConcreteModel: pyM) of the energy system model instance via instances
+        of aristopy's Var class. The attributes of the variables are stored in
+        DataFrame "added_variables" and later initialized during the function
+        call 'declare_optimization_problem'.
 
-        :param name: Name (identifier) of the added variable
-        :type name: string
-
-        :param domain: A super-set of the values the variable can take on.
-            Possible values are: 'Reals', 'NonNegativeReals', 'Binary'.
-            |br| * Default: 'NonNegativeReals'
-        :type domain: string
-
-        :param has_time_set: Is True if the time set of the energy system model
-            is also a set of the added variable.
-            |br| * Default: True
-        :type has_time_set: boolean
-
-        :param alternative_set: Alternative variable sets can be added here via
-            iterable Python objects (e.g. list)
-
-        :param ub: Upper variable bound.
-        :type ub: Number (integer or float)
-
-        :param lb: Lower variable bound.
-        :type lb: Number (integer or float)
-
-        :param init: A function or Python object that provides starting values
-            for the added variable.
+        :param var: Instances of aristopy's Var class (single or in list)
         """
         self.log.info('Call of function "add_variable"')
 
         # Check the correctness of the user input
-        utils.check_add_variable(name, domain, has_time_set, alternative_set,
-                                 ub, lb)
-        # Wrap everything up in a pandas Series
-        series = pd.Series({'has_time_set': has_time_set,
-                            'alternative_set': alternative_set,
-                            'domain': domain, 'init': init, 'ub': ub, 'lb': lb,
-                            'pyomo': None})
-        # Add the Series with a new column (name) to DataFrame "added_variables"
-        self.added_variables[name] = series
+        var_list = utils.check_add_vars_input(var)
+
+        for v in var_list:
+            # Wrap everything up in a pandas Series
+            series = pd.Series({'has_time_set': v.has_time_set,
+                                'alternative_set': v.alternative_set,
+                                'domain': v.domain, 'init': v.init,
+                                'ub': v.ub, 'lb': v.lb, 'pyomo': None})
+            # Add the Series with new name to DataFrame "added_variables"
+            self.added_variables[v.name] = series
 
     def add_constraint(self, name=None, has_time_set=True, alternative_set=None,
                        rule=None):
@@ -471,7 +451,10 @@ class EnergySystemModel:
         self.log.info('Call of function "add_design_integer_cut_constraint"')
 
         # Check user input
-        utils.check_add_icc(which_instances, include_existence, include_modules)
+        if which_instances != 'all' and not isinstance(which_instances, list):
+            raise TypeError('"which_instances" takes string "all" or holds '
+                            'a list of component names!')
+        utils.is_boolean(include_existence), utils.is_boolean(include_modules)
 
         # Run the 'add_integer_cut_constraint' function with the desired comps
         # https://pyomo.readthedocs.io/en/latest/working_models.html

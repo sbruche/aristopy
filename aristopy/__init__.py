@@ -16,3 +16,4 @@ from .solar import SolarData, SolarThermalCollector, PVSystem
 from .plotting import Plotter
 from .flow import Flow
 from .series import Series
+from .var import Var

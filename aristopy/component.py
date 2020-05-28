@@ -85,6 +85,7 @@ class Component(metaclass=ABCMeta):
         self.group_name = name
         self.number_in_group = 1  # dito
         self.pyB = None  # pyomo simple Block object
+        self.log = None  # Init: Local logger of the component instance
 
         # V A R I A B L E S:
         # ------------------
@@ -152,66 +153,6 @@ class Component(metaclass=ABCMeta):
             raise ValueError('Group requires a binary operation variable if an '
                              'operation order is requested!')
 
-        # Additional variables can be added by the 'additional_vars' keyword
-        if additional_vars is not None:
-            additional_vars = utils.check_and_convert_to_list(additional_vars)
-            for var in additional_vars:
-                if var not in self.variables.columns:
-                    self._add_var(var)
-
-        # P A R A M E T E R S:
-        # --------------------
-        # Initialize an empty pandas DataFrame to store the component parameters
-        self.parameters = pd.DataFrame(index=['tsam_weight', 'has_time_set',
-                                              'values', 'full_resolution',
-                                              'aggregated'])
-
-        # Add scalar parameters from dict 'scalar_params' {param_name: value}
-        if scalar_params is not None:
-            utils.check_user_dict('scalar_params', scalar_params)
-            for key, val in scalar_params.items():
-                self._add_param(key, init=val)
-
-        # Add time series data from argument 'time_series_data'
-        # Check that it only holds instances of aristopy's Series class
-        series_list = utils.check_and_set_time_series_data(time_series_data)
-        for series in series_list:
-            # Make sure time series has correct length and index
-            data = utils.check_and_convert_time_series(ensys, series.data)
-            self._add_param(series.name, init=data,
-                            tsam_weight=series.weighting_factor)
-
-        # Check and set the input values for the cost parameters and prevent
-        # invalid parameter combinations.
-        self.capex_per_capacity = utils.set_if_positive(capex_per_capacity)
-        self.capex_if_exist = utils.set_if_positive(capex_if_exist)
-        self.opex_per_capacity = utils.set_if_positive(opex_per_capacity)
-        self.opex_if_exist = utils.set_if_positive(opex_if_exist)
-        if not self.has_capacity_var and (
-                self.capex_per_capacity > 0 or self.opex_per_capacity > 0):
-            raise ValueError('Make sure there is a capacity restriction (e.g. '
-                             '"capacity", "capacity_max") if you use capacity '
-                             'related CAPEX or OPEX.')
-        if not self.has_bi_ex and (
-                self.capex_if_exist > 0 or self.opex_if_exist > 0):
-            raise ValueError('Make sure there is an existence binary variable '
-                             'if you use existence related CAPEX or OPEX.')
-
-        # Dictionary to store the contributions of the component to the global
-        # objective function value
-        self.comp_obj_dict = {'capex_capacity': 0, 'capex_exist': 0,
-                              'opex_capacity': 0, 'opex_exist': 0,
-                              'opex_operation': 0,
-                              'commodity_cost': 0, 'commodity_revenues': 0,
-                              'start_up_cost': 0}
-
-        # U S E R   E X P R E S S I O N S:
-        # --------------------------------
-        # Add 'user_expressions' (type: list of strings, or empty list)
-        self.user_expressions = utils.check_and_set_user_expr(user_expressions)
-        # 'user_expression_dict' holds converted expr -> filled in declaration
-        self.user_expressions_dict = {}
-
         # C O M P O N E N T   C O N N E C T I O N S:
         # ------------------------------------------
         # Check and add inlet and outlets (list of aristopy Flows)
@@ -273,7 +214,67 @@ class Component(metaclass=ABCMeta):
         # Dict used for plotting. Updated during EnergySystemModel declaration.
         self.var_connections = {}  # {var_name: [connected_arc_names]}
 
-        self.log = None  # Init: Local logger of the component instance
+        # ADDITIONAL VARIABLES can be added by the 'additional_vars' argument
+        # via instances of aristopy's Var class (done after inlet/outlet init,
+        # to raise an error, if variable name already exists).
+        add_var_list = utils.check_add_vars_input(additional_vars)
+        for var in add_var_list:
+            self._add_var(name=var.name, domain=var.domain,
+                          has_time_set=var.has_time_set, ub=var.ub, lb=var.lb,
+                          alternative_set=var.alternative_set, init=var.init)
+
+        # P A R A M E T E R S:
+        # --------------------
+        # Initialize an empty pandas DataFrame to store the component parameters
+        self.parameters = pd.DataFrame(index=['tsam_weight', 'has_time_set',
+                                              'values', 'full_resolution',
+                                              'aggregated'])
+
+        # Add scalar parameters from dict 'scalar_params' {param_name: value}
+        if scalar_params is not None:
+            utils.check_scalar_params_dict(scalar_params)
+            for key, val in scalar_params.items():
+                self._add_param(key, init=val)
+
+        # Add time series data from argument 'time_series_data'
+        # Check that it only holds instances of aristopy's Series class
+        series_list = utils.check_and_set_time_series_data(time_series_data)
+        for series in series_list:
+            # Make sure time series has correct length and index
+            data = utils.check_and_convert_time_series(ensys, series.data)
+            self._add_param(series.name, init=data,
+                            tsam_weight=series.weighting_factor)
+
+        # Check and set the input values for the cost parameters and prevent
+        # invalid parameter combinations.
+        self.capex_per_capacity = utils.set_if_positive(capex_per_capacity)
+        self.capex_if_exist = utils.set_if_positive(capex_if_exist)
+        self.opex_per_capacity = utils.set_if_positive(opex_per_capacity)
+        self.opex_if_exist = utils.set_if_positive(opex_if_exist)
+        if not self.has_capacity_var and (
+                self.capex_per_capacity > 0 or self.opex_per_capacity > 0):
+            raise ValueError('Make sure there is a capacity restriction (e.g. '
+                             '"capacity", "capacity_max") if you use capacity '
+                             'related CAPEX or OPEX.')
+        if not self.has_bi_ex and (
+                self.capex_if_exist > 0 or self.opex_if_exist > 0):
+            raise ValueError('Make sure there is an existence binary variable '
+                             'if you use existence related CAPEX or OPEX.')
+
+        # Dictionary to store the contributions of the component to the global
+        # objective function value
+        self.comp_obj_dict = {'capex_capacity': 0, 'capex_exist': 0,
+                              'opex_capacity': 0, 'opex_exist': 0,
+                              'opex_operation': 0,
+                              'commodity_cost': 0, 'commodity_revenues': 0,
+                              'start_up_cost': 0}
+
+        # U S E R   E X P R E S S I O N S:
+        # --------------------------------
+        # Add 'user_expressions' (type: list of strings, or empty list)
+        self.user_expressions = utils.check_and_set_user_expr(user_expressions)
+        # 'user_expression_dict' holds converted expr -> filled in declaration
+        self.user_expressions_dict = {}
 
     def __repr__(self):
         return '<Component: "%s">' % self.name
@@ -330,6 +331,10 @@ class Component(metaclass=ABCMeta):
     # ==========================================================================
     def _add_var(self, name, domain='NonNegativeReals', has_time_set=True,
                  alternative_set=None, ub=None, lb=None, init=None):
+        # Make sure the variable name is unique in the Dataframe
+        if name in self.variables:
+            raise ValueError('Variable with name "%s" already found in the '
+                             'DataFrame. Please use a different name.' % name)
         # Specify bounds in the DataFrame according to the variable domain
         if domain == 'NonNegativeReals':
             lb = 0
