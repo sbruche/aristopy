@@ -40,7 +40,7 @@ class Component(metaclass=ABCMeta):
                  capacity=None, capacity_min=None, capacity_max=None,
                  capacity_per_module=None, maximal_module_number=None,
                  capex_per_capacity=0, capex_if_exist=0,
-                 opex_per_capacity=0, opex_if_exist=0,
+                 opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
                  instances_in_group=1,
                  group_has_existence_order=True, group_has_operation_order=True
                  ):
@@ -70,6 +70,7 @@ class Component(metaclass=ABCMeta):
         :param capex_if_exist:
         :param opex_per_capacity:
         :param opex_if_exist:
+        :param opex_operation:
         :param instances_in_group:
         :param group_has_existence_order:
         :param group_has_operation_order:
@@ -251,6 +252,7 @@ class Component(metaclass=ABCMeta):
         self.capex_if_exist = utils.set_if_positive(capex_if_exist)
         self.opex_per_capacity = utils.set_if_positive(opex_per_capacity)
         self.opex_if_exist = utils.set_if_positive(opex_if_exist)
+        self.opex_operation = utils.set_if_positive(opex_operation)
         if not self.has_capacity_var and (
                 self.capex_per_capacity > 0 or self.opex_per_capacity > 0):
             raise ValueError('Make sure there is a capacity restriction (e.g. '
@@ -949,12 +951,43 @@ class Component(metaclass=ABCMeta):
         """ Declares constraints of a component. """
         raise NotImplementedError
 
-    @abstractmethod
     def get_objective_function_contribution(self, ensys, pyM):
         """ Get contribution to the objective function. """
-        raise NotImplementedError
+        # The following part is the same for all components:
+        # Alias of the components' objective function dictionary
+        obj = self.comp_obj_dict
+        # Get general required variables:
+        basic_var = self.variables[self.basic_variable]['pyomo']
+        # ---------------
+        #   C A P E X
+        # ---------------
+        # CAPEX depending on capacity of component
+        if self.capex_per_capacity > 0:
+            cap = self.variables[utils.CAP]['pyomo']
+            obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
 
-    # [...]
+        # CAPEX depending on existence of component
+        if self.capex_if_exist > 0:
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
+            obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
+        # ---------------
+        #   O P E X
+        # ---------------
+        # OPEX depending on capacity of component
+        if self.opex_per_capacity > 0:
+            cap = self.variables[utils.CAP]['pyomo']
+            obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
+
+        # OPEX depending on existence of component
+        if self.opex_if_exist > 0:
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
+            obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
+
+        # OPEX for operation (related to basic variable!)
+        if self.opex_operation > 0:
+            obj['opex_operation'] = -1 * ensys.pvf * self.opex_operation * sum(
+                basic_var[p, t] * ensys.period_occurrences[p] for p, t in
+                pyM.time_set) / ensys.number_of_years
 
     # ==========================================================================
     # --------------------------------------------------------------------------

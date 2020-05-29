@@ -30,10 +30,11 @@ def test_storage_example():
                                                       'P == 0.4 * F'])
 
     storage = ar.Storage(ensys=es, name='storage',
+                         basic_variable='outlet_variable',
                          inlet=ar.Flow('Q', 'bus', 'Q_CHARGE'),
                          outlet=ar.Flow('Q', 'bus', 'Q_DISCHARGE'),
                          capex_per_capacity=1000, capacity_max=50,
-                         opex_discharging=1e-9, soc_initial=0.5,
+                         opex_operation=1e-9, soc_initial=0.5,
                          self_discharge=0.0)
 
     bus = ar.Bus(es, 'bus', inlet=ar.Flow('Q', var_name='Q_IN'),

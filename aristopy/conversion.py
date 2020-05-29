@@ -74,6 +74,7 @@ class Conversion(Component):
                            capex_if_exist=capex_if_exist,
                            opex_per_capacity=opex_per_capacity,
                            opex_if_exist=opex_if_exist,
+                           opex_operation=opex_operation,
                            instances_in_group=instances_in_group,
                            group_has_existence_order=group_has_existence_order,
                            group_has_operation_order=group_has_operation_order
@@ -89,7 +90,6 @@ class Conversion(Component):
         self.min_load_rel = min_load_rel
 
         # Check and set more conversion specific input arguments
-        self.opex_operation = utils.set_if_positive(opex_operation)
         self.start_up_cost = utils.set_if_positive(start_up_cost)  # [€/Start]
         utils.is_boolean(use_inter_period_formulation)  # check input
         self.use_inter_period_formulation = use_inter_period_formulation
@@ -146,46 +146,20 @@ class Conversion(Component):
 
     def get_objective_function_contribution(self, ensys, pyM):
         """ Get contribution to the objective function. """
+        # Check if the component is completely unconnected. If this is True,
+        # don't use the objective function contributions of this component
+        # (could create infeasibilities!)
+        if len(self.var_connections.keys()) == 0:
+            self.log.warn('Found an unconnected component! Skipped possible '
+                          'objective function contributions.')
+            return 0
 
-        # Alias of the components' objective function dictionary
-        obj = self.comp_obj_dict
-        # Get general required variables:
-        basic_var = self.variables[self.basic_variable]['pyomo']
+        # Call function in "Component" class and calculate CAPEX and OPEX
+        super().get_objective_function_contribution(ensys, pyM)
 
-        # ---------------
-        #   C A P E X
-        # ---------------
-        # CAPEX depending on capacity
-        if self.capex_per_capacity > 0:
-            cap = self.variables[utils.CAP]['pyomo']
-            obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
-
-        # CAPEX depending on existence of component
-        if self.capex_if_exist > 0:
-            bi_ex = self.variables[utils.BI_EX]['pyomo']
-            obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
-        # ---------------
-        #   O P E X
-        # ---------------
-        # OPEX depending on capacity
-        if self.opex_per_capacity > 0:
-            cap = self.variables[utils.CAP]['pyomo']
-            obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
-
-        # OPEX depending on existence of component
-        if self.opex_if_exist > 0:
-            bi_ex = self.variables[utils.BI_EX]['pyomo']
-            obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
-
-        # OPEX for operating the conversion unit
-        if self.opex_operation > 0:
-            obj['opex_operation'] = -1 * ensys.pvf * self.opex_operation * sum(
-                basic_var[p, t] * ensys.period_occurrences[p] for p, t in
-                pyM.time_set) / ensys.number_of_years
-        # ---------------
-        #   M I S C
-        # ---------------
-        # Start-up cost
+        # ------------------
+        #   START-UP_COST
+        # ------------------
         if self.start_up_cost > 0:
             bi_su = self.variables[utils.BI_SU]['pyomo']  # only avail. if '>0'
             start_cost_intra = -1 * ensys.pvf * self.start_up_cost * sum(
@@ -197,8 +171,9 @@ class Conversion(Component):
                     summation(bi_su_inter) / ensys.number_of_years
             else:
                 start_cost_inter = 0
-            obj['start_up_cost'] = start_cost_intra + start_cost_inter
-        return sum(obj.values())
+            self.comp_obj_dict['start_up_cost'] = \
+                start_cost_intra + start_cost_inter
+        return sum(self.comp_obj_dict.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   I N D E P E N D E N T   C O N S .

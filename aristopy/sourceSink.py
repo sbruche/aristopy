@@ -73,12 +73,11 @@ class Source(Component):
                            capex_per_capacity=capex_per_capacity,
                            capex_if_exist=capex_if_exist,
                            opex_per_capacity=opex_per_capacity,
-                           opex_if_exist=opex_if_exist
+                           opex_if_exist=opex_if_exist,
+                           opex_operation=opex_operation
                            )
 
         # Check and set sink / source specific input arguments
-        self.opex_operation = utils.set_if_positive(opex_operation)
-
         self.commodity_cost, self.commodity_cost_time_series = \
             utils.check_and_set_cost_and_revenues(self, commodity_cost)
         self.commodity_revenues, self.commodity_revenues_time_series = \
@@ -128,12 +127,6 @@ class Source(Component):
 
     def get_objective_function_contribution(self, ensys, pyM):
         """ Get contribution to the objective function. """
-
-        # Alias of the components' objective function dictionary
-        obj = self.comp_obj_dict
-        # Get general required variables:
-        basic_var = self.variables[self.basic_variable]['pyomo']
-
         # Check if the component is completely unconnected. If this is True,
         # don't use the objective function contributions of this component
         # (could create infeasibilities!)
@@ -142,42 +135,18 @@ class Source(Component):
                           'objective function contributions.')
             return 0
 
-        # ---------------
-        #   C A P E X
-        # ---------------
-        # CAPEX depending on capacity
-        if self.capex_per_capacity > 0:
-            cap = self.variables[utils.CAP]['pyomo']
-            obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
+        # Call function in "Component" class and calculate CAPEX and OPEX
+        super().get_objective_function_contribution(ensys, pyM)
 
-            # CAPEX depending on existence of component
-        if self.capex_if_exist > 0:
-            bi_ex = self.variables[utils.BI_EX]['pyomo']
-            obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
-        # ---------------
-        #   O P E X
-        # ---------------
-        # OPEX depending on capacity
-        if self.opex_per_capacity > 0:
-            cap = self.variables[utils.CAP]['pyomo']
-            obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
+        # --------------------------------
+        #   COMMODITY COST AND REVENUES
+        # --------------------------------
+        # Get the basic variable:
+        basic_var = self.variables[self.basic_variable]['pyomo']
 
-        # OPEX depending on existence of sink / source
-        if self.opex_if_exist > 0:
-            bi_ex = self.variables[utils.BI_EX]['pyomo']
-            obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
-
-        # OPEX for operating the sink / source
-        if self.opex_operation > 0:
-            obj['opex_operation'] = -1 * ensys.pvf * self.opex_operation * sum(
-                basic_var[p, t] * ensys.period_occurrences[p] for p, t in
-                pyM.time_set) / ensys.number_of_years
-        # ---------------
-        #   M I S C
-        # ---------------
         # Time-independent cost of a commodity (scalar cost value)
         if self.commodity_cost is not None:
-            obj['commodity_cost'] = \
+            self.comp_obj_dict['commodity_cost'] = \
                 -1 * ensys.pvf * self.commodity_cost * sum(
                     basic_var[p, t] * ensys.period_occurrences[p]
                     for p, t in pyM.time_set) / ensys.number_of_years
@@ -185,13 +154,13 @@ class Source(Component):
         # Time-dependent cost of a commodity (time series cost values)
         if self.commodity_cost_time_series is not None:
             cost_ts = self.parameters[self.commodity_cost_time_series]['values']
-            obj['commodity_cost'] = -1 * ensys.pvf * sum(
+            self.comp_obj_dict['commodity_cost'] = -1 * ensys.pvf * sum(
                 cost_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
                 for p, t in pyM.time_set) / ensys.number_of_years
 
         # Time-independent revenues for of a commodity (scalar revenue value)
         if self.commodity_revenues is not None:
-            obj['commodity_revenues'] = \
+            self.comp_obj_dict['commodity_revenues'] = \
                 ensys.pvf * self.commodity_revenues * sum(
                     basic_var[p, t] * ensys.period_occurrences[p]
                     for p, t in pyM.time_set) / ensys.number_of_years
@@ -200,11 +169,11 @@ class Source(Component):
         if self.commodity_revenues_time_series is not None:
             rev_ts = self.parameters[
                 self.commodity_revenues_time_series]['values']
-            obj['commodity_revenues'] = ensys.pvf * sum(
+            self.comp_obj_dict['commodity_revenues'] = ensys.pvf * sum(
                 rev_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
                 for p, t in pyM.time_set) / ensys.number_of_years
 
-        return sum(obj.values())
+        return sum(self.comp_obj_dict.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .

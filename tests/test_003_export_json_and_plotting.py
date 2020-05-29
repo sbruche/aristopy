@@ -36,10 +36,11 @@ def test_export_and_plot():
                                                       'P == 0.4 * F'])
 
     storage = ar.Storage(ensys=es, name='storage',
+                         basic_variable='outlet_variable',
                          inlet=ar.Flow('Q', 'bus', 'Q_CHARGE'),
                          outlet=ar.Flow('Q', 'bus', 'Q_DISCHARGE'),
                          capex_per_capacity=1000, capacity_max=50,
-                         opex_discharging=1e-9, soc_initial=0.6,
+                         opex_operation=1e-9, soc_initial=0.6,
                          self_discharge=0.05,
                          precise_inter_period_modeling=True)
 

@@ -22,8 +22,7 @@ class Storage(Component):
                  capacity=None, capacity_min=None, capacity_max=None,
                  capacity_per_module=None, maximal_module_number=None,
                  capex_per_capacity=0, capex_if_exist=0,
-                 opex_per_capacity=0, opex_if_exist=0,
-                 opex_charging=0, opex_discharging=0,
+                 opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
                  charge_rate=1, discharge_rate=1, self_discharge=0,
                  charge_efficiency=1, discharge_efficiency=1,
                  soc_min=0, soc_max=1, soc_initial=None,
@@ -52,8 +51,7 @@ class Storage(Component):
         :param capex_if_exist:
         :param opex_per_capacity:
         :param opex_if_exist:
-        :param opex_charging:
-        :param opex_discharging:
+        :param opex_operation:
         :param charge_rate:
         :param discharge_rate:
         :param self_discharge:
@@ -81,7 +79,8 @@ class Storage(Component):
                            capex_per_capacity=capex_per_capacity,
                            capex_if_exist=capex_if_exist,
                            opex_per_capacity=opex_per_capacity,
-                           opex_if_exist=opex_if_exist
+                           opex_if_exist=opex_if_exist,
+                           opex_operation=opex_operation
                            )
 
         # Check and set storage specific input arguments
@@ -96,8 +95,6 @@ class Storage(Component):
         self.soc_max = utils.set_if_between_zero_and_one(soc_max)
         self.soc_initial = utils.set_if_between_zero_and_one(soc_initial) \
             if soc_initial is not None else None
-        self.opex_charging = utils.set_if_positive(opex_charging)
-        self.opex_discharging = utils.set_if_positive(opex_discharging)
 
         utils.is_boolean(use_inter_period_formulation)  # check input
         self.use_inter_period_formulation = use_inter_period_formulation
@@ -169,46 +166,18 @@ class Storage(Component):
 
     def get_objective_function_contribution(self, ensys, pyM):
         """ Get contribution to the objective function. """
+        # Check if the component is completely unconnected. If this is True,
+        # don't use the objective function contributions of this component
+        # (could create infeasibilities!)
+        if len(self.var_connections.keys()) == 0:
+            self.log.warn('Found an unconnected component! Skipped possible '
+                          'objective function contributions.')
+            return 0
 
-        # Alias of the components' objective function dictionary
-        obj = self.comp_obj_dict
-        # Get general required variables:
-        charge = self.variables[self.charge_variable]['pyomo']
-        discharge = self.variables[self.discharge_variable]['pyomo']
+        # Call function in "Component" class and calculate CAPEX and OPEX
+        super().get_objective_function_contribution(ensys, pyM)
 
-        # ---------------
-        #   C A P E X
-        # ---------------
-        # CAPEX depending on capacity
-        if self.capex_per_capacity > 0:
-            cap = self.variables[utils.CAP]['pyomo']
-            obj['capex_capacity'] = -1 * self.capex_per_capacity * cap
-
-        # CAPEX depending on existence of component
-        if self.capex_if_exist > 0:
-            bi_ex = self.variables[utils.BI_EX]['pyomo']
-            obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
-        # ---------------
-        #   O P E X
-        # ---------------
-        # OPEX depending on capacity
-        if self.opex_per_capacity > 0:
-            cap = self.variables[utils.CAP]['pyomo']
-            obj['opex_capacity'] = -1 * ensys.pvf * self.opex_per_capacity * cap
-
-        # OPEX depending on existence of storage unit
-        if self.opex_if_exist > 0:
-            bi_ex = self.variables[utils.BI_EX]['pyomo']
-            obj['opex_exist'] = -1 * ensys.pvf * self.opex_if_exist * bi_ex
-
-        # OPEX for charging and discharging the storage
-        if self.opex_charging > 0 or self.opex_discharging > 0:
-            obj['opex_operation'] = -1 * ensys.pvf * sum(
-                (self.opex_charging * charge[p, t] + self.opex_discharging
-                 * discharge[p, t]) * ensys.period_occurrences[p]
-                for p, t in pyM.time_set) / ensys.number_of_years
-
-        return sum(obj.values())
+        return sum(self.comp_obj_dict.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
