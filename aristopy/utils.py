@@ -209,7 +209,7 @@ def check_and_set_cost_and_revenues(comp, data):
         * scalar as a int or float value (or None)
         * series name of time_series in the parameter DF (or None)
     """
-    scalar_value, time_series_name = None, None  # init
+    scalar_value, time_series_name = 0, None  # init
     if isinstance(data, (int, float)):
         is_positive_number(data)  # raise error if value not >= 0
         scalar_value = data

@@ -29,9 +29,8 @@ inheriting from 'Component' must override all abstract methods of the parent.
 '''
 class Component(metaclass=ABCMeta):
     # The Component class includes the general methods and arguments for the
-    # components which can be added to the energy system model (source, sink,
-    # storage, conversion, ...). All of these components inherit from the
-    # Component class.
+    # components which can be added to the energy system model (Source, Sink,
+    # Storage, Conversion, Bus). They all inherit from the Component class.
     def __init__(self, ensys, name, basic_variable,
                  inlet=None, outlet=None,
                  has_existence_binary_var=False, has_operation_binary_var=False,
@@ -47,11 +46,12 @@ class Component(metaclass=ABCMeta):
         """
         Initialize an instance of the Component class. Note that an instance of
         the class Component itself can not be instantiated since it holds
-        abstract methods. Only the inheriting components (source, conversion,
-        ...) can be instantiated.
+        abstract methods. Only the inheriting components (Source, Sink,
+        Storage, Conversion, Bus) can be instantiated.
 
-        :param ensys:
-        :param name:
+        :param ensys: Name of the energy system model instance where the
+            component should be added to (string)
+        :param name: Name of the component or the component group (string)
         :param basic_variable:
         :param inlet:
         :param outlet:
@@ -195,10 +195,22 @@ class Component(metaclass=ABCMeta):
             if self.outlet_commod_and_var_names.get(flow.commodity) is None:
                 self.outlet_commod_and_var_names[flow.commodity] = flow.var_name
 
+        # Dict used for plotting. Updated during EnergySystemModel declaration.
+        self.var_connections = {}  # {var_name: [connected_arc_names]}
+
+        # ADDITIONAL VARIABLES can be added by the 'additional_vars' argument
+        # via instances of aristopy's Var class (done after inlet/outlet init,
+        # to raise an error, if variable name already exists).
+        add_var_list = utils.check_add_vars_input(additional_vars)
+        for var in add_var_list:
+            self._add_var(name=var.name, domain=var.domain,
+                          has_time_set=var.has_time_set, ub=var.ub, lb=var.lb,
+                          alternative_set=var.alternative_set, init=var.init)
+
         # Every component has a basic variable. It is used to restrict
         # capacities, set operation rates and calculate capex and opex. Usually,
         # the basic variable is referring to a commodity on the inlet or the
-        # outlet of the component.
+        # outlet of the component. But it can also be set via 'additional_vars'.
         if basic_variable == 'inlet_variable':
             self.basic_variable = self.inlet[0].var_name
         elif basic_variable == 'outlet_variable':
@@ -211,18 +223,6 @@ class Component(metaclass=ABCMeta):
                              '"outlet_variable" to use the variable name of a '
                              'connected Flow, or manually add the variable with'
                              ' the "additional_vars" keyword.' % name)
-
-        # Dict used for plotting. Updated during EnergySystemModel declaration.
-        self.var_connections = {}  # {var_name: [connected_arc_names]}
-
-        # ADDITIONAL VARIABLES can be added by the 'additional_vars' argument
-        # via instances of aristopy's Var class (done after inlet/outlet init,
-        # to raise an error, if variable name already exists).
-        add_var_list = utils.check_add_vars_input(additional_vars)
-        for var in add_var_list:
-            self._add_var(name=var.name, domain=var.domain,
-                          has_time_set=var.has_time_set, ub=var.ub, lb=var.lb,
-                          alternative_set=var.alternative_set, init=var.init)
 
         # P A R A M E T E R S:
         # --------------------

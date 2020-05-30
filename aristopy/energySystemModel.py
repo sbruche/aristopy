@@ -895,32 +895,37 @@ class EnergySystemModel:
 
         # Check correctness of connections
         for name, comp in self.components.items():
-            # Check that non-conversion components have only one commodity!
-            if comp.__class__.__name__ != 'Conversion':
-                if len(comp.commodities) > 1:
-                    raise ValueError('Commodity error in "%s". Found more than '
-                                     'one commodity: "%s"' % (name,
-                                                              comp.commodities))
+
+            # Check that non-conversion comp. have only one commodity at ports!
+            if comp.__class__.__name__ != 'Conversion' and \
+                    len(comp.commodities) > 1:
+                raise ValueError('Commodity error in "%s". Found more than one '
+                                 'commodity: "%s"' % (name, comp.commodities))
+
+            # Check that number of inlets and outlets is correct:
+            nbr_of_inlets = len(comp.inlet_commod_and_var_names)
+            nbr_of_outlets = len(comp.outlet_commod_and_var_names)
+            # Conversion component have at least one inlet and one outlet
+            if comp.__class__.__name__ == 'Conversion' \
+                    and (nbr_of_inlets < 1 or nbr_of_outlets < 1):
+                raise ValueError('"%s" needs at least one inlet and one outlet!'
+                                 % name)
             # Source, Storage, Bus components need exactly one outlet
-            if comp.__class__.__name__ in ['Source', 'Storage', 'Bus']:
-                nbr_of_outlets = len(comp.outlet_commod_and_var_names)
-                if nbr_of_outlets != 1:
-                    raise ValueError('"%s" needs one outlet, but "%s" were '
-                                     'found!' % (name, nbr_of_outlets))
+            if comp.__class__.__name__ in ['Source', 'Storage', 'Bus'] and \
+                    nbr_of_outlets != 1:
+                raise ValueError('"%s" needs one outlet, but "%s" were found!'
+                                 % (name, nbr_of_outlets))
             # Sink, Storage, Bus components need exactly one inlet
-            if comp.__class__.__name__ in ['Sink', 'Storage', 'Bus']:
-                nbr_of_inlets = len(comp.inlet_commod_and_var_names)
-                if nbr_of_inlets != 1:
-                    raise ValueError('"%s" needs one inlet, but "%s" were '
-                                     'found!' % (name, nbr_of_inlets))
+            if comp.__class__.__name__ in ['Sink', 'Storage', 'Bus'] and \
+                    nbr_of_inlets != 1:
+                raise ValueError('"%s" needs one inlet, but "%s" were found!'
+                                 % (name, nbr_of_inlets))
             # Sinks don't have outlets
-            if comp.__class__.__name__ == 'Sink':
-                if len(comp.outlet_commod_and_var_names) != 0:
-                    raise ValueError('Sink "%s" cannot have outlets!' % name)
+            if comp.__class__.__name__ == 'Sink' and nbr_of_outlets != 0:
+                raise ValueError('Sink "%s" cannot have outlets!' % name)
             # Sources don't have inlets
-            if comp.__class__.__name__ == 'Source':
-                if len(comp.inlet_commod_and_var_names) != 0:
-                    raise ValueError('Source "%s" cannot have inlets!' % name)
+            if comp.__class__.__name__ == 'Source' and nbr_of_inlets != 0:
+                raise ValueError('Source "%s" cannot have inlets!' % name)
 
             # Raise if component has inlet or outlet commodity without
             # connection to an arc
@@ -932,6 +937,37 @@ class EnergySystemModel:
                 if comp.var_connections.get(var) is None:
                     raise ValueError('Outlet commodity "%s" of component "%s" '
                                      'is unconnected!' % (commod, comp.name))
+
+        # **********************************************************************
+        #   Basic variable check
+        # **********************************************************************
+        # Usually basic variables are referring to inlet or outlet commodities
+        # which are time-related. Scalar variables can also be selected under
+        # certain circumstances. Check permissibility of parameter combinations:
+        for name, comp in self.components.items():
+            # Fine, if basic variable has a time set (--> go to next comp.)
+            if comp.variables[comp.basic_variable]['has_time_set']:
+                continue
+            # Conversion w/o 'opex_operation' and w/o binary operation var.: OK
+            elif comp.__class__.__name__ == 'Conversion' and \
+                    comp.opex_operation == 0 and not comp.has_bi_op:
+                continue
+            # Sink or Source components w/o 'opex_operation', w/o binary
+            # operation var. and w/o commodity_rates, _cost or _rev. are also OK
+            elif comp.__class__.__name__ in ['Sink', 'Source'] and \
+                    comp.opex_operation == 0 and not comp.has_bi_op and \
+                    comp.op_rate_min is None and comp.op_rate_max is None and \
+                    comp.op_rate_fix is None and comp.commodity_cost == 0 and \
+                    comp.commodity_cost_time_series is None and \
+                    comp.commodity_revenues == 0 and \
+                    comp.commodity_revenues_time_series is None:
+                continue
+            else:
+                raise Exception(
+                    'The basic variable of component "%s" works without a time '
+                    'set. This functionality is only allowed for Sink, Source ' 
+                    'and Conversion components w/o binary operation variables, ' 
+                    'opex_operation, commodity_rates, _cost, and _revs!' % name)
 
         # **********************************************************************
         #   User Expressions

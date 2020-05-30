@@ -86,7 +86,8 @@ class Conversion(Component):
             assert min_load_rel <= 1, 'Maximal value for "min_load_rel" is 1!'
             if not self.has_bi_op:
                 raise ValueError('Minimal part-loads require the availability '
-                                 'of a binary operation variable.')
+                                 'of a operation binary variable '
+                                 '("has_operation_binary_var=True").')
         self.min_load_rel = min_load_rel
 
         # Check and set more conversion specific input arguments
@@ -225,10 +226,14 @@ class Conversion(Component):
             # Get variables:
             cap = self.variables[utils.CAP]['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
+            has_time_set = self.variables[self.basic_variable]['has_time_set']
             dt = self.ensys.hours_per_time_step
 
             def con_operation_limit(m, p, t):
-                return basic_var[p, t] <= cap * dt
+                if has_time_set:
+                    return basic_var[p, t] <= cap * dt
+                else:
+                    return basic_var <= cap
 
             setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
                 pyM.time_set, rule=con_operation_limit))

@@ -102,6 +102,8 @@ class Storage(Component):
         self.precise_inter_period_modeling = precise_inter_period_modeling
 
         # Store the names of the charging and discharging variables
+        if len(self.inlet) == 0 or len(self.outlet) == 0:
+            raise Exception('Storage needs at least one inlet and outlet Flow!')
         self.charge_variable = self.inlet[0].var_name
         self.discharge_variable = self.outlet[0].var_name
 

@@ -70,6 +70,8 @@ class Bus(Component):
         self.losses = utils.set_if_between_zero_and_one(losses)  # relative loss
 
         # Store the names for the loading and unloading variables
+        if len(self.inlet) == 0 or len(self.outlet) == 0:
+            raise Exception('Bus needs at least one inlet and outlet Flow!')
         self.inlet_variable = self.inlet[0].var_name
         self.outlet_variable = self.outlet[0].var_name
 
