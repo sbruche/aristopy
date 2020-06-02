@@ -350,6 +350,21 @@ class Component(metaclass=ABCMeta):
                             'pyomo': None})
         self.variables[name] = series
 
+    def _store_var_copy(self, name, var):
+        """
+        Internal function to store a variable in the DataFrame "variables_copy".
+        :param name: Name of the stored variable (string)
+        :param var: Variable data to store (pandas Series)
+        """
+        series = pd.Series({'has_time_set': var['has_time_set'],
+                            'alternative_set': var['alternative_set'],
+                            'domain': var['domain'], 'init': var['init'],
+                            'ub': var['ub'], 'lb': var['lb']})
+        # Only store it if it is not already in the DataFrame -> otherwise
+        # a more original version might be overwritten unintentionally
+        if name not in self.variables_copy:
+            self.variables_copy[name] = series
+
     def relax_integrality(self, include_existence=True, include_modules=True,
                           include_time_dependent=True,
                           store_previous_variables=True):
@@ -406,35 +421,25 @@ class Component(metaclass=ABCMeta):
                         if self.ensys.is_persistent_model_declared:
                             self.ensys.solver.update_var(var_pyomo[idx])
 
-        def store_copy_of_variable(name, var):
-            series = pd.Series({'has_time_set': var['has_time_set'],
-                                'alternative_set': var['alternative_set'],
-                                'domain': var['domain'], 'init': var['init'],
-                                'ub': var['ub'], 'lb': var['lb']})
-            # Only store it if it is not already in the DataFrame -> otherwise
-            # a more original version might be overwritten unintentionally
-            if name not in self.variables_copy:
-                self.variables_copy[name] = series
-
         # Loop through the DataFrame "variables"
         for v in self.variables.columns:
             # Include the global existence variable:
             if include_existence and v == utils.BI_EX:
                 if store_previous_variables:
-                    store_copy_of_variable(v, self.variables[v])
+                    self._store_var_copy(v, self.variables[v])
                 relax_variable(self.variables[v])
                 # self.log.debug('Relax integrality of variable: "%s"' % v)
             # Include the module existence variables:
             elif include_modules and v == utils.BI_MODULE_EX:
                 if store_previous_variables:
-                    store_copy_of_variable(v, self.variables[v])
+                    self._store_var_copy(v, self.variables[v])
                 relax_variable(self.variables[v])
                 # self.log.debug('Relax integrality of variable: "%s"' % v)
             # Include time-dependent variables
             elif include_time_dependent and self.variables[v]['domain'] \
                     == 'Binary' and self.variables[v]['has_time_set']:
                 if store_previous_variables:
-                    store_copy_of_variable(v, self.variables[v])
+                    self._store_var_copy(v, self.variables[v])
                 relax_variable(self.variables[v])
                 # self.log.debug('Relax integrality of variable: "%s"' % v)
 
@@ -503,16 +508,6 @@ class Component(metaclass=ABCMeta):
         # directly from component).
         utils.check_edit_var_input(variable, store_previous_variables, **kwargs)
 
-        def store_copy_of_variable(name, var):
-            series = pd.Series({'has_time_set': var['has_time_set'],
-                                'alternative_set': var['alternative_set'],
-                                'domain': var['domain'], 'init': var['init'],
-                                'ub': var['ub'], 'lb': var['lb']})
-            # Only store it if it is not already in the DataFrame -> otherwise
-            # a more original version might be overwritten unintentionally
-            if name not in self.variables_copy:
-                self.variables_copy[name] = series
-
         # Check if the variable with name "variable" is available for editing:
         if variable not in self.variables.columns:
             self.log.warn('No variable "%s" available for editing' % variable)
@@ -520,8 +515,8 @@ class Component(metaclass=ABCMeta):
             self.log.info('Edit variable: "%s"' % variable)
             # Store the previous variable setting if requested
             if store_previous_variables:
-                store_copy_of_variable(name=variable,
-                                       var=self.variables[variable])
+                self._store_var_copy(name=variable,
+                                     var=self.variables[variable])
             # Write keyword arguments in "variables" DataFrame
             for key, val in kwargs.items():
                 self.variables[variable][key] = val
@@ -600,7 +595,6 @@ class Component(metaclass=ABCMeta):
                                        fix_modules=True, fix_capacity=True,
                                        store_previous_variables=True):
         """
-        # TODO: Do i need to round imported values? (especially binary)
         Function to load a pandas Series (index=[utils.BI_EX,
         utils.BI_MODULE_EX, utils.CAP]) with configuration specifications
         (binary existence variables and capacity variable values). The values
@@ -632,22 +626,14 @@ class Component(metaclass=ABCMeta):
         utils.is_boolean(fix_modules), utils.is_boolean(fix_capacity),
         utils.is_boolean(store_previous_variables)
 
-        def store_copy_of_variable(name, var):
-            series = pd.Series({'has_time_set': var['has_time_set'],
-                                'alternative_set': var['alternative_set'],
-                                'domain': var['domain'], 'init': var['init'],
-                                'ub': var['ub'], 'lb': var['lb']})
-            # Only store it if it is not already in the DataFrame -> otherwise
-            # a more original version might be overwritten unintentionally
-            if name not in self.variables_copy:
-                self.variables_copy[name] = series
+        # So far importing seems to work without rounding -> if not round values
 
         # EXISTENCE VARIABLE: Fix if required and available in model and data
         if fix_existence and self.has_bi_ex and data[utils.BI_EX] is not None:
             # Backup of variables in "variables_copy" if requested for resetting
             if store_previous_variables:
-                store_copy_of_variable(name=utils.BI_EX,
-                                       var=self.variables[utils.BI_EX])
+                self._store_var_copy(name=utils.BI_EX,
+                                     var=self.variables[utils.BI_EX])
             # Always possible to set bounds (also if not declared)
             self.variables[utils.BI_EX]['lb'] = data[utils.BI_EX]
             self.variables[utils.BI_EX]['ub'] = data[utils.BI_EX]
@@ -663,8 +649,8 @@ class Component(metaclass=ABCMeta):
                 and data[utils.BI_MODULE_EX] is not None:
             # Backup of variables in "variables_copy" if requested for resetting
             if store_previous_variables:
-                store_copy_of_variable(name=utils.BI_MODULE_EX,
-                                       var=self.variables[utils.BI_MODULE_EX])
+                self._store_var_copy(name=utils.BI_MODULE_EX,
+                                     var=self.variables[utils.BI_MODULE_EX])
             # Always possible to set bounds (also if not declared)
             self.variables[utils.BI_MODULE_EX]['lb'] = data[utils.BI_MODULE_EX]
             self.variables[utils.BI_MODULE_EX]['ub'] = data[utils.BI_MODULE_EX]
@@ -682,8 +668,8 @@ class Component(metaclass=ABCMeta):
                 and data[utils.CAP] is not None:
             # Backup of variables in "variables_copy" if requested for resetting
             if store_previous_variables:
-                store_copy_of_variable(name=utils.CAP,
-                                       var=self.variables[utils.CAP])
+                self._store_var_copy(name=utils.CAP,
+                                     var=self.variables[utils.CAP])
             # Always possible to set bounds (also if not declared)
             self.variables[utils.CAP]['lb'] = data[utils.CAP]
             self.variables[utils.CAP]['ub'] = data[utils.CAP]
