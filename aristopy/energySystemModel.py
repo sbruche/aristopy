@@ -109,7 +109,7 @@ class EnergySystemModel:
         # **********************************************************************
         # The economic criterion net present value represents the objective
         # function value to be maximized. Hence, a present value factor (pvf) is
-        # required to calculate the present value of a annuity. The global
+        # required to calculate the present value of an annuity. The global
         # parameters interest rate and economic lifetime of the energy system
         # investment are used to this end.
         self.pvf = sum(1 / (1 + interest_rate)**n
@@ -189,7 +189,7 @@ class EnergySystemModel:
         :param which_instances: State for which components the relaxation of the
             binary variables should be done. The keyword argument can either
             take the string 'all' or a list of component (group) names.
-        :type which_instances: 'all' or list of component (group) names
+        :type which_instances: string 'all' or list of component (group) names
 
         :param include_existence: State whether the integrality of the binary
             existence variables should be relaxed (if available).

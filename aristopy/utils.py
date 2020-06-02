@@ -31,61 +31,6 @@ SOC_INTER = 'SOC_INTER'        # State of charge var. (inter-period time-steps)
 # ==============================================================================
 
 
-def check_and_set_flows(data):
-    """
-    Function to check if the provided data for inlet and outlet keywords only
-    contains instances of aristopy's Flow class.
-
-    :return: list of aristopy flow instances
-    """
-    exception = ValueError("Invalid data type for inlet or outlet argument! "
-                           "Please provide instances of aristopy's Flow class!")
-    if data is None:
-        return []
-    elif isinstance(data, aristopy.Flow):
-        return [data]
-    elif isinstance(data, list):
-        flow_list = []
-        for item in data:
-            if isinstance(item, aristopy.Flow):
-                # Loop again over list and check if multiple Flows with same
-                # commodity but different variable names are provided in a comp.
-                # E.g. prevent, inlet=[ar.Flow('COMM_1', 'snk_1', 'NAME_1'),
-                #                      ar.Flow('COMM_1', 'snk_2', 'NAME_2')]
-                for flow in flow_list:
-                    if flow.commodity == item.commodity and \
-                            flow.var_name != item.var_name:
-                        raise ValueError('Found Flows with same commodity but '
-                                         'different variable names in a comp.')
-                flow_list.append(item)
-            else:
-                raise exception
-        return flow_list
-    else:
-        raise exception
-
-
-def check_and_set_time_series_data(data):
-    """
-    Function to check if the provided content of the time_series_data argument
-    only contains instances of aristopy's Series class.
-
-    :return: list of aristopy Series instances
-    """
-    exception = ValueError("Invalid data type for time_series_data argument! "
-                           "Please provide instances of aristopy Series class!")
-    if data is None:
-        return []
-    elif isinstance(data, aristopy.Series):
-        return [data]
-    elif isinstance(data, list):
-        if any(not isinstance(item, aristopy.Series) for item in data):
-            raise exception
-        return data
-    else:
-        raise exception
-
-
 def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
                           aggregate_by='sum'):
     """
@@ -107,8 +52,7 @@ def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
     :type aggregate_by: string ('sum' or 'mean')
     """
     # Check the user input:
-    if not (isinstance(full_series, pd.Series) or isinstance(
-            full_series, np.ndarray) or isinstance(full_series, list)):
+    if not (isinstance(full_series, (pd.Series, np.ndarray, list))):
         raise ValueError('The "full_series" can either by a pandas Series or a '
                          'numpy ndarray or a Python list.')
     is_strictly_positive_int(number_of_time_steps_to_aggregate)
@@ -131,63 +75,6 @@ def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
         return s
 
 
-def check_logger_input(logfile, delete_old, default_handler, local_handler,
-                       default_level, local_level, screen_to_log):
-    is_string(logfile), is_boolean(delete_old), is_boolean(screen_to_log)
-
-    if default_handler not in ['file', 'stream']:
-        raise ValueError('Input argument should be "file" or "stream".')
-
-    if default_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
-        raise ValueError('Options for logger levels are: "DEBUG", "INFO", '
-                         '"WARNING", "ERROR", "CRITICAL"')
-
-    for key, val in local_handler.items():
-        if key not in ['EnergySystemModel', 'Source', 'Sink', 'Conversion',
-                       'Storage', 'Bus']:
-            raise ValueError('Keys for dictionary "local_log_handler" are: '
-                             '"EnergySystemModel", "Source", "Sink", '
-                             '"Conversion", "Storage", "Bus"')
-        if val not in ['file', 'stream']:
-            raise ValueError('Input argument should be "file" or "stream".')
-
-    for key, val in local_level.items():
-        if key not in ['EnergySystemModel', 'Source', 'Sink', 'Conversion',
-                       'Storage', 'Bus']:
-            raise ValueError('Keys for dictionary "local_log_level" are: '
-                             '"EnergySystemModel", "Source", "Sink", '
-                             '"Conversion", "Storage", "Bus"')
-        if val not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
-            raise ValueError('Options for logger levels are: "DEBUG", "INFO", '
-                             '"WARNING", "ERROR", "CRITICAL"')
-
-
-def set_if_positive(data):
-    """  Check the input data for positivity and return the value. """
-    # type float or integer and data >= 0.
-    is_positive_number(data)
-    return data
-
-
-def set_if_between_zero_and_one(data):
-    """  Check the input data for positivity and value less or equal one. """
-    # type float or integer and data >= 0.
-    is_positive_number(data)
-    if not data <= 1:
-        raise ValueError('The maximal value if the input argument is "1".')
-    return data
-
-
-def is_dataframe(data):
-    if not isinstance(data, pd.DataFrame):
-        raise TypeError('The data needs to be imported as a pandas DataFrame!')
-
-
-def is_series(data):
-    if not isinstance(data, pd.Series):
-        raise TypeError('The data needs to be imported as a pandas Series!')
-
-
 def check_add_constraint(name, has_time_set, alternative_set, rule):
     """ Check the user input for the function 'add_constraint' that can be used
         to manually add constraints to the main model instance. """
@@ -201,29 +88,61 @@ def check_add_constraint(name, has_time_set, alternative_set, rule):
         raise TypeError('The "rule" keyword needs to hold a callable object!')
 
 
-def check_and_set_cost_and_revenues(comp, data):
-    """ Function to check the input for commodity cost and revenues.
-        Can handle integers, floats and aristopy's Series class instances.
-
-        Function returns:
-        * scalar as a int or float value (or None)
-        * series name of time_series in the parameter DF (or None)
+def check_add_vars_input(data):
     """
-    scalar_value, time_series_name = 0, None  # init
-    if isinstance(data, (int, float)):
-        is_positive_number(data)  # raise error if value not >= 0
-        scalar_value = data
-    # if aristopy Series is provided --> add it to the parameters DataFrame
-    elif isinstance(data, aristopy.Series):
-        conv_data = check_and_convert_time_series(comp.ensys, data.data)
-        comp._add_param(data.name, init=conv_data,
-                        tsam_weight=data.weighting_factor)
-        time_series_name = data.name
+    Function to check the input of components "additional_vars" argument and
+    the "add_variable" function of the energy system model instance. Input is
+    required as instances of aristopy's Var class (multiple -> arranged in list)
+
+    :return: list (of aristopy Var instances)
+    """
+    exception = ValueError("Invalid data type for added variable! "
+                           "Please provide instances of aristopy's Var class!")
+    if data is None:
+        return []
+    elif isinstance(data, aristopy.Var):
+        return [data]
+    elif isinstance(data, list):
+        if any(not isinstance(item, aristopy.Var) for item in data):
+            raise exception
+        return data
     else:
-        raise ValueError('Found invalid data type for commodity cost or revenue'
-                         ' in component "%s". Please provide float, integer, or'
-                         ' aristopy Series.' % comp.name)
-    return scalar_value, time_series_name
+        raise exception
+
+
+def check_and_convert_time_series(ensys, data):
+    """
+    Compare the length of the data with the time indices of the energy
+    system model. And make sure the data is available as indexed pandas series.
+    """
+    #  If length of data is not sufficient raise an error
+    if len(data) < ensys.number_of_time_steps:
+        raise ValueError('The length of a time series is not sufficient for the'
+                         ' number of time steps of the energy system model.\n'
+                         'Time steps energy system model: {}\nLength data: {}\n'
+                         'Data: {}'.format(ensys.number_of_time_steps,
+                                           len(data), data))
+
+    # Convert to pandas Series if data is in a dictionary (cannot slice dicts)
+    if isinstance(data, dict):
+        data = pd.Series(data)
+
+    # If length of data is more than needed -> shorten the data, discard rest
+    if len(data) > ensys.number_of_time_steps:
+        data = data[:ensys.number_of_time_steps]
+
+    # Lists and arrays don't have an index --> add the time index of ensys
+    if isinstance(data, list) or isinstance(data, np.ndarray):
+        data = pd.Series(data, index=list(range(ensys.number_of_time_steps)))
+
+    # If data is already a pandas Series but the index does not match the time
+    # index of the energy system model --> replace the index
+    elif isinstance(data, pd.Series) and list(sorted(
+            data.index)) != list(range(ensys.number_of_time_steps)):
+        data = pd.Series(data.values, index=list(range(
+            ensys.number_of_time_steps)))
+
+    return data
 
 
 def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
@@ -319,22 +238,80 @@ def check_and_set_commodity_rates(comp, rate_min, rate_max, rate_fix):
     return rate_min, rate_max, rate_fix
 
 
-def check_add_vars_input(data):
-    """
-    Function to check the input of components "additional_vars" argument and
-    the "add_variable" function of the energy system model instance. Input is
-    required as instances of aristopy's Var class (multiple -> arranged in list)
+def check_and_set_cost_and_revenues(comp, data):
+    """ Function to check the input for commodity cost and revenues.
+        Can handle integers, floats and aristopy's Series class instances.
 
-    :return: list (of aristopy Var instances)
+        Function returns:
+        * scalar as a int or float value (or None)
+        * series name of time_series in the parameter DF (or None)
     """
-    exception = ValueError("Invalid data type for added variable! "
-                           "Please provide instances of aristopy's Var class!")
+    scalar_value, time_series_name = 0, None  # init
+    if isinstance(data, (int, float)):
+        is_positive_number(data)  # raise error if value not >= 0
+        scalar_value = data
+    # if aristopy Series is provided --> add it to the parameters DataFrame
+    elif isinstance(data, aristopy.Series):
+        conv_data = check_and_convert_time_series(comp.ensys, data.data)
+        comp._add_param(data.name, init=conv_data,
+                        tsam_weight=data.weighting_factor)
+        time_series_name = data.name
+    else:
+        raise ValueError('Found invalid data type for commodity cost or revenue'
+                         ' in component "%s". Please provide float, integer, or'
+                         ' aristopy Series.' % comp.name)
+    return scalar_value, time_series_name
+
+
+def check_and_set_flows(data):
+    """
+    Function to check if the provided data for inlet and outlet keywords only
+    contains instances of aristopy's Flow class.
+
+    :return: list of aristopy flow instances
+    """
+    exception = ValueError("Invalid data type for inlet or outlet argument! "
+                           "Please provide instances of aristopy's Flow class!")
     if data is None:
         return []
-    elif isinstance(data, aristopy.Var):
+    elif isinstance(data, aristopy.Flow):
         return [data]
     elif isinstance(data, list):
-        if any(not isinstance(item, aristopy.Var) for item in data):
+        flow_list = []
+        for item in data:
+            if isinstance(item, aristopy.Flow):
+                # Loop again over list and check if multiple Flows with same
+                # commodity but different variable names are provided in a comp.
+                # E.g. prevent, inlet=[ar.Flow('COMM_1', 'snk_1', 'NAME_1'),
+                #                      ar.Flow('COMM_1', 'snk_2', 'NAME_2')]
+                for flow in flow_list:
+                    if flow.commodity == item.commodity and \
+                            flow.var_name != item.var_name:
+                        raise ValueError('Found Flows with same commodity but '
+                                         'different variable names in a comp.')
+                flow_list.append(item)
+            else:
+                raise exception
+        return flow_list
+    else:
+        raise exception
+
+
+def check_and_set_time_series_data(data):
+    """
+    Function to check if the provided content of the time_series_data argument
+    only contains instances of aristopy's Series class.
+
+    :return: list of aristopy Series instances
+    """
+    exception = ValueError("Invalid data type for time_series_data argument! "
+                           "Please provide instances of aristopy Series class!")
+    if data is None:
+        return []
+    elif isinstance(data, aristopy.Series):
+        return [data]
+    elif isinstance(data, list):
+        if any(not isinstance(item, aristopy.Series) for item in data):
             raise exception
         return data
     else:
@@ -362,6 +339,139 @@ def check_and_set_user_expr(data):
         raise exception
 
 
+def check_clustering_input(number_of_typical_periods,
+                           number_of_time_steps_per_period,
+                           number_of_time_steps):
+    is_strictly_positive_int(number_of_typical_periods)
+    is_strictly_positive_int(number_of_time_steps_per_period)
+    if not number_of_time_steps % number_of_time_steps_per_period == 0:
+        raise ValueError('The number_of_time_steps_per_period has to be an '
+                         'integer divisor of the total number of time steps '
+                         'considered in the energy system model.')
+    if number_of_time_steps < \
+            number_of_typical_periods * number_of_time_steps_per_period:
+        raise ValueError('The product of the number_of_typical_periods and the '
+                         'number_of_time_steps_per_period has to be smaller '
+                         'than the total number of considered time steps.')
+
+
+def check_declare_optimization_problem_input(time_series_aggregation,
+                                             is_data_clustered,
+                                             persistent_model,
+                                             persistent_solver):
+    if not isinstance(time_series_aggregation, bool):
+        raise TypeError('Parameter time_series_aggregation has to be boolean.')
+    if time_series_aggregation and not is_data_clustered:
+        raise ValueError('The time series_aggregation flag indicates possible '
+                         'inconsistencies in the aggregated time series data.\n'
+                         'First call cluster function and optimize afterwards.')
+    if not isinstance(persistent_model, bool):
+        raise ValueError('The "persistent_model" parameter has to be boolean!')
+    if persistent_solver not in ['gurobi_persistent', 'cplex_persistent']:
+        raise ValueError('Valid solvers for the persistent interface are '
+                         '"gurobi_persistent" and "cplex_persistent"!')
+
+
+def check_edit_var_input(variable, store_vars, **kwargs):
+    is_string(variable)
+    is_boolean(store_vars)
+    for key, val in kwargs.items():
+        if key not in ['ub', 'lb', 'domain', 'has_time_set', 'init']:
+            warnings.warn('Keyword argument "{}" not recognized. Options '
+                          'for variable editing are: "domain", "ub", "lb", '
+                          '"has_time_set", "init".'.format(key))
+
+        if (key == 'ub' or key == 'lb') and val is not None:
+            is_number(val)
+        if key == 'domain' and \
+                val not in ['Binary', 'NonNegativeReals', 'Reals']:
+            raise TypeError('Select the domain of the variable from '
+                            '"Binary", "NonNegativeReals", "Reals"')
+        if key == 'has_time_set':
+            is_boolean(val)
+
+
+def check_energy_system_model_input(number_of_time_steps, hours_per_time_step,
+                                    interest_rate, economic_lifetime, logging):
+    """ Check the correctness of the user input for the initialization of an
+    EnergySystemModel instance. """
+    is_strictly_positive_int(number_of_time_steps)
+    is_strictly_positive_int(hours_per_time_step)
+    is_strictly_positive_int(economic_lifetime)
+    is_positive_number(interest_rate)
+
+    if logging is not None and not isinstance(logging, aristopy.Logger):
+        raise TypeError('"logging" only takes instances of the class "Logger"')
+
+
+def check_logger_input(logfile, delete_old, default_handler, local_handler,
+                       default_level, local_level, screen_to_log):
+    is_string(logfile), is_boolean(delete_old), is_boolean(screen_to_log)
+
+    if default_handler not in ['file', 'stream']:
+        raise ValueError('Input argument should be "file" or "stream".')
+
+    if default_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+        raise ValueError('Options for logger levels are: "DEBUG", "INFO", '
+                         '"WARNING", "ERROR", "CRITICAL"')
+
+    for key, val in local_handler.items():
+        if key not in ['EnergySystemModel', 'Source', 'Sink', 'Conversion',
+                       'Storage', 'Bus']:
+            raise ValueError('Keys for dictionary "local_log_handler" are: '
+                             '"EnergySystemModel", "Source", "Sink", '
+                             '"Conversion", "Storage", "Bus"')
+        if val not in ['file', 'stream']:
+            raise ValueError('Input argument should be "file" or "stream".')
+
+    for key, val in local_level.items():
+        if key not in ['EnergySystemModel', 'Source', 'Sink', 'Conversion',
+                       'Storage', 'Bus']:
+            raise ValueError('Keys for dictionary "local_log_level" are: '
+                             '"EnergySystemModel", "Source", "Sink", '
+                             '"Conversion", "Storage", "Bus"')
+        if val not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+            raise ValueError('Options for logger levels are: "DEBUG", "INFO", '
+                             '"WARNING", "ERROR", "CRITICAL"')
+
+
+def check_optimize_input(time_series_aggregation, persistent_model,
+                         persistent_solver, is_data_clustered,
+                         solver, time_limit, optimization_specs, warmstart):
+    """ Check correctness of input arguments to the optimize function of the
+     energy system model instance"""
+    check_declare_optimization_problem_input(time_series_aggregation,
+                                             is_data_clustered,
+                                             persistent_model,
+                                             persistent_solver)
+    if not isinstance(solver, str):
+        raise TypeError('The solver parameter has to be a string.')
+    if time_limit is not None:
+        is_strictly_positive_int(time_limit)
+    if not isinstance(optimization_specs, str):
+        raise TypeError('The optimization_specs parameter has to be a string.')
+    if not isinstance(warmstart, bool):
+        raise ValueError('The warmstart parameter has to be a boolean.')
+
+
+def check_plot_operation_input(data, comp, commod, scale, single_period, level,
+                               show_plot, save_plot, file_name):
+    if comp not in data['components']:
+        raise Exception('Component not found in JSON-File!')
+    if commod not in data['components'][comp]['commodities']:
+        raise Exception('Could not find commodity "{}" in component {}!'
+                        .format(commod, comp))
+    if single_period is not None \
+            and single_period not \
+            in list(range(data['number_of_typical_periods'])):
+        raise Exception('Period index for plotting is out of range!')
+    if level != 1 and level != 2:
+        raise Exception('Level of detail can take values 1 or 2!')
+    if not isinstance(scale, bool) or not isinstance(show_plot, bool) or \
+            not isinstance(save_plot, bool) or not isinstance(file_name, str):
+        raise Exception('Wrong argument type detected!')
+
+
 def check_scalar_params_dict(data):
     """ Function to check the input of the "scalar_params" argument. """
     if not isinstance(data, dict):
@@ -372,41 +482,78 @@ def check_scalar_params_dict(data):
         is_number(val)  # value type: integer or float
 
 
-def check_and_convert_time_series(ensys, data):
-    """
-    Compare the length of the data with the time indices of the energy
-    system model. And make sure the data is available as indexed pandas series.
-    """
-    #  If length of data is not sufficient raise an error
-    if len(data) < ensys.number_of_time_steps:
-        raise ValueError('The length of a time series is not sufficient for the'
-                         ' number of time steps of the energy system model.\n'
-                         'Time steps energy system model: {}\nLength data: {}\n'
-                         'Data: {}'.format(ensys.number_of_time_steps,
-                                           len(data), data))
+def is_boolean(value):
+    if not isinstance(value, bool):
+        raise TypeError('The input argument has to be boolean (True or False).')
 
-    # Convert to pandas Series if data is in a dictionary (cannot slice dicts)
-    if isinstance(data, dict):
-        data = pd.Series(data)
 
-    # If length of data is more than needed -> shorten the data, discard rest
-    if len(data) > ensys.number_of_time_steps:
-        data = data[:ensys.number_of_time_steps]
+def is_dataframe(data):
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError('The data needs to be imported as a pandas DataFrame!')
 
-    # Lists and arrays don't have an index --> add the time index of ensys
-    if isinstance(data, list) or isinstance(data, np.ndarray):
-        data = pd.Series(data, index=list(range(ensys.number_of_time_steps)))
 
-    # If data is already a pandas Series but the index does not match the time
-    # index of the energy system model --> replace the index
-    elif isinstance(data, pd.Series) and list(sorted(
-            data.index)) != list(range(ensys.number_of_time_steps)):
-        data = pd.Series(data.values, index=list(range(
-            ensys.number_of_time_steps)))
+def is_energy_system_model_instance(ensys):
+    if not isinstance(ensys, aristopy.EnergySystemModel):
+        raise TypeError('The input is not an EnergySystemModel instance.')
 
+
+def is_number(value):
+    if not (isinstance(value, float) or isinstance(value, int)):
+        raise TypeError('The input argument has to be a number.')
+
+
+def is_positive_number(value):
+    """ Check if the input argument is a positive number. """
+    is_number(value)
+    if not value >= 0:
+        raise ValueError('The input argument has to be positive.')
+
+
+def is_pyomo_object(obj):
+    if not (isinstance(obj, pyomo.Set) or isinstance(obj, pyomo.Param) or
+            isinstance(obj, pyomo.Var) or isinstance(obj, pyomo.Constraint)):
+        raise TypeError('The input is not an valid pyomo object. Valid objects '
+                        'are: sets, parameters, variables and constraints.')
+
+
+def is_series(data):
+    if not isinstance(data, pd.Series):
+        raise TypeError('The data needs to be imported as a pandas Series!')
+
+
+def is_strictly_positive_int(value):
+    """ Check if the input argument is a strictly positive integer. """
+    if not isinstance(value, int):
+        raise TypeError('The input argument has to be an integer.')
+    if not value > 0:
+        raise ValueError('The input argument has to be strictly positive.')
+
+
+def is_string(string):
+    """ Check if the input argument is a string. """
+    if not type(string) == str:
+        raise TypeError('The input argument has to be a string')
+
+
+def set_if_between_zero_and_one(data):
+    """  Check the input data for positivity and value less or equal one. """
+    # type float or integer and data >= 0.
+    is_positive_number(data)
+    if not data <= 1:
+        raise ValueError('The maximal value if the input argument is "1".')
     return data
 
 
+def set_if_positive(data):
+    """  Check the input data for positivity and return the value. """
+    # type float or integer and data >= 0.
+    is_positive_number(data)
+    return data
+
+
+# ==============================================================================
+#    U S E R   C O N S T R A I N T S
+# ==============================================================================
 def disassemble_user_expression(expr):
     """ Disassemble a user-specified expression in its pieces. """
     expr = expr.replace(' ', '')  # remove all spaces
@@ -440,9 +587,6 @@ def disassemble_user_expression(expr):
     return expr_part
 
 
-# ==============================================================================
-#    S I M P L I F Y   U S E R   C O N S T R A I N T
-# ==============================================================================
 def simplify_user_constraint(df):
     """
     Simplify a user-defined constraint in multiple iterations until the provided
@@ -670,152 +814,4 @@ def simplify_user_constraint(df):
 
     # Return the left and right hand side dicts and the operator sign
     return lhs, op, rhs
-
-
 # ==============================================================================
-
-def check_clustering_input(number_of_typical_periods,
-                           number_of_time_steps_per_period,
-                           number_of_time_steps):
-    is_strictly_positive_int(number_of_typical_periods)
-    is_strictly_positive_int(number_of_time_steps_per_period)
-    if not number_of_time_steps % number_of_time_steps_per_period == 0:
-        raise ValueError('The number_of_time_steps_per_period has to be an '
-                         'integer divisor of the total number of time steps '
-                         'considered in the energy system model.')
-    if number_of_time_steps < \
-            number_of_typical_periods * number_of_time_steps_per_period:
-        raise ValueError('The product of the number_of_typical_periods and the '
-                         'number_of_time_steps_per_period has to be smaller '
-                         'than the total number of considered time steps.')
-
-
-def check_declare_optimization_problem_input(time_series_aggregation,
-                                             is_data_clustered,
-                                             persistent_model,
-                                             persistent_solver):
-    if not isinstance(time_series_aggregation, bool):
-        raise TypeError('Parameter time_series_aggregation has to be boolean.')
-    if time_series_aggregation and not is_data_clustered:
-        raise ValueError('The time series_aggregation flag indicates possible '
-                         'inconsistencies in the aggregated time series data.\n'
-                         'First call cluster function and optimize afterwards.')
-    if not isinstance(persistent_model, bool):
-        raise ValueError('The "persistent_model" parameter has to be boolean!')
-    if persistent_solver != 'gurobi_persistent' and \
-            persistent_solver != 'cplex_persistent':
-        raise ValueError('Valid solvers for the persistent interface are '
-                         '"gurobi_persistent" and "cplex_persistent"!')
-
-
-def check_optimize_input(time_series_aggregation, persistent_model,
-                         persistent_solver, is_data_clustered,
-                         solver, time_limit, optimization_specs, warmstart):
-    """ Check correctness of input arguments to the optimize function of the
-     energy system model instance"""
-    check_declare_optimization_problem_input(time_series_aggregation,
-                                             is_data_clustered,
-                                             persistent_model,
-                                             persistent_solver)
-    if not isinstance(solver, str):
-        raise TypeError('The solver parameter has to be a string.')
-    if time_limit is not None:
-        is_strictly_positive_int(time_limit)
-    if not isinstance(optimization_specs, str):
-        raise TypeError('The optimization_specs parameter has to be a string.')
-    if not isinstance(warmstart, bool):
-        raise ValueError('The warmstart parameter has to be a boolean.')
-
-
-def check_energy_system_model_input(number_of_time_steps, hours_per_time_step,
-                                    interest_rate, economic_lifetime, logging):
-    """ Check the correctness of the user input for the initialization of an
-    EnergySystemModel instance. """
-    is_strictly_positive_int(number_of_time_steps)
-    is_strictly_positive_int(hours_per_time_step)
-    is_strictly_positive_int(economic_lifetime)
-    is_positive_number(interest_rate)
-
-    if logging is not None and not isinstance(logging, aristopy.Logger):
-        raise TypeError('"logging" only takes instances of the class "Logger"')
-
-
-def check_edit_var_input(variable, store_vars, **kwargs):
-    is_string(variable)
-    is_boolean(store_vars)
-    for key, val in kwargs.items():
-        if key not in ['ub', 'lb', 'domain', 'has_time_set', 'init']:
-            warnings.warn('Keyword argument "{}" not recognized. Options '
-                          'for variable editing are: "domain", "ub", "lb", '
-                          '"has_time_set", "init".'.format(key))
-
-        if key == 'ub' or key == 'lb':
-            if val is not None:
-                is_number(val)
-        if key == 'domain':
-            if val not in ['Binary', 'NonNegativeReals', 'Reals']:
-                raise TypeError('Select the domain of the variable from '
-                                '"Binary", "NonNegativeReals", "Reals"')
-        if key == 'has_time_set':
-            is_boolean(val)
-
-
-def is_boolean(value):
-    if not isinstance(value, bool):
-        raise TypeError('The input argument has to be boolean (True or False).')
-
-
-def is_energy_system_model_instance(ensys):
-    if not isinstance(ensys, aristopy.EnergySystemModel):
-        raise TypeError('The input is not an EnergySystemModel instance.')
-
-
-def is_number(value):
-    if not (isinstance(value, float) or isinstance(value, int)):
-        raise TypeError('The input argument has to be a number.')
-
-
-def is_positive_number(value):
-    """ Check if the input argument is a positive number. """
-    is_number(value)
-    if not value >= 0:
-        raise ValueError('The input argument has to be positive.')
-
-
-def is_pyomo_object(obj):
-    if not (isinstance(obj, pyomo.Set) or isinstance(obj, pyomo.Param) or
-            isinstance(obj, pyomo.Var) or isinstance(obj, pyomo.Constraint)):
-        raise TypeError('The input is not an valid pyomo object. Valid objects '
-                        'are: sets, parameters, variables and constraints.')
-
-
-def is_strictly_positive_int(value):
-    """ Check if the input argument is a strictly positive integer. """
-    if not isinstance(value, int):
-        raise TypeError('The input argument has to be an integer.')
-    if not value > 0:
-        raise ValueError('The input argument has to be strictly positive.')
-
-
-def is_string(string):
-    """ Check if the input argument is a string. """
-    if not type(string) == str:
-        raise TypeError('The input argument has to be a string')
-
-
-def check_plot_operation_input(data, comp, commod, scale, single_period, level,
-                               show_plot, save_plot, file_name):
-    if comp not in data['components']:
-        raise Exception('Component not found in JSON-File!')
-    if commod not in data['components'][comp]['commodities']:
-        raise Exception('Could not find commodity "{}" in component {}!'
-                        .format(commod, comp))
-    if single_period is not None \
-            and single_period not \
-            in list(range(data['number_of_typical_periods'])):
-        raise Exception('Period index for plotting is out of range!')
-    if level != 1 and level != 2:
-        raise Exception('Level of detail can take values 1 or 2!')
-    if not isinstance(scale, bool) or not isinstance(show_plot, bool) or \
-            not isinstance(save_plot, bool) or not isinstance(file_name, str):
-        raise Exception('Wrong argument type detected!')
