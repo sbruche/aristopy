@@ -13,8 +13,8 @@ class Var:
                  alternative_set=None, ub=None, lb=None, init=None):
         """
         Class to manually add pyomo variables to a component (via argument
-        "additional_vars"), or the main model container (ConcreteModel: pyM) of
-        the energy system model instance (via function "add_variable".
+        "additional_vars"), or the main model container (ConcreteModel: model)
+        of the EnergySystem instance (via function "add_variable").
 
         :param name: Name (identifier) of the added variable
         :type name: string

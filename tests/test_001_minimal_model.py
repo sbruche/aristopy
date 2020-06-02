@@ -41,7 +41,7 @@ def test_run_minimal_example():
                         commodity_revenues=30)
     es.optimize(solver=solver, tee=False, results_file=None)
 
-    assert es.pyM.Obj() == pytest.approx(-3.4914796e+08)
+    assert es.model.Obj() == pytest.approx(-3.4914796e+08)
 
 
 if __name__ == '__main__':

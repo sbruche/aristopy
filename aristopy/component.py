@@ -85,7 +85,7 @@ class Component(metaclass=ABCMeta):
         self.name = name  # might be changed by "add_to_energy_system_model"
         self.group_name = name
         self.number_in_group = 1  # dito
-        self.pyB = None  # pyomo simple Block object
+        self.block = None  # pyomo simple Block object
         self.log = None  # Init: Local logger of the component instance
 
         # V A R I A B L E S:
@@ -283,8 +283,8 @@ class Component(metaclass=ABCMeta):
 
     def pprint(self):
         """ Easy access to pretty print functionality of pyomo model Block """
-        if isinstance(self.pyB, pyomo.Block):
-            self.pyB.pprint()
+        if isinstance(self.block, pyomo.Block):
+            self.block.pprint()
 
     # ==========================================================================
     #    A D D   C O M P O N E N T   T O   T H E   E N S Y S - M O D E L
@@ -777,14 +777,14 @@ class Component(metaclass=ABCMeta):
     #   Functions for declaring components of the energy system and their
     #   contributions to the objective function
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def declare_component_model_block(self, pyM):
+    def declare_component_model_block(self, model):
         """
-        Create a pyomo Block and store it in attribute 'pyB' of the component.
+        Create a pyomo Block and store it in attribute 'block' of the component.
         """
-        setattr(pyM, self.name, pyomo.Block())
-        self.pyB = getattr(pyM, self.name)
+        setattr(model, self.name, pyomo.Block())
+        self.block = getattr(model, self.name)
 
-    def declare_component_variables(self, pyM):
+    def declare_component_variables(self, model):
         """
         Create all variables stored in DataFrame 'variables'.
         """
@@ -803,8 +803,8 @@ class Component(metaclass=ABCMeta):
 
             # Differentiation between variables with and without time_set
             if var_dict['has_time_set']:
-                setattr(self.pyB, var_name, pyomo.Var(
-                        pyM.time_set, domain=domain, bounds=bounds,
+                setattr(self.block, var_name, pyomo.Var(
+                        model.time_set, domain=domain, bounds=bounds,
                         initialize=init))
 
             # e.g. for 'BI_MODULE_EX' or for 'SOC' with 'intra_period_time_set'
@@ -812,8 +812,8 @@ class Component(metaclass=ABCMeta):
                 try:
                     # Try to find the set in the concrete model instance and
                     # use it for the variable declaration
-                    alt_set = getattr(pyM, var_dict['alternative_set'])
-                    setattr(self.pyB, var_name, pyomo.Var(
+                    alt_set = getattr(model, var_dict['alternative_set'])
+                    setattr(self.block, var_name, pyomo.Var(
                         alt_set, domain=domain, bounds=bounds, initialize=init))
                 except AttributeError:  # attr. is a string but it is not found
                     self.log.error('Pyomo model does not have the attribute '
@@ -822,7 +822,7 @@ class Component(metaclass=ABCMeta):
                 except TypeError:  # provided attribute is not a string
                     try:
                         # Assume the entry in the dict is the desired set
-                        setattr(self.pyB, var_name, pyomo.Var(
+                        setattr(self.block, var_name, pyomo.Var(
                             var_dict['alternative_set'], domain=domain,
                             bounds=bounds, initialize=init))
                     except Exception:  # e.g. "object is not iterable"
@@ -832,11 +832,11 @@ class Component(metaclass=ABCMeta):
                         raise
             # built variable without any set
             else:
-                setattr(self.pyB, var_name, pyomo.Var(
+                setattr(self.block, var_name, pyomo.Var(
                         domain=domain, bounds=bounds, initialize=init))
 
             # Store variable in self.variables[var_name]['pyomo']
-            pyomo_var = getattr(self.pyB, var_name)
+            pyomo_var = getattr(self.block, var_name)
             self.variables[var_name]['pyomo'] = pyomo_var
 
     def declare_component_ports(self):
@@ -848,23 +848,23 @@ class Component(metaclass=ABCMeta):
         for commod, var_name in self.inlet_commod_and_var_names.items():
             # Declare port
             port_name = 'inlet_' + commod
-            setattr(self.pyB, port_name, network.Port())
+            setattr(self.block, port_name, network.Port())
             # Add variable to port
-            port = getattr(self.pyB, port_name)
-            port.add(getattr(self.pyB, var_name), commod,
+            port = getattr(self.block, port_name)
+            port.add(getattr(self.block, var_name), commod,
                      network.Port.Extensive, include_splitfrac=False)
 
         # Create outlet ports
         for commod, var_name in self.outlet_commod_and_var_names.items():
             # Declare port
             port_name = 'outlet_' + commod
-            setattr(self.pyB, port_name, network.Port())
+            setattr(self.block, port_name, network.Port())
             # Add variable to port
-            port = getattr(self.pyB, port_name)
-            port.add(getattr(self.pyB, var_name), commod,
+            port = getattr(self.block, port_name)
+            port.add(getattr(self.block, var_name), commod,
                      network.Port.Extensive, include_splitfrac=False)
 
-    def declare_component_user_constraints(self, pyM):
+    def declare_component_user_constraints(self, model):
         reserved_chars = ['*', '/', '+', '-', '(', ')', '==', '>=', '<=', '**']
         for expr_name, expr in self.user_expressions_dict.items():
             has_time_dependency = False  # init
@@ -906,7 +906,7 @@ class Component(metaclass=ABCMeta):
             # Create an empty DataFrame (with or without index) to store the
             # expressions that are simplified in the next step
             df_expr = pd.DataFrame(
-                index=(pd.MultiIndex.from_tuples(pyM.time_set)
+                index=(pd.MultiIndex.from_tuples(model.time_set)
                        if has_time_dependency
                        else pd.MultiIndex.from_tuples([(0, 0)])),
                 columns=range(len(expr)))
@@ -942,16 +942,16 @@ class Component(metaclass=ABCMeta):
                     return oper.ge(lhs[(p, t)], rhs[(p, t)])
 
             # Add user constraint to the component block
-            setattr(self.pyB, expr_name, pyomo.Constraint(
-                pyM.time_set if has_time_dependency else [None],
+            setattr(self.block, expr_name, pyomo.Constraint(
+                model.time_set if has_time_dependency else [None],
                 rule=built_user_constraint_rule))
 
     @abstractmethod
-    def declare_component_constraints(self, ensys, pyM):
+    def declare_component_constraints(self, ensys, model):
         """ Declares constraints of a component. """
         raise NotImplementedError
 
-    def get_objective_function_contribution(self, ensys, pyM):
+    def get_objective_function_contribution(self, ensys, model):
         """ Get contribution to the objective function. """
         # The following part is the same for all components:
         # Alias of the components' objective function dictionary
@@ -987,7 +987,7 @@ class Component(metaclass=ABCMeta):
         if self.opex_operation > 0:
             obj['opex_operation'] = -1 * ensys.pvf * self.opex_operation * sum(
                 basic_var[p, t] * ensys.period_occurrences[p] for p, t in
-                pyM.time_set) / ensys.number_of_years
+                model.time_set) / ensys.number_of_years
 
     # ==========================================================================
     # --------------------------------------------------------------------------
@@ -1012,7 +1012,7 @@ class Component(metaclass=ABCMeta):
 
             def con_couple_bi_ex_and_cap(m):
                 return cap <= bi_ex * cap_max
-            setattr(self.pyB, 'con_couple_bi_ex_and_cap',
+            setattr(self.block, 'con_couple_bi_ex_and_cap',
                     pyomo.Constraint(rule=con_couple_bi_ex_and_cap))
 
     def con_cap_min(self):
@@ -1034,7 +1034,8 @@ class Component(metaclass=ABCMeta):
                     return cap >= cap_min * bi_ex
                 else:
                     return cap >= cap_min
-            setattr(self.pyB, 'con_cap_min', pyomo.Constraint(rule=con_cap_min))
+            setattr(self.block, 'con_cap_min',
+                    pyomo.Constraint(rule=con_cap_min))
 
     def con_cap_modular(self):
         """
@@ -1049,7 +1050,7 @@ class Component(metaclass=ABCMeta):
 
             def con_cap_modular(m):
                 return cap == cap_per_mod * pyomo.summation(bi_mod)
-            setattr(self.pyB, 'con_cap_modular', pyomo.Constraint(
+            setattr(self.block, 'con_cap_modular', pyomo.Constraint(
                 rule=con_cap_modular))
 
     def con_modular_sym_break(self):
@@ -1065,7 +1066,7 @@ class Component(metaclass=ABCMeta):
                     return bi_mod[nr] <= bi_mod[nr-1]
                 else:
                     return pyomo.Constraint.Skip
-            setattr(self.pyB, 'con_modular_sym_break',
+            setattr(self.block, 'con_modular_sym_break',
                     pyomo.Constraint(pyomo.RangeSet(self.maximal_module_number),
                                      rule=con_modular_sym_break))
 
@@ -1085,13 +1086,13 @@ class Component(metaclass=ABCMeta):
                     return bi_ex >= bi_mod[1]
                 else:
                     return pyomo.Constraint.Skip
-            setattr(self.pyB, 'con_couple_existence_and_modular',
+            setattr(self.block, 'con_couple_existence_and_modular',
                     pyomo.Constraint(rule=con_couple_existence_and_modular))
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    T I M E   D E P E N D E N T   C O N S T R A I N T S
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def con_bi_var_ex_and_op_relation(self, pyM):
+    def con_bi_var_ex_and_op_relation(self, model):
         """
         Relationship between the binary variables for existence and operation.
         A component can only be operated if it does exist. E.g.: |br|
@@ -1105,12 +1106,12 @@ class Component(metaclass=ABCMeta):
 
             def con_bi_var_ex_and_op_relation(m, p, t):
                 return bi_op[p, t] <= bi_ex
-            setattr(self.pyB, 'con_bi_var_ex_and_op_relation',
-                    pyomo.Constraint(pyM.time_set,
+            setattr(self.block, 'con_bi_var_ex_and_op_relation',
+                    pyomo.Constraint(model.time_set,
                                      rule=con_bi_var_ex_and_op_relation))
 
     @abstractmethod
-    def con_operation_limit(self, pyM):
+    def con_operation_limit(self, model):
         """
         The operation of a component (MWh) is limit by its nominal power (MW)
         multiplied with the number of hours per time step (not for storage
@@ -1123,7 +1124,7 @@ class Component(metaclass=ABCMeta):
         """
         raise NotImplementedError
 
-    def con_couple_op_binary_and_basic_var(self, pyM):
+    def con_couple_op_binary_and_basic_var(self, model):
         """
         If a binary operation variable is declared, it needs to be coupled with
         the basic operation variable. Therefore, a value for overestimation is
@@ -1140,8 +1141,8 @@ class Component(metaclass=ABCMeta):
 
             def con_couple_op_binary_and_basic_var(m, p, t):
                 return basic_var[p, t] <= cap_max * bi_op[p, t] * dt
-            setattr(self.pyB, 'con_couple_op_binary_and_basic_var',
-                    pyomo.Constraint(pyM.time_set,
+            setattr(self.block, 'con_couple_op_binary_and_basic_var',
+                    pyomo.Constraint(model.time_set,
                                      rule=con_couple_op_binary_and_basic_var))
 
     # ==========================================================================

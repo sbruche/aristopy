@@ -98,7 +98,7 @@ class Source(Component):
     # **************************************************************************
     #   Declare component constraints
     # **************************************************************************
-    def declare_component_constraints(self, ensys, pyM):
+    def declare_component_constraints(self, ensys, model):
         """
         Declare time independent and dependent constraints.
 
@@ -106,9 +106,9 @@ class Source(Component):
             in which the component should be added.
         :type ensys: EnergySystem class instance
 
-        :param pyM: Pyomo ConcreteModel which stores the mathematical
+        :param model: Pyomo ConcreteModel which stores the mathematical
             formulation of the energy system model.
-        :type pyM: Pyomo ConcreteModel
+        :type model: Pyomo ConcreteModel
         """
 
         # Time independent constraints:
@@ -118,14 +118,14 @@ class Source(Component):
 
         # Time dependent constraints:
         # ---------------------------
-        self.con_bi_var_ex_and_op_relation(pyM)
-        self.con_operation_limit(pyM)
-        self.con_couple_op_binary_and_basic_var(pyM)
-        self.con_commodity_rate_min(pyM)
-        self.con_commodity_rate_max(pyM)
-        self.con_commodity_rate_fix(pyM)
+        self.con_bi_var_ex_and_op_relation(model)
+        self.con_operation_limit(model)
+        self.con_couple_op_binary_and_basic_var(model)
+        self.con_commodity_rate_min(model)
+        self.con_commodity_rate_max(model)
+        self.con_commodity_rate_fix(model)
 
-    def get_objective_function_contribution(self, ensys, pyM):
+    def get_objective_function_contribution(self, ensys, model):
         """ Get contribution to the objective function. """
         # Check if the component is completely unconnected. If this is True,
         # don't use the objective function contributions of this component
@@ -136,7 +136,7 @@ class Source(Component):
             return 0
 
         # Call function in "Component" class and calculate CAPEX and OPEX
-        super().get_objective_function_contribution(ensys, pyM)
+        super().get_objective_function_contribution(ensys, model)
 
         # --------------------------------
         #   COMMODITY COST AND REVENUES
@@ -149,21 +149,21 @@ class Source(Component):
             self.comp_obj_dict['commodity_cost'] = \
                 -1 * ensys.pvf * self.commodity_cost * sum(
                     basic_var[p, t] * ensys.period_occurrences[p]
-                    for p, t in pyM.time_set) / ensys.number_of_years
+                    for p, t in model.time_set) / ensys.number_of_years
 
         # Time-dependent cost of a commodity (time series cost values)
         if self.commodity_cost_time_series is not None:
             cost_ts = self.parameters[self.commodity_cost_time_series]['values']
             self.comp_obj_dict['commodity_cost'] = -1 * ensys.pvf * sum(
                 cost_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
-                for p, t in pyM.time_set) / ensys.number_of_years
+                for p, t in model.time_set) / ensys.number_of_years
 
         # Time-independent revenues for of a commodity (scalar revenue value)
         if self.commodity_revenues > 0:
             self.comp_obj_dict['commodity_revenues'] = \
                 ensys.pvf * self.commodity_revenues * sum(
                     basic_var[p, t] * ensys.period_occurrences[p]
-                    for p, t in pyM.time_set) / ensys.number_of_years
+                    for p, t in model.time_set) / ensys.number_of_years
 
         # Time-dependent revenues for a commodity (time series revenue values)
         if self.commodity_revenues_time_series is not None:
@@ -171,14 +171,14 @@ class Source(Component):
                 self.commodity_revenues_time_series]['values']
             self.comp_obj_dict['commodity_revenues'] = ensys.pvf * sum(
                 rev_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
-                for p, t in pyM.time_set) / ensys.number_of_years
+                for p, t in model.time_set) / ensys.number_of_years
 
         return sum(self.comp_obj_dict.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def con_operation_limit(self, pyM):
+    def con_operation_limit(self, model):
         """
         The operation variable (ref.: basic variable / basic commodity) of a
         sink / source unit (MWh) is limit by its nominal power (MW) multiplied
@@ -199,10 +199,10 @@ class Source(Component):
                 else:
                     return basic_var <= cap
 
-            setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
-                pyM.time_set, rule=con_operation_limit))
+            setattr(self.block, 'con_operation_limit', pyomo.Constraint(
+                model.time_set, rule=con_operation_limit))
 
-    def con_commodity_rate_min(self, pyM):
+    def con_commodity_rate_min(self, model):
         """
         The basic variable of a component needs to have a minimal value of
         "commodity_rate_min" in every time step. E.g.: |br|
@@ -222,10 +222,10 @@ class Source(Component):
                     return basic_var[p, t] >= op_min[p, t]
                 else:
                     return basic_var[p, t] >= op_min
-            setattr(self.pyB, 'con_commodity_rate_min', pyomo.Constraint(
-                pyM.time_set, rule=con_commodity_rate_min))
+            setattr(self.block, 'con_commodity_rate_min', pyomo.Constraint(
+                model.time_set, rule=con_commodity_rate_min))
 
-    def con_commodity_rate_max(self, pyM):
+    def con_commodity_rate_max(self, model):
         """
         The basic variable of a component can have a maximal value of
         "commodity_rate_max" in every time step. E.g.: |br|
@@ -245,10 +245,10 @@ class Source(Component):
                     return basic_var[p, t] <= op_max[p, t]
                 else:
                     return basic_var[p, t] <= op_max
-            setattr(self.pyB, 'con_commodity_rate_max', pyomo.Constraint(
-                pyM.time_set, rule=con_commodity_rate_max))
+            setattr(self.block, 'con_commodity_rate_max', pyomo.Constraint(
+                model.time_set, rule=con_commodity_rate_max))
 
-    def con_commodity_rate_fix(self, pyM):
+    def con_commodity_rate_fix(self, model):
         """
         The basic variable of a component needs to have a value of
         "commodity_rate_fix" in every time step. E.g.: |br|
@@ -268,8 +268,8 @@ class Source(Component):
                     return basic_var[p, t] == op_fix[p, t]
                 else:
                     return basic_var[p, t] == op_fix
-            setattr(self.pyB, 'con_commodity_rate_fix', pyomo.Constraint(
-                pyM.time_set, rule=con_commodity_rate_fix))
+            setattr(self.block, 'con_commodity_rate_fix', pyomo.Constraint(
+                model.time_set, rule=con_commodity_rate_fix))
 
     # ==========================================================================
     #    S E R I A L I Z E

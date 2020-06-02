@@ -132,7 +132,7 @@ class Storage(Component):
     def __repr__(self):
         return '<Storage: "%s">' % self.name
 
-    def declare_component_constraints(self, ensys, pyM):
+    def declare_component_constraints(self, ensys, model):
         """
         Declare time independent and dependent constraints.
 
@@ -140,9 +140,9 @@ class Storage(Component):
             in which the component should be added.
         :type ensys: EnergySystem class instance
 
-        :param pyM: Pyomo ConcreteModel which stores the mathematical
+        :param model: Pyomo ConcreteModel which stores the mathematical
             formulation of the energy system model.
-        :type pyM: Pyomo ConcreteModel
+        :type model: Pyomo ConcreteModel
         """
         # Time independent constraints:
         # -----------------------------
@@ -154,19 +154,19 @@ class Storage(Component):
 
         # Time dependent constraints:
         # ---------------------------
-        self.con_operation_limit(pyM)
-        self.con_soc_balance(ensys, pyM)
-        self.con_charge_rate(ensys, pyM)
-        self.con_discharge_rate(ensys, pyM)
-        self.con_cyclic_condition(ensys, pyM)
-        self.con_soc_initial(ensys, pyM)
-        self.con_soc_intra_period_start(ensys, pyM)  # only if inter-period f.
-        self.con_soc_inter_period_balance(ensys, pyM)  # only if inter-period f.
-        self.con_soc_bounds_without_inter_period_formulation(ensys, pyM)
-        self.con_soc_bounds_with_inter_period_formulation_simple(ensys, pyM)
-        self.con_soc_bounds_with_inter_period_formulation_precise(ensys, pyM)
+        self.con_operation_limit(model)
+        self.con_soc_balance(ensys, model)
+        self.con_charge_rate(ensys, model)
+        self.con_discharge_rate(ensys, model)
+        self.con_cyclic_condition(ensys, model)
+        self.con_soc_initial(ensys, model)
+        self.con_soc_intra_period_start(ensys, model)  # only if inter-period f.
+        self.con_soc_inter_period_balance(ensys, model)  # dito
+        self.con_soc_bounds_without_inter_period_formulation(ensys, model)
+        self.con_soc_bounds_with_inter_period_formulation_simple(ensys, model)
+        self.con_soc_bounds_with_inter_period_formulation_precise(ensys, model)
 
-    def get_objective_function_contribution(self, ensys, pyM):
+    def get_objective_function_contribution(self, ensys, model):
         """ Get contribution to the objective function. """
         # Check if the component is completely unconnected. If this is True,
         # don't use the objective function contributions of this component
@@ -177,14 +177,14 @@ class Storage(Component):
             return 0
 
         # Call function in "Component" class and calculate CAPEX and OPEX
-        super().get_objective_function_contribution(ensys, pyM)
+        super().get_objective_function_contribution(ensys, model)
 
         return sum(self.comp_obj_dict.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def con_operation_limit(self, pyM):
+    def con_operation_limit(self, model):
         """
         The operation of a storage component (state of charge) is limit by its
         nominal capacity E.g.: |br|
@@ -197,10 +197,10 @@ class Storage(Component):
         def con_operation_limit(m, p, t):
             return soc[p, t] <= cap
 
-        setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
-            pyM.time_set, rule=con_operation_limit))
+        setattr(self.block, 'con_operation_limit', pyomo.Constraint(
+            model.time_set, rule=con_operation_limit))
 
-    def con_soc_balance(self, ensys, pyM):
+    def con_soc_balance(self, ensys, model):
         """
         Constraint that connects the state of charge (SOC) with the charge and
         discharge operation: the change in the state of charge between two
@@ -219,10 +219,10 @@ class Storage(Component):
                    + charge[p, t] * self.charge_efficiency \
                    - discharge[p, t] / self.discharge_efficiency
 
-        setattr(self.pyB, 'con_soc_balance', pyomo.Constraint(
-            pyM.time_set, rule=con_soc_balance))
+        setattr(self.block, 'con_soc_balance', pyomo.Constraint(
+            model.time_set, rule=con_soc_balance))
 
-    def con_charge_rate(self, ensys, pyM):
+    def con_charge_rate(self, ensys, model):
         """
         XXX
         """
@@ -233,10 +233,10 @@ class Storage(Component):
         def con_charge_rate(m, p, t):
             return charge[p, t] <= cap * dt * self.charge_rate
 
-        setattr(self.pyB, 'con_charge_rate', pyomo.Constraint(
-            pyM.time_set, rule=con_charge_rate))
+        setattr(self.block, 'con_charge_rate', pyomo.Constraint(
+            model.time_set, rule=con_charge_rate))
 
-    def con_discharge_rate(self, ensys, pyM):
+    def con_discharge_rate(self, ensys, model):
         """
         XXX
         """
@@ -247,10 +247,10 @@ class Storage(Component):
         def con_discharge_rate(m, p, t):
             return discharge[p, t] <= cap * dt * self.discharge_rate
 
-        setattr(self.pyB, 'con_discharge_rate', pyomo.Constraint(
-            pyM.time_set, rule=con_discharge_rate))
+        setattr(self.block, 'con_discharge_rate', pyomo.Constraint(
+            model.time_set, rule=con_discharge_rate))
 
-    def con_cyclic_condition(self, ensys, pyM):
+    def con_cyclic_condition(self, ensys, model):
         """
         State of charge storage in last time step (after last charging and
         discharging events) equals SOC in first time step.
@@ -263,10 +263,10 @@ class Storage(Component):
             soc_inter = self.variables[utils.SOC_INTER]['pyomo']
 
             def con_cyclic_condition_inter(m):
-                last_idx = pyM.inter_period_time_set.last()
+                last_idx = model.inter_period_time_set.last()
                 return soc_inter[0] == soc_inter[last_idx]
 
-            setattr(self.pyB, 'con_cyclic_condition_inter', pyomo.Constraint(
+            setattr(self.block, 'con_cyclic_condition_inter', pyomo.Constraint(
                 rule=con_cyclic_condition_inter))
 
         else:
@@ -275,13 +275,13 @@ class Storage(Component):
             # independent entities. Energy cannot be transferred between periods
             # Only one "typical period" exists if data is not clustered [0]
             def con_cyclic_condition(m, p):
-                last_t_idx = pyM.intra_period_time_set.last()[1]
+                last_t_idx = model.intra_period_time_set.last()[1]
                 return soc[p, 0] == soc[p, last_t_idx]
 
-            setattr(self.pyB, 'con_cyclic_condition', pyomo.Constraint(
-                pyM.typical_periods_set, rule=con_cyclic_condition))
+            setattr(self.block, 'con_cyclic_condition', pyomo.Constraint(
+                model.typical_periods_set, rule=con_cyclic_condition))
 
-    def con_soc_initial(self, ensys, pyM):
+    def con_soc_initial(self, ensys, model):
         """
         A value for the relative state of charge in the first time step of each
         period can be specified here. (same value for all periods)
@@ -297,7 +297,7 @@ class Storage(Component):
                 def con_soc_inter_initial(m):
                     return soc_inter[0] == cap * self.soc_initial
 
-                setattr(self.pyB, 'con_soc_inter_initial', pyomo.Constraint(
+                setattr(self.block, 'con_soc_inter_initial', pyomo.Constraint(
                     rule=con_soc_inter_initial))
 
             else:
@@ -308,10 +308,10 @@ class Storage(Component):
                 def con_soc_initial(m, p):
                     return soc[p, 0] == cap * self.soc_initial
 
-                setattr(self.pyB, 'con_soc_initial', pyomo.Constraint(
-                    pyM.typical_periods_set, rule=con_soc_initial))
+                setattr(self.block, 'con_soc_initial', pyomo.Constraint(
+                    model.typical_periods_set, rule=con_soc_initial))
 
-    def con_soc_intra_period_start(self, ensys, pyM):
+    def con_soc_intra_period_start(self, ensys, model):
         """
         Eq. V
         """
@@ -322,10 +322,10 @@ class Storage(Component):
             def con_soc_intra_period_start(m, p):
                 return soc[p, 0] == 0
 
-            setattr(self.pyB, 'con_soc_intra_period_start', pyomo.Constraint(
-                pyM.typical_periods_set, rule=con_soc_intra_period_start))
+            setattr(self.block, 'con_soc_intra_period_start', pyomo.Constraint(
+                model.typical_periods_set, rule=con_soc_intra_period_start))
 
-    def con_soc_inter_period_balance(self, ensys, pyM):
+    def con_soc_inter_period_balance(self, ensys, model):
         """
         Calculate next inter-period SOC from the previous one and the SOC in the
         last intra-period time step. Also account for self-discharge losses
@@ -339,16 +339,17 @@ class Storage(Component):
 
             def con_soc_inter_period_balance(m, p):
                 typ_period = ensys.periods_order[p]
-                last_ts_idx = pyM.intra_period_time_set.last()[1]
+                last_ts_idx = model.intra_period_time_set.last()[1]
                 return soc_inter[p + 1] == soc_inter[p] * (
                         1 - self.self_discharge)**(
                         ensys.number_of_time_steps_per_period * dt) + soc[
                     typ_period, last_ts_idx]
 
-            setattr(self.pyB, 'con_soc_inter_period_balance', pyomo.Constraint(
-                ensys.periods, rule=con_soc_inter_period_balance))
+            setattr(self.block, 'con_soc_inter_period_balance',
+                    pyomo.Constraint(ensys.periods,
+                                     rule=con_soc_inter_period_balance))
 
-    def con_soc_bounds_without_inter_period_formulation(self, ensys, pyM):
+    def con_soc_bounds_without_inter_period_formulation(self, ensys, model):
         """
         Is applied if the inter period formulation is not selected or the data
         is not clustered!
@@ -382,8 +383,8 @@ class Storage(Component):
             def con_minimal_soc(m, p, t):
                 return soc[p, t] >= cap * self.soc_min
 
-            setattr(self.pyB, 'con_minimal_soc', pyomo.Constraint(
-                pyM.intra_period_time_set, rule=con_minimal_soc))
+            setattr(self.block, 'con_minimal_soc', pyomo.Constraint(
+                model.intra_period_time_set, rule=con_minimal_soc))
 
             # Only built the constraint if the value for soc_max is less than 1.
             # Otherwise it is already considered by "con_operation_limit".
@@ -391,10 +392,10 @@ class Storage(Component):
                 def con_maximal_soc(m, p, t):
                     return soc[p, t] <= cap * self.soc_max
 
-                setattr(self.pyB, 'con_maximal_soc', pyomo.Constraint(
-                    pyM.intra_period_time_set, rule=con_maximal_soc))
+                setattr(self.block, 'con_maximal_soc', pyomo.Constraint(
+                    model.intra_period_time_set, rule=con_maximal_soc))
 
-    def con_soc_bounds_with_inter_period_formulation_simple(self, ensys, pyM):
+    def con_soc_bounds_with_inter_period_formulation_simple(self, ensys, model):
         """
         Define the bounds for the state of charge in a simplified way.
         The error is relatively small in comparison the to precise method if
@@ -419,8 +420,8 @@ class Storage(Component):
             def con_soc_max_intra(m, p, t):
                 return soc[p, t] <= soc_max[p]
 
-            setattr(self.pyB, 'con_soc_max_intra', pyomo.Constraint(
-                pyM.time_set, rule=con_soc_max_intra))
+            setattr(self.block, 'con_soc_max_intra', pyomo.Constraint(
+                model.time_set, rule=con_soc_max_intra))
 
             # The variable "SOC_MIN" of a typical period is smaller than all
             # occurring intra-period SOCs in the same period (except the last
@@ -428,8 +429,8 @@ class Storage(Component):
             def con_soc_min_intra(m, p, t):
                 return soc[p, t] >= soc_min[p]
 
-            setattr(self.pyB, 'con_soc_min_intra', pyomo.Constraint(
-                pyM.time_set, rule=con_soc_min_intra))
+            setattr(self.block, 'con_soc_min_intra', pyomo.Constraint(
+                model.time_set, rule=con_soc_min_intra))
 
             # The inter-period SOC at the beginning of a period plus the maximum
             # intra-period SOC of the associated typical period is less than
@@ -438,7 +439,7 @@ class Storage(Component):
                 typ_period = ensys.periods_order[p]
                 return soc_inter[p] + soc_max[typ_period] <= cap * self.soc_max
 
-            setattr(pyM, 'con_soc_max_bound_simple', pyomo.Constraint(
+            setattr(model, 'con_soc_max_bound_simple', pyomo.Constraint(
                 ensys.periods, rule=con_soc_max_bound_simple))
 
             # The inter-period SOC at the beginning of a period minus the
@@ -451,10 +452,11 @@ class Storage(Component):
                         ensys.number_of_time_steps_per_period * dt) + soc_min[
                     typ_period] >= cap * self.soc_min
 
-            setattr(pyM, 'con_soc_min_bound_simple', pyomo.Constraint(
+            setattr(model, 'con_soc_min_bound_simple', pyomo.Constraint(
                 ensys.periods, rule=con_soc_min_bound_simple))
 
-    def con_soc_bounds_with_inter_period_formulation_precise(self, ensys, pyM):
+    def con_soc_bounds_with_inter_period_formulation_precise(self,
+                                                             ensys, model):
         """
         Define the bounds for the state of charge in a precise way. This version
         requires two constraints for each time step of the full scale problem.
@@ -476,7 +478,7 @@ class Storage(Component):
                 return soc_inter[p] * (1 - self.self_discharge)**(t * dt) + soc[
                     typ_period, t] <= cap * self.soc_max
 
-            setattr(pyM, 'con_soc_max_bound_precise', pyomo.Constraint(
+            setattr(model, 'con_soc_max_bound_precise', pyomo.Constraint(
                 ensys.periods, range(ensys.number_of_time_steps_per_period),
                 rule=con_soc_max_bound_precise))
 
@@ -488,7 +490,7 @@ class Storage(Component):
                 return soc_inter[p] * (1 - self.self_discharge)**(t * dt) + soc[
                     typ_period, t] >= cap * self.soc_min
 
-            setattr(pyM, 'con_soc_min_bound_precise', pyomo.Constraint(
+            setattr(model, 'con_soc_min_bound_precise', pyomo.Constraint(
                 ensys.periods, range(ensys.number_of_time_steps_per_period),
                 rule=con_soc_min_bound_precise))
 

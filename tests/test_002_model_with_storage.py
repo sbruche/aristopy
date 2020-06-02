@@ -51,7 +51,7 @@ def test_storage_example():
     es.optimize(declares_optimization_problem=True,
                 solver=solver, tee=False, results_file=None)
 
-    assert es.pyM.Obj() == pytest.approx(-3.94438400000876e+06)
+    assert es.model.Obj() == pytest.approx(-3.94438400000876e+06)
 
     # Perform time series aggregation and run the model again.
     # The overall result should be the same.
@@ -60,7 +60,7 @@ def test_storage_example():
                 time_series_aggregation=True,
                 solver=solver, tee=False, results_file=None)
 
-    assert es.pyM.Obj() == pytest.approx(-3.94438400000876e+06)
+    assert es.model.Obj() == pytest.approx(-3.94438400000876e+06)
 
     # Problem should be infeasible for clustered data, without using the
     # inter-period-formulation.

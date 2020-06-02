@@ -113,7 +113,7 @@ class Conversion(Component):
     def __repr__(self):
         return '<Conversion: "%s">' % self.name
 
-    def declare_component_constraints(self, ensys, pyM):
+    def declare_component_constraints(self, ensys, model):
         """
         Declare time independent and dependent constraints.
 
@@ -121,9 +121,9 @@ class Conversion(Component):
             in which the component should be added.
         :type ensys: EnergySystem class instance
 
-        :param pyM: Pyomo ConcreteModel which stores the mathematical
+        :param model: Pyomo ConcreteModel which stores the mathematical
             formulation of the energy system model.
-        :type pyM: Pyomo ConcreteModel
+        :type model: Pyomo ConcreteModel
         """
 
         # Time independent constraints:
@@ -137,15 +137,15 @@ class Conversion(Component):
 
         # Time dependent constraints:
         # ---------------------------
-        self.con_bi_var_ex_and_op_relation(pyM)
-        self.con_operation_limit(pyM)
-        self.con_couple_op_binary_and_basic_var(pyM)
-        self.con_min_load_rel(pyM)
-        self.con_start_up_cost(ensys, pyM)
-        self.con_start_up_cost_inter(ensys, pyM)
-        self.con_operation_sym_break(ensys, pyM)
+        self.con_bi_var_ex_and_op_relation(model)
+        self.con_operation_limit(model)
+        self.con_couple_op_binary_and_basic_var(model)
+        self.con_min_load_rel(model)
+        self.con_start_up_cost(ensys, model)
+        self.con_start_up_cost_inter(ensys, model)
+        self.con_operation_sym_break(ensys, model)
 
-    def get_objective_function_contribution(self, ensys, pyM):
+    def get_objective_function_contribution(self, ensys, model):
         """ Get contribution to the objective function. """
         # Check if the component is completely unconnected. If this is True,
         # don't use the objective function contributions of this component
@@ -156,7 +156,7 @@ class Conversion(Component):
             return 0
 
         # Call function in "Component" class and calculate CAPEX and OPEX
-        super().get_objective_function_contribution(ensys, pyM)
+        super().get_objective_function_contribution(ensys, model)
 
         # ------------------
         #   START-UP_COST
@@ -165,7 +165,7 @@ class Conversion(Component):
             bi_su = self.variables[utils.BI_SU]['pyomo']  # only avail. if '>0'
             start_cost_intra = -1 * ensys.pvf * self.start_up_cost * sum(
                 bi_su[p, t] * ensys.period_occurrences[p] for p, t in
-                pyM.time_set) / ensys.number_of_years
+                model.time_set) / ensys.number_of_years
             if self.use_inter_period_formulation and ensys.is_data_clustered:
                 bi_su_inter = self.variables[utils.BI_SU_INTER]['pyomo']
                 start_cost_inter = -1 * ensys.pvf * self.start_up_cost * pyomo.\
@@ -192,13 +192,13 @@ class Conversion(Component):
 
             def con_existence_sym_break(m):
                 return bi_ex <= bi_ex_prior
-            setattr(self.pyB, 'con_existence_sym_break',
+            setattr(self.block, 'con_existence_sym_break',
                     pyomo.Constraint(rule=con_existence_sym_break))
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def con_operation_sym_break(self, ensys, pyM):
+    def con_operation_sym_break(self, ensys, model):
         """
         TODO: Add description!
         """
@@ -211,10 +211,10 @@ class Conversion(Component):
 
             def con_operation_sym_break(m, p, t):
                 return bi_op[p, t] <= bi_op_prior[p, t]
-            setattr(self.pyB, 'con_operation_sym_break', pyomo.Constraint(
-                pyM.time_set, rule=con_operation_sym_break))
+            setattr(self.block, 'con_operation_sym_break', pyomo.Constraint(
+                model.time_set, rule=con_operation_sym_break))
 
-    def con_operation_limit(self, pyM):
+    def con_operation_limit(self, model):
         """
         The operation variable (ref.: basic commodity) of a conversion unit
         (MWh) is limit by its nominal power (MW) multiplied with the number of
@@ -235,10 +235,10 @@ class Conversion(Component):
                 else:
                     return basic_var <= cap
 
-            setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
-                pyM.time_set, rule=con_operation_limit))
+            setattr(self.block, 'con_operation_limit', pyomo.Constraint(
+                model.time_set, rule=con_operation_limit))
 
-    def con_min_load_rel(self, pyM):
+    def con_min_load_rel(self, model):
         """
         Currently minimal part-loads can only be used if a binary variable for
         operation is defined and fixed capacities of the conversion units are
@@ -259,8 +259,8 @@ class Conversion(Component):
                     return \
                         basic_var[p, t] >= cap * bi_op[p, t] * min_load * dt
 
-                setattr(self.pyB, 'con_min_load_rel', pyomo.Constraint(
-                    pyM.time_set, rule=con_min_load_rel))
+                setattr(self.block, 'con_min_load_rel', pyomo.Constraint(
+                    model.time_set, rule=con_min_load_rel))
             else:
                 # TODO: Add this to the init check!
                 raise NotImplementedError(
@@ -272,7 +272,7 @@ class Conversion(Component):
                     '--> Linearization required (Glover)!,\n '
                     'Q[p, t] >= Q_CAP_OR_OFF[p, t] * min_load_rel * dt')
 
-    def con_start_up_cost(self, ensys, pyM):
+    def con_start_up_cost(self, ensys, model):
         """
         Constraint to determine the status of the binary start-up variable. If
         the operational status of a component changes from OFF (bi_op=0) to ON
@@ -292,10 +292,10 @@ class Conversion(Component):
                     return 0 <= bi_op[p, t - 1] - bi_op[p, t] + bi_su[p, t]
                 else:
                     return pyomo.Constraint.Skip
-            setattr(self.pyB, 'con_start_up_cost', pyomo.Constraint(
-                pyM.time_set, rule=con_start_up_cost))
+            setattr(self.block, 'con_start_up_cost', pyomo.Constraint(
+                model.time_set, rule=con_start_up_cost))
 
-    def con_start_up_cost_inter(self, ensys, pyM):
+    def con_start_up_cost_inter(self, ensys, model):
         """
         Todo: Add description
         """
@@ -313,13 +313,13 @@ class Conversion(Component):
 
                     typ_period = ensys.periods_order[p]
                     prev_typ_period = ensys.periods_order[p-1]
-                    last_ts_idx = pyM.time_set.last()[1]
+                    last_ts_idx = model.time_set.last()[1]
 
                     return 0 <= bi_op[prev_typ_period, last_ts_idx] - bi_op[
                         typ_period, 0] + bi_su_inter[p]
                 else:
                     return pyomo.Constraint.Skip
-            setattr(self.pyB, 'con_start_up_cost_inter', pyomo.Constraint(
+            setattr(self.block, 'con_start_up_cost_inter', pyomo.Constraint(
                 ensys.periods, rule=con_start_up_cost_inter))
 
     # ==========================================================================

@@ -81,7 +81,7 @@ class Bus(Component):
     def __repr__(self):
         return '<Bus: "%s">' % self.name
 
-    def declare_component_constraints(self, ensys, pyM):
+    def declare_component_constraints(self, ensys, model):
         """
         Declare time independent and dependent constraints.
 
@@ -89,9 +89,9 @@ class Bus(Component):
             in which the component should be added.
         :type ensys: EnergySystem class instance
 
-        :param pyM: Pyomo ConcreteModel which stores the mathematical
+        :param model: Pyomo ConcreteModel which stores the mathematical
             formulation of the energy system model.
-        :type pyM: Pyomo ConcreteModel
+        :type model: Pyomo ConcreteModel
         """
 
         # Time independent constraints:
@@ -101,10 +101,10 @@ class Bus(Component):
 
         # Time dependent constraints:
         # ---------------------------
-        self.con_operation_limit(pyM)
-        self.con_bus_balance(pyM)
+        self.con_operation_limit(model)
+        self.con_bus_balance(model)
 
-    def get_objective_function_contribution(self, ensys, pyM):
+    def get_objective_function_contribution(self, ensys, model):
         """ Get contribution to the objective function. """
         # Check if the component is completely unconnected. If this is True,
         # don't use the objective function contributions of this component
@@ -115,14 +115,14 @@ class Bus(Component):
             return 0
 
         # Call function in "Component" class and calculate CAPEX and OPEX
-        super().get_objective_function_contribution(ensys, pyM)
+        super().get_objective_function_contribution(ensys, model)
 
         return sum(self.comp_obj_dict.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def con_operation_limit(self, pyM):
+    def con_operation_limit(self, model):
         """
         The operation of a bus comp. (inlet variable!) is limit by its nominal
         power (MW) multiplied with the number of hours per time step.
@@ -138,10 +138,10 @@ class Bus(Component):
             def con_operation_limit(m, p, t):
                 return inlet_var[p, t] <= cap * dt
 
-            setattr(self.pyB, 'con_operation_limit', pyomo.Constraint(
-                pyM.time_set, rule=con_operation_limit))
+            setattr(self.block, 'con_operation_limit', pyomo.Constraint(
+                model.time_set, rule=con_operation_limit))
 
-    def con_bus_balance(self, pyM):
+    def con_bus_balance(self, model):
         """
         The sum of outlets must equal the sum of the inlets minus the share of
         the transmission losses. A bus component cannot store a commodity.
@@ -155,8 +155,8 @@ class Bus(Component):
         def con_bus_balance(m, p, t):
             return outlet_var[p, t] == inlet_var[p, t] * (1 - self.losses)
 
-        setattr(self.pyB, 'con_bus_balance', pyomo.Constraint(
-                pyM.time_set, rule=con_bus_balance))
+        setattr(self.block, 'con_bus_balance', pyomo.Constraint(
+                model.time_set, rule=con_bus_balance))
 
     # ==========================================================================
     #    S E R I A L I Z E

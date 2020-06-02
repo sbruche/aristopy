@@ -20,17 +20,18 @@ from tsam.timeseriesaggregation import TimeSeriesAggregation
 from aristopy import utils, logger
 
 
-# The EnergySystem is the main model container. An instance of the
-# EnergySystem class holds the modelled components, the overall pyomo
-# model and the results of the optimization.
+# The EnergySystem is the main model container. An instance of the EnergySystem
+# class holds the modelled components, the overall pyomo model and the results
+# of the optimization.
 # It also provides some features to manipulate the associated component models:
+#   * Perform clustering of the implemented time series data
+#   * Call the main optimization routine
 #   * Relax the integrality of binary variables
 #   * General editing of component variables (e.g. change bounds or domains)
 #   * Reset component variables after applying changes (e.g. relaxation)
-#   * Cluster implemented time series data
 #   * Export and import component configurations
 #   * Add variables, constraints and objective function contributions outside
-#     of the component declaration
+#     of the component declaration directly to the main pyomo model
 class EnergySystem:
     def __init__(self, number_of_time_steps=8760, hours_per_time_step=1,
                  interest_rate=0.05, economic_lifetime=20, logging=None):
@@ -118,7 +119,7 @@ class EnergySystem:
         # **********************************************************************
         #   Optimization
         # **********************************************************************
-        # The parameter 'pyM' holds the Pyomo Concrete Model instance containing
+        # The parameter 'model' holds the Pyomo Concrete Model instance with
         # sets, parameters, variables, constraints and the objective function.
         # It is None during initialization and changed when the functions
         # 'optimize' or 'declare_optimization_problem' are called.
@@ -128,7 +129,7 @@ class EnergySystem:
         # already declared.
         # The "is_persistent_model_declared" flag states if the model has been
         # declared and assigned to a persistent solver instance.
-        self.pyM = None
+        self.model = None
         self.run_info = {'solver_name': '',
                          'time_limit': None, 'optimization_specs': '',
                          'model_build_time': 0, 'model_solve_time': 0,
@@ -144,7 +145,7 @@ class EnergySystem:
         # 'components' is a dictionary (component name: component instance)
         # in which all components of the EnergySystem instance are stored.
         # The pyomo block model object (stored variables and constraints) of a
-        # component instance can be accessed via its "pyB" attribute.
+        # component instance can be accessed via its "block" attribute.
         self.components = {}  # name of comp: comp object itself
 
         # The 'component_connections' is a dict that stores the connections of
@@ -332,7 +333,7 @@ class EnergySystem:
     def add_variable(self, var):
         """
         Function to manually add pyomo variables to the main model container
-        (ConcreteModel: pyM) of the energy system model instance via instances
+        (ConcreteModel: model) of the energy system model instance via instances
         of aristopy's Var class. The attributes of the variables are stored in
         DataFrame "added_variables" and later initialized during the function
         call 'declare_optimization_problem'.
@@ -398,7 +399,7 @@ class EnergySystem:
         """
         Additional objective function contributions can be added with this
         method. The method requires a Python function input that takes the main
-        model container (ConcreteModel, pyM) and returns a single value.
+        model container (ConcreteModel, model) and returns a single value.
 
         :param rule: A Python function that returns a single value that is added
             to the objective function of the model instance. The rule must hold
@@ -514,9 +515,9 @@ class EnergySystem:
             if self.is_persistent_model_declared:
                 # add constraint to persistent solver
                 self.solver.add_constraint(
-                    self.pyM.integer_cut_constraints.add(icc_expr >= 1))
+                    self.model.integer_cut_constraints.add(icc_expr >= 1))
             else:  # conventional model
-                self.pyM.integer_cut_constraints.add(icc_expr >= 1)
+                self.model.integer_cut_constraints.add(icc_expr >= 1)
         else:
             raise ValueError('Integer cut constraints can only be applied if a '
                              'model has already been constructed and the '
@@ -641,7 +642,7 @@ class EnergySystem:
         self.log.debug('periods_order: %s' % self.periods_order)
         self.log.debug('period_occurrences: %s' % self.period_occurrences)
 
-    def declare_time_sets(self, pyM, time_series_aggregation):
+    def declare_time_sets(self, model, time_series_aggregation):
         """
         Initialize time parameters and four different time sets.
 
@@ -670,9 +671,9 @@ class EnergySystem:
         1) time_set, 2) intra_period_time_steps_set,
         3) inter_period_time_steps_set, 4) typical_periods_set |br|
 
-        :param pyM: Pyomo ConcreteModel instance containing sets, variables,
+        :param model: Pyomo ConcreteModel instance containing sets, variables,
             constraints and objective.
-        :type pyM: pyomo ConcreteModel
+        :type model: pyomo ConcreteModel
 
         :param time_series_aggregation: states if the optimization of the energy
             system model should be done with
@@ -729,19 +730,19 @@ class EnergySystem:
         # 1) time_set, 2) intra_period_time_steps_set,
         # 3) inter_period_time_steps_set, 4) typical_periods_set
 
-        pyM.time_set = pyomo.Set(
+        model.time_set = pyomo.Set(
             dimen=2, initialize=init_time_set, ordered=True)
 
-        pyM.intra_period_time_set = pyomo.Set(
+        model.intra_period_time_set = pyomo.Set(
             dimen=2, initialize=init_intra_period_time_set, ordered=True)
 
-        pyM.inter_period_time_set = pyomo.Set(
+        model.inter_period_time_set = pyomo.Set(
             initialize=self.inter_period_time_steps, ordered=True)
 
-        pyM.typical_periods_set = pyomo.Set(
+        model.typical_periods_set = pyomo.Set(
             initialize=self.typical_periods, ordered=True)
 
-    def declare_objective(self, pyM):
+    def declare_objective(self, model):
         """
         Declare the objective function by obtaining the contributions to the
         objective function from all components. Currently, the only selectable
@@ -752,24 +753,24 @@ class EnergySystem:
         def summarize_extra_objective_function_contributions():
             for key, val in self.added_objective_function_contributions.items():
                 obj_rule = getattr(self, key)  # get the function
-                obj_value = obj_rule(self.pyM)  # get returned value
+                obj_value = obj_rule(self.model)  # get returned value
                 # Add the values to the results dict (used to export results)
                 self.added_obj_contributions_results[key] = obj_value
             return sum(self.added_obj_contributions_results.values())
 
         def objective(m):
-            NPV = sum(comp.get_objective_function_contribution(self, pyM)
+            NPV = sum(comp.get_objective_function_contribution(self, model)
                       for comp in self.components.values()) \
                   + summarize_extra_objective_function_contributions()
             return NPV
-        pyM.Obj = pyomo.Objective(rule=objective, sense=pyomo.maximize)
+        model.Obj = pyomo.Objective(rule=objective, sense=pyomo.maximize)
 
     def declare_optimization_problem(self, time_series_aggregation=False,
                                      persistent_model=False,
                                      persistent_solver='gurobi_persistent'):
         """
         Declare the optimization problem of the specified energy system. First a
-        pyomo ConcreteModel instance is created (pyM) and filled with
+        pyomo ConcreteModel instance is created (model) and filled with
 
         * basic time sets,
         * sets, variables and constraints of the components,
@@ -984,24 +985,24 @@ class EnergySystem:
         # mathematical formulation of the model. The ConcreteModel instance is
         # stored in the EnergySystem instance, which makes it available for
         # post-processing or debugging.
-        # pyM is just a reference (alias) for the object self.pyM.
+        # model is just a reference (alias) for the object self.model.
         # A pyomo Suffix with the name dual is declared to make dual values
         # associated to the model's constraints available after optimization.
-        self.pyM = pyomo.ConcreteModel()
-        pyM = self.pyM
-        pyM.dual = pyomo.Suffix(direction=pyomo.Suffix.IMPORT)
+        self.model = pyomo.ConcreteModel()
+        model = self.model
+        model.dual = pyomo.Suffix(direction=pyomo.Suffix.IMPORT)
 
         # Set time sets for the model instance
-        self.declare_time_sets(pyM, time_series_aggregation)
+        self.declare_time_sets(model, time_series_aggregation)
 
         # Declare all components of the energy system model:
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         for comp in self.components.values():
-            comp.declare_component_model_block(pyM=pyM)
-            comp.declare_component_variables(pyM=pyM)
+            comp.declare_component_model_block(model=model)
+            comp.declare_component_variables(model=model)
             comp.declare_component_ports()
-            comp.declare_component_user_constraints(pyM=pyM)
-            comp.declare_component_constraints(ensys=self, pyM=pyM)
+            comp.declare_component_user_constraints(model=model)
+            comp.declare_component_constraints(ensys=self, model=model)
 
         # Declare arcs from component connections list:
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1009,19 +1010,19 @@ class EnergySystem:
             # Get the connected component class instances and the commodity name
             src, dest, commod = connection[0], connection[1], connection[2]
             # Get the ports in the component model blocks for each variable
-            outlet = getattr(src.pyB, 'outlet_' + commod)
-            inlet = getattr(dest.pyB, 'inlet_' + commod)
+            outlet = getattr(src.block, 'outlet_' + commod)
+            inlet = getattr(dest.block, 'inlet_' + commod)
             # Create an arc to connect two ports
-            setattr(self.pyM, arc_name, network.Arc(src=outlet, dest=inlet))
+            setattr(self.model, arc_name, network.Arc(src=outlet, dest=inlet))
 
         # Call model transformation factory: Expand the arcs
-        pyomo.TransformationFactory("network.expand_arcs").apply_to(pyM)
+        pyomo.TransformationFactory("network.expand_arcs").apply_to(model)
 
         # Workaround for Pyomo-Versions before 5.6.9:
         # Get all constraints that end with '_split' and deactivate them
         # --> Workaround for Port.Extensive function with indexed variables
         # See: https://groups.google.com/forum/#!topic/pyomo-forum/LaoKMhyu9pA
-        # for c in pyM.component_objects(pyomo.Constraint, active=True):
+        # for c in model.component_objects(pyomo.Constraint, active=True):
         #     if c.name.endswith('_split'):
         #         c.deactivate()
 
@@ -1040,18 +1041,18 @@ class EnergySystem:
                 init = var_dict['init']
                 # Differentiation between variables with and without time_set
                 if var_dict['has_time_set']:
-                    setattr(self.pyM, var_name, pyomo.Var(
-                        self.pyM.time_set, domain=domain, bounds=bounds,
+                    setattr(self.model, var_name, pyomo.Var(
+                        self.model.time_set, domain=domain, bounds=bounds,
                         initialize=init))
                 elif var_dict['alternative_set'] is not None:
-                    setattr(self.pyM, var_name, pyomo.Var(
+                    setattr(self.model, var_name, pyomo.Var(
                         var_dict['alternative_set'], domain=domain,
                         bounds=bounds, initialize=init))
                 else:
-                    setattr(self.pyM, var_name, pyomo.Var(
+                    setattr(self.model, var_name, pyomo.Var(
                         domain=domain, bounds=bounds, initialize=init))
                 # Store variable in self.added_variables[var_name]['pyomo']
-                pyomo_var = getattr(self.pyM, var_name)
+                pyomo_var = getattr(self.model, var_name)
                 self.added_variables[var_name]['pyomo'] = pyomo_var
 
         def declare_extra_constraints():
@@ -1063,13 +1064,13 @@ class EnergySystem:
                 con = getattr(self, con_name)
                 # Differentiation between variables with and without time_set
                 if con_dict['has_time_set']:
-                    setattr(self.pyM, con_name, pyomo.Constraint(
-                        self.pyM.time_set, rule=con))
+                    setattr(self.model, con_name, pyomo.Constraint(
+                        self.model.time_set, rule=con))
                 elif con_dict['alternative_set'] is not None:
-                    setattr(self.pyM, con_name, pyomo.Constraint(
+                    setattr(self.model, con_name, pyomo.Constraint(
                         con_dict['alternative_set'], rule=con))
                 else:
-                    setattr(self.pyM, con_name, pyomo.Constraint(rule=con))
+                    setattr(self.model, con_name, pyomo.Constraint(rule=con))
 
         def declare_extra_objective_function_contributions():
             for name, rule in self.added_objective_function_contributions.\
@@ -1087,14 +1088,14 @@ class EnergySystem:
         # initialized as an empty pyomo ConstraintList while declaring the
         # optimization problem. Integer cut constraints can be added with
         # function "add_design_integer_cut_constraint".
-        self.pyM.integer_cut_constraints = pyomo.ConstraintList()
+        self.model.integer_cut_constraints = pyomo.ConstraintList()
 
         # **********************************************************************
         #   Declare objective function
         # **********************************************************************
         # Declare objective function by obtaining the contributions to the
         # objective function from all modeling classes
-        self.declare_objective(pyM)
+        self.declare_objective(model)
 
         # **********************************************************************
         #   Built persistent model instance (if "persistent_model" is True)
@@ -1107,7 +1108,7 @@ class EnergySystem:
             time_persistent_start = time.time()
             self.solver = opt.SolverFactory(persistent_solver)
             # Create a "gurobipy" model object and add the model to the solver
-            self.solver.set_instance(self.pyM)
+            self.solver.set_instance(self.model)
             # Set the flag 'is_persistent_model_declared' to True
             self.is_persistent_model_declared = True
             self.log.info('    Time to set instance to persistent solver: %.2f'
@@ -1239,7 +1240,7 @@ class EnergySystem:
         if not self.is_persistent_model_declared and solver == 'gurobi':
             self.solver.set_options(optimization_specs)
             self.log.info('Solve non-persistent model using %s' % solver)
-            solver_info = self.solver.solve(self.pyM, warmstart=warmstart,
+            solver_info = self.solver.solve(self.model, warmstart=warmstart,
                                             tee=tee)
         elif self.is_persistent_model_declared:
             self.log.info('Solve persistent model using %s' % solver)
@@ -1247,7 +1248,7 @@ class EnergySystem:
             solver_info = self.solver.solve(tee=tee)
         else:
             self.log.info('Solve non-persistent model using %s' % solver)
-            solver_info = self.solver.solve(self.pyM, tee=tee)
+            solver_info = self.solver.solve(self.model, tee=tee)
 
         # Print the solver summary to the screen
         # solver_info.write()
@@ -1286,7 +1287,7 @@ class EnergySystem:
             arc_data = {}
             for arc_name, connection in self.component_connections.items():
                 # Get the pyomo block for the expanded arc
-                arc_block = getattr(self.pyM, arc_name + '_expanded')
+                arc_block = getattr(self.model, arc_name + '_expanded')
                 # Get connected component class instances and the commodity name
                 src, dest, commod = connection[0], connection[1], connection[2]
                 # We can only get the commodity variable values from the arc
@@ -1299,7 +1300,7 @@ class EnergySystem:
                     # --> Directly use the values of the outlet port variable of
                     # the source or the inlet port variable of the destination.
                     source_var = src.outlet_commod_and_var_names[commod]
-                    arc_var = str(getattr(src.pyB, source_var).get_values())
+                    arc_var = str(getattr(src.block, source_var).get_values())
                 arc_data[arc_name] = arc_var
             return arc_data
 

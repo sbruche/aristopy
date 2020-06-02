@@ -62,7 +62,7 @@ def test_export_and_plot():
     es.optimize(declares_optimization_problem=True, solver=solver, tee=False,
                 results_file=temp_file('results.json'))
 
-    assert es.pyM.Obj() == pytest.approx(-3.16985142475922e+06)
+    assert es.model.Obj() == pytest.approx(-3.16985142475922e+06)
 
     plotter = ar.Plotter(json_file=temp_file('results.json'))
 
