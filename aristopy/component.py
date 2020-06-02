@@ -77,7 +77,7 @@ class Component(metaclass=ABCMeta):
         """
         # Todo: Documentation: see file "components_attributes_description.txt".
 
-        utils.is_energy_system_model_instance(ensys)
+        utils.is_energy_system_instance(ensys)
         self.ensys = ensys
 
         # Set general component data
@@ -195,7 +195,7 @@ class Component(metaclass=ABCMeta):
             if self.outlet_commod_and_var_names.get(flow.commodity) is None:
                 self.outlet_commod_and_var_names[flow.commodity] = flow.var_name
 
-        # Dict used for plotting. Updated during EnergySystemModel declaration.
+        # Dict used for plotting. Updated during EnergySystem declaration.
         self.var_connections = {}  # {var_name: [connected_arc_names]}
 
         # ADDITIONAL VARIABLES can be added by the 'additional_vars' argument
@@ -291,13 +291,13 @@ class Component(metaclass=ABCMeta):
     # ==========================================================================
     def add_to_energy_system_model(self, ensys, group, instances_in_group=1):
         """
-        Add the component to an EnergySystemModel instance.
+        Add the component to an EnergySystem instance.
 
         :param group: TODO: Add description!
         :param instances_in_group: TODO: Add description!
-        :param ensys: EnergySystemModel instance representing the energy system
+        :param ensys: EnergySystem instance representing the energy system
             in which the component should be modeled.
-        :type ensys: EnergySystemModel instance
+        :type ensys: EnergySystem instance
         """
         ensys.is_data_clustered = False  # reset flag
 

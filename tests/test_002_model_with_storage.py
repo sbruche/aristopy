@@ -15,8 +15,8 @@ def test_storage_example():
         solver = 'gurobi'
     log.info('The following solver is used in this test run: %s' % solver)
 
-    es = ar.EnergySystemModel(number_of_time_steps=8, hours_per_time_step=1,
-                              interest_rate=0, economic_lifetime=1)
+    es = ar.EnergySystem(number_of_time_steps=8, hours_per_time_step=1,
+                         interest_rate=0, economic_lifetime=1)
 
     gas_src = ar.Source(ensys=es, name='gas_src', outlet=ar.Flow('F'),
                         commodity_cost=20)

@@ -391,10 +391,10 @@ def check_edit_var_input(variable, store_vars, **kwargs):
             is_boolean(val)
 
 
-def check_energy_system_model_input(number_of_time_steps, hours_per_time_step,
-                                    interest_rate, economic_lifetime, logging):
+def check_energy_system_input(number_of_time_steps, hours_per_time_step,
+                              interest_rate, economic_lifetime, logging):
     """ Check the correctness of the user input for the initialization of an
-    EnergySystemModel instance. """
+    EnergySystem instance. """
     is_strictly_positive_int(number_of_time_steps)
     is_strictly_positive_int(hours_per_time_step)
     is_strictly_positive_int(economic_lifetime)
@@ -416,19 +416,19 @@ def check_logger_input(logfile, delete_old, default_handler, local_handler,
                          '"WARNING", "ERROR", "CRITICAL"')
 
     for key, val in local_handler.items():
-        if key not in ['EnergySystemModel', 'Source', 'Sink', 'Conversion',
+        if key not in ['EnergySystem', 'Source', 'Sink', 'Conversion',
                        'Storage', 'Bus']:
             raise ValueError('Keys for dictionary "local_log_handler" are: '
-                             '"EnergySystemModel", "Source", "Sink", '
+                             '"EnergySystem", "Source", "Sink", '
                              '"Conversion", "Storage", "Bus"')
         if val not in ['file', 'stream']:
             raise ValueError('Input argument should be "file" or "stream".')
 
     for key, val in local_level.items():
-        if key not in ['EnergySystemModel', 'Source', 'Sink', 'Conversion',
+        if key not in ['EnergySystem', 'Source', 'Sink', 'Conversion',
                        'Storage', 'Bus']:
             raise ValueError('Keys for dictionary "local_log_level" are: '
-                             '"EnergySystemModel", "Source", "Sink", '
+                             '"EnergySystem", "Source", "Sink", '
                              '"Conversion", "Storage", "Bus"')
         if val not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
             raise ValueError('Options for logger levels are: "DEBUG", "INFO", '
@@ -467,9 +467,8 @@ def check_plot_operation_input(data, comp, commod, scale, single_period, level,
         raise Exception('Period index for plotting is out of range!')
     if level != 1 and level != 2:
         raise Exception('Level of detail can take values 1 or 2!')
-    if not isinstance(scale, bool) or not isinstance(show_plot, bool) or \
-            not isinstance(save_plot, bool) or not isinstance(file_name, str):
-        raise Exception('Wrong argument type detected!')
+    is_string(file_name)
+    is_boolean(scale), is_boolean(show_plot), is_boolean(save_plot)
 
 
 def check_scalar_params_dict(data):
@@ -492,13 +491,13 @@ def is_dataframe(data):
         raise TypeError('The data needs to be imported as a pandas DataFrame!')
 
 
-def is_energy_system_model_instance(ensys):
-    if not isinstance(ensys, aristopy.EnergySystemModel):
-        raise TypeError('The input is not an EnergySystemModel instance.')
+def is_energy_system_instance(ensys):
+    if not isinstance(ensys, aristopy.EnergySystem):
+        raise TypeError('The input is not an EnergySystem instance.')
 
 
 def is_number(value):
-    if not (isinstance(value, float) or isinstance(value, int)):
+    if not (isinstance(value, (float, int))):
         raise TypeError('The input argument has to be a number.')
 
 
@@ -510,8 +509,8 @@ def is_positive_number(value):
 
 
 def is_pyomo_object(obj):
-    if not (isinstance(obj, pyomo.Set) or isinstance(obj, pyomo.Param) or
-            isinstance(obj, pyomo.Var) or isinstance(obj, pyomo.Constraint)):
+    if not (isinstance(obj, (pyomo.Set, pyomo.Param, pyomo.Var,
+                             pyomo.Constraint))):
         raise TypeError('The input is not an valid pyomo object. Valid objects '
                         'are: sets, parameters, variables and constraints.')
 

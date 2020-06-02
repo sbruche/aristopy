@@ -119,7 +119,7 @@ class Plotter:
                   'Commodity cost', 'Commodity revenues']
 
         # If objective function contributions have been added via method
-        # 'add_objective_function_contribution' in EnergySystemModel:
+        # 'add_objective_function_contribution' in EnergySystem:
         added_obj = self.data['added_objective_function_contributions']
         # if dict is not empty and if the sum of all (abs) entries is not zero
         if added_obj and sum(abs(i) for i in added_obj.values()) != 0:

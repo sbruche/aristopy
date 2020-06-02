@@ -27,7 +27,7 @@ class Logger:
         :type default_log_handler: string
 
         :param local_log_handler: Dictionary to override the default handler
-            level for specified instance types ('EnergySystemModel', 'Source',
+            level for specified instance types ('EnergySystem', 'Source',
             'Sink', 'Conversion', 'Storage', 'Bus'). E.g.: ... = {'Bus': 'file'}
         :type local_log_handler: dict
 
@@ -38,7 +38,7 @@ class Logger:
         :type default_log_level: string
 
         :param local_log_level: Dictionary to override the default log level for
-            specified instance types ('EnergySystemModel', 'Source', 'Sink',
+            specified instance types ('EnergySystem', 'Source', 'Sink',
             'Conversion', 'Storage', 'Bus'). E.g.: ... = {'Bus': 'WARNING', ...}
         :type local_log_level: dict
 
@@ -64,7 +64,7 @@ class Logger:
 
         # Dictionary for assigning the possible names (keys) from the dicts
         # "local_log_handler" and "local_log_level" to the classes of aristopy
-        self.instance_types = {'EnergySystemModel': aristopy.EnergySystemModel,
+        self.instance_types = {'EnergySystem': aristopy.EnergySystem,
                                'Source': aristopy.Source,
                                'Sink': aristopy.Sink,
                                'Conversion': aristopy.Conversion,
@@ -112,12 +112,12 @@ class Logger:
         """
         Generate a new logger instance with default logger level and default
         logger handle. The name of the logger is specified in "instance".
-        If an instance of class 'EnergySystemModel', 'Source', 'Sink',
+        If an instance of class 'EnergySystem', 'Source', 'Sink',
         'Conversion', 'Storage', 'Bus' is passed to the function, local log
         handler and local log levels might be used.
 
         :param instance: String (name of the logger) or instance of aristopy
-            class type 'EnergySystemModel', 'Source', 'Sink', 'Conversion',
+            class type 'EnergySystem', 'Source', 'Sink', 'Conversion',
             'Storage', 'Bus'.
         :return: New logger instance
         """
@@ -129,7 +129,7 @@ class Logger:
         # Specify the format of the output and add the instance handler
         formatter = logging.Formatter(log_format)
 
-        # If instance is not derived from aristopy classes 'EnergySystemModel',
+        # If instance is not derived from aristopy classes 'EnergySystem',
         # 'Source', 'Sink', 'Conversion', 'Storage', 'Bus' --> new logger with
         # default settings is generated.
         if type(instance) not in self.instance_types.values():

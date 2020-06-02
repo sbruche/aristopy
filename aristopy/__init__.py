@@ -4,7 +4,7 @@
 * Last edited: 2020-01-01
 * Created by: Stefan Bruche (TU Berlin)
 """
-from .energySystemModel import EnergySystemModel
+from .energySystem import EnergySystem
 from .component import Component
 from .sourceSink import Source, Sink
 from .conversion import Conversion

@@ -117,9 +117,9 @@ class Conversion(Component):
         """
         Declare time independent and dependent constraints.
 
-        :param ensys: EnergySystemModel instance representing the energy system
+        :param ensys: EnergySystem instance representing the energy system
             in which the component should be added.
-        :type ensys: EnergySystemModel class instance
+        :type ensys: EnergySystem class instance
 
         :param pyM: Pyomo ConcreteModel which stores the mathematical
             formulation of the energy system model.

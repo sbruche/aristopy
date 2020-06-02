@@ -22,8 +22,8 @@ def test_relax_integrality():
     # --------------------------------------------------------------------------
     # Simple model with power plant (with minimal-part-load 50% and max. cap.),
     # electricity load and external electricity source.
-    es = ar.EnergySystemModel(number_of_time_steps=3, hours_per_time_step=1,
-                              interest_rate=0.05, economic_lifetime=20)
+    es = ar.EnergySystem(number_of_time_steps=3, hours_per_time_step=1,
+                         interest_rate=0.05, economic_lifetime=20)
 
     gas_source = ar.Source(ensys=es, name='gas_source', commodity_cost=20,
                            outlet=ar.Flow('FUEL'))

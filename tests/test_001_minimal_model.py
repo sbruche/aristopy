@@ -15,9 +15,9 @@ def test_run_minimal_example():
         solver = 'cbc'
     log.info('The following solver is used in this test run: %s' % solver)
 
-    # Create basic energy system model instance
-    es = ar.EnergySystemModel(number_of_time_steps=3, hours_per_time_step=1,
-                              interest_rate=0.05, economic_lifetime=20)
+    # Create basic energy system instance
+    es = ar.EnergySystem(number_of_time_steps=3, hours_per_time_step=1,
+                         interest_rate=0.05, economic_lifetime=20)
     # Add source, conversions and sinks
     gas_source = ar.Source(ensys=es, name='gas_source', commodity_cost=20,
                            outlet=ar.Flow('Fuel'))
