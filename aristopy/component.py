@@ -707,17 +707,17 @@ class Component(metaclass=ABCMeta):
         # Disassemble expr into its parts -> e.g. ['Q', '>=', '100']
         expr_pieces = utils.disassemble_user_expression(expression)
         # Append name and list of pieces to the 'user_expressions_dict'
-        self.user_expressions_dict.update({expr_name: expr_pieces})
+        self.user_expressions_dict[expr_name] = expr_pieces
 
     def set_time_series_data(self, time_series_aggregation):
         """
-        Function for setting the time series data in the 'parameters' dictionary
-        of a component depending on whether a calculation with aggregated time
-        series is requested or not.
+        Method to set the time series data in the 'parameters' DataFrame of a
+        component depending on whether a calculation with aggregated time series
+        data should be performed or with the original data (without clustering).
 
-        :param time_series_aggregation: time series aggregation requested
-            (True) or not (False).
-        :type time_series_aggregation: boolean
+        :param time_series_aggregation: Use aggregated data (True), or original
+            data (False).
+        :type time_series_aggregation: bool
         """
         for param in self.parameters:
             param_dict = self.parameters[param]
@@ -737,13 +737,11 @@ class Component(metaclass=ABCMeta):
         the time series aggregation.
         """
         data, weights = {}, {}
-        for param in self.parameters.columns:
+        for param in self.parameters:
             if self.parameters[param]['has_time_set']:  # is True
                 unique_name = self.group_name + '_' + param
-                data.update(
-                    {unique_name: self.parameters[param]['full_resolution']})
-                weights.update(
-                    {unique_name: self.parameters[param]['tsam_weight']})
+                data[unique_name] = self.parameters[param]['full_resolution']
+                weights[unique_name] = self.parameters[param]['tsam_weight']
         return data, weights
 
     def set_aggregated_time_series_data(self, data):
@@ -751,9 +749,11 @@ class Component(metaclass=ABCMeta):
         Set (store) the aggregated time series data in the 'parameters'
         dictionary of the component after applying the time series aggregation.
         """
-        # Find time series data of a comp. (identifier starts with comp. name)
-        for series_name in data.columns:
-            if series_name.startswith(self.group_name):
+        # Find time series data of a comp. (identifier starts with group name
+        # and the parameter name is in the parameters DataFrame)
+        for series_name in data:
+            if series_name.startswith(self.group_name) and \
+                    series_name[len(self.group_name)+1:] in self.parameters:
                 # Get the original parameter name by slicing the 'unique_name'
                 param_name = series_name[len(self.group_name)+1:]
                 # Store aggregated time series data in parameters dict of comp.
@@ -886,8 +886,6 @@ class Component(metaclass=ABCMeta):
                                              'not been declared. Hence, '
                                              'constructing block "{}" failed.'
                                              .format(name, self.name))
-
-            # TODO: Check if order of the operators in the expr list is legal?
 
             # Create an empty DataFrame (with or without index) to store the
             # expressions that are simplified in the next step

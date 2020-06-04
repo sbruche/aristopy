@@ -75,17 +75,17 @@ def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
         return s
 
 
-def check_add_constraint(name, has_time_set, alternative_set, rule):
+def check_add_constraint(rule, name, has_time_set, alternative_set):
     """ Check the user input for the function 'add_constraint' that can be used
         to manually add constraints to the main model instance. """
+    if not callable(rule):
+        raise TypeError('The "rule" keyword needs to hold a callable object!')
     if name is not None:
         is_string(name)
     is_boolean(has_time_set)
     if alternative_set is not None and not hasattr(alternative_set, '__iter__'):
         raise TypeError('The "alternative_set" keyword requires a iterable '
                         'Python object!')
-    if not callable(rule):
-        raise TypeError('The "rule" keyword needs to hold a callable object!')
 
 
 def check_add_vars_input(data):
@@ -355,10 +355,8 @@ def check_clustering_input(number_of_typical_periods,
                          'than the total number of considered time steps.')
 
 
-def check_declare_optimization_problem_input(time_series_aggregation,
-                                             is_data_clustered,
-                                             persistent_model,
-                                             persistent_solver):
+def check_declare_model_input(time_series_aggregation, is_data_clustered,
+                              persistent_model, persistent_solver):
     if not isinstance(time_series_aggregation, bool):
         raise TypeError('Parameter time_series_aggregation has to be boolean.')
     if time_series_aggregation and not is_data_clustered:
@@ -437,21 +435,17 @@ def check_logger_input(logfile, delete_old, default_handler, local_handler,
 
 def check_optimize_input(time_series_aggregation, persistent_model,
                          persistent_solver, is_data_clustered,
-                         solver, time_limit, optimization_specs, warmstart):
+                         solver, time_limit, optimization_specs):
     """ Check correctness of input arguments to the optimize function of the
      energy system model instance"""
-    check_declare_optimization_problem_input(time_series_aggregation,
-                                             is_data_clustered,
-                                             persistent_model,
-                                             persistent_solver)
+    check_declare_model_input(time_series_aggregation, is_data_clustered,
+                              persistent_model, persistent_solver)
     if not isinstance(solver, str):
         raise TypeError('The solver parameter has to be a string.')
     if time_limit is not None:
         is_strictly_positive_int(time_limit)
     if not isinstance(optimization_specs, str):
         raise TypeError('The optimization_specs parameter has to be a string.')
-    if not isinstance(warmstart, bool):
-        raise ValueError('The warmstart parameter has to be a boolean.')
 
 
 def check_plot_operation_input(data, comp, commod, scale, single_period, level,

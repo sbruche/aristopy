@@ -2,15 +2,13 @@
 Package description
 ###################
 
-.. TODO: Rework and write with own words:
-	The python package description gives a general description of the code itself. 
-	It describes the package structure (modules and classes, with their functions and variables).
+This section provides an overview of the implemented main classes and their sub-classes.
 
 **Contents:**
 
 .. toctree::
    :maxdepth: 2
    
-   energySystemModelDoc
+   energySystemDoc
    componentsDoc
    
