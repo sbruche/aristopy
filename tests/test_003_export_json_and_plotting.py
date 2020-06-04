@@ -59,7 +59,7 @@ def test_export_and_plot():
         return os.path.join(os.path.dirname(__file__), 'temp', file_name)
 
     # Run the model as it is and assert the obj. fct. value
-    es.optimize(declares_optimization_problem=True, solver=solver, tee=False,
+    es.optimize(declare_model=True, solver=solver, tee=False,
                 results_file=temp_file('results.json'))
 
     assert es.model.Obj() == pytest.approx(-3.16985142475922e+06)

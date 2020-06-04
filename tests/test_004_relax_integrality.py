@@ -45,20 +45,19 @@ def test_relax_integrality():
         commodity_rate_fix=ar.Series('elec_demand', [11, 22, 33]),
         commodity_revenues=ar.Series('elec_rev', [-10, 100, 50]))
 
-    es.optimize(solver='scip', tee=True, results_file=None)
+    es.optimize(solver=solver, tee=False, results_file=None)
     assert es.model.Obj() == pytest.approx(-6.64455051961791e+08)
 
     es.relax_integrality()
-    es.optimize(solver='scip', tee=True, results_file=None)
+    es.optimize(solver=solver, tee=False, results_file=None)
     assert es.model.Obj() == pytest.approx(-2.82261791827754e+08)
 
     es.reset_component_variables(which_instances=['power_plant'])
-    es.optimize(solver='scip', tee=True,
+    es.optimize(solver=solver, tee=False,
                 results_file=temp_file('004_results.json'))
     assert es.model.Obj() == pytest.approx(-6.64455051961791e+08)
 
     plotter = ar.Plotter(json_file=temp_file('004_results.json'))
     plotter.plot_operation('elec_sink', 'ELEC', level_of_detail=2,
-                           period_lw=0.5,
-                           plot_single_period_with_index=0,
+                           period_lw=0.5, plot_single_period_with_index=0,
                            file_name=temp_file('004_elec_sink'))

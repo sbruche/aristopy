@@ -48,16 +48,14 @@ def test_storage_example():
                                                     [4, 4, 6, 6, 10, 10, 4, 4]))
 
     # Run the model as it is and assert the obj. fct. value
-    es.optimize(declares_optimization_problem=True,
-                solver=solver, tee=False, results_file=None)
+    es.optimize(declare_model=True, solver=solver, tee=False, results_file=None)
 
     assert es.model.Obj() == pytest.approx(-3.94438400000876e+06)
 
     # Perform time series aggregation and run the model again.
     # The overall result should be the same.
     es.cluster(number_of_typical_periods=3, number_of_time_steps_per_period=2)
-    es.optimize(declares_optimization_problem=True,
-                time_series_aggregation=True,
+    es.optimize(declare_model=True, time_series_aggregation=True,
                 solver=solver, tee=False, results_file=None)
 
     assert es.model.Obj() == pytest.approx(-3.94438400000876e+06)
@@ -65,8 +63,7 @@ def test_storage_example():
     # Problem should be infeasible for clustered data, without using the
     # inter-period-formulation.
     storage.use_inter_period_formulation = False
-    es.optimize(declares_optimization_problem=True,
-                time_series_aggregation=True,
+    es.optimize(declare_model=True, time_series_aggregation=True,
                 solver=solver, tee=False, results_file=None)
 
     assert es.run_info['termination_condition'] in [
