@@ -89,8 +89,8 @@ class Source(Component):
                 self, commodity_rate_min, commodity_rate_max,
                 commodity_rate_fix)
 
-        # Last step: Add the component to the energy system model instance
-        self.add_to_energy_system_model(ensys, name)
+        # Last step: Add the component to the EnergySystem instance
+        self.add_to_energy_system(ensys, name)
 
     def __repr__(self):
         return '<Source: "%s">' % self.name

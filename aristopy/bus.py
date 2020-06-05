@@ -21,7 +21,6 @@ class Bus(Component):
                  time_series_data=None, scalar_params=None,
                  additional_vars=None, user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
-                 # fix_existence=None, oder 1 oder 0
                  capex_per_capacity=0, capex_if_exist=0,
                  opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
                  losses=0
@@ -75,8 +74,8 @@ class Bus(Component):
         self.inlet_variable = self.inlet[0].var_name
         self.outlet_variable = self.outlet[0].var_name
 
-        # Last step: Add the component to the energy system model instance
-        self.add_to_energy_system_model(ensys, name)
+        # Last step: Add the component to the EnergySystem instance
+        self.add_to_energy_system(ensys, name)
 
     def __repr__(self):
         return '<Bus: "%s">' % self.name

@@ -126,8 +126,8 @@ class Storage(Component):
                               alternative_set='typical_periods_set',
                               domain='Reals')
 
-        # Last step: Add the component to the energy system model instance
-        self.add_to_energy_system_model(ensys, name)
+        # Last step: Add the component to the EnergySystem instance
+        self.add_to_energy_system(ensys, name)
 
     def __repr__(self):
         return '<Storage: "%s">' % self.name

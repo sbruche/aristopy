@@ -13,7 +13,7 @@ The Python package *aristopy* is a framework for modeling and optimizing the des
 The name of the framework is derived from the great Greek thinker Aristotle. For Aristotle, planning and the wise use of human goods represented great virtues. 
 Transferred to today's time and the design of energy systems, this implies using appropriate tools that support the planning process and contribute to an optimal use of the available resources (money, fuel, etc.).
 
-.. Todo: Add some major features and a hint you to cite the package!
+.. Todo: Add some major features and a hint how to cite the package!
 	**Features**
 
 	* something

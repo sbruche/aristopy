@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-** The Component class **
+**The Component class**
 
-* Last edited: 2020-01-01
+* Last edited: 2020-06-06
 * Created by: Stefan Bruche (TU Berlin)
 """
 import copy
@@ -17,20 +17,24 @@ import pyomo.network as network
 from aristopy import utils
 
 
-'''
-In Python even a class is an object. The metaclass is the class of a class.
-A metaclass defines how a class behaves. A class is an instance of metaclass.
-The default metaclass used to construct a class in Python is 'type'.
-The metaclass 'ABCMeta' enables the use of the decorator 'abstractmethod'.
-A class that has a metaclass derived from 'ABCMeta' cannot be instantiated
-unless all of its abstract methods and properties are overridden.
-Hence, the 'Component' class cannot be instantiated itself and the classes
-inheriting from 'Component' must override all abstract methods of the parent.
-'''
+# In Python even a class is an object. The metaclass is the class of a class.
+# A metaclass defines how a class behaves. A class is an instance of metaclass.
+# The default metaclass used to construct a class in Python is 'type'.
+# The metaclass 'ABCMeta' enables the use of the decorator 'abstractmethod'.
+# A class that has a metaclass derived from 'ABCMeta' cannot be instantiated
+# unless all of its abstract methods and properties are overridden.
+# Hence, the 'Component' class cannot be instantiated itself and the classes
+# inheriting from 'Component' must override all abstract methods of the parent.
+
 class Component(metaclass=ABCMeta):
-    # The Component class includes the general methods and arguments for the
-    # components which can be added to the energy system model (Source, Sink,
-    # Storage, Conversion, Bus). They all inherit from the Component class.
+    """
+    The component class is the parent class for all energy system components.
+    In other words, each instance of Source, Sink, Conversion, Bus and Storage
+    inherits the parameters and methods of the component class. The component
+    class itself contains abstract methods and can, therefore, not be
+    instantiated itself. The abstract methods are later overwritten by the child
+    classes to enable instantiation.
+    """
     def __init__(self, ensys, name, basic_variable,
                  inlet=None, outlet=None,
                  has_existence_binary_var=False, has_operation_binary_var=False,
@@ -39,50 +43,181 @@ class Component(metaclass=ABCMeta):
                  capacity=None, capacity_min=None, capacity_max=None,
                  capacity_per_module=None, maximal_module_number=None,
                  capex_per_capacity=0, capex_if_exist=0,
-                 opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
-                 instances_in_group=1,
-                 group_has_existence_order=True, group_has_operation_order=True
+                 opex_per_capacity=0, opex_if_exist=0, opex_operation=0
                  ):
         """
         Initialize an instance of the Component class. Note that an instance of
         the class Component itself can not be instantiated since it holds
-        abstract methods. Only the inheriting components (Source, Sink,
-        Storage, Conversion, Bus) can be instantiated.
+        abstract methods.
 
-        :param ensys: Name of the energy system model instance where the
-            component should be added to (string)
-        :param name: Name of the component or the component group (string)
-        :param basic_variable:
-        :param inlet:
-        :param outlet:
-        :param has_existence_binary_var: (boolean)
-        :param has_operation_binary_var: (boolean)
-        :param time_series_data:
-        :param scalar_params: (dict)
-        :param additional_vars:
-        :param user_expressions:
-        :param capacity:
-        :param capacity_min:
-        :param capacity_max:
-        :param capacity_per_module:
-        :param maximal_module_number:
-        :param capex_per_capacity:
-        :param capex_if_exist:
-        :param opex_per_capacity:
-        :param opex_if_exist:
-        :param opex_operation:
-        :param instances_in_group:
-        :param group_has_existence_order:
-        :param group_has_operation_order:
+        :param ensys: EnergySystem instance the component is added to.
+        :type ensys: instance of aristopy's EnergySystem class
+
+        :param name: Unique name of the component or the component group.
+        :type name: str
+
+        :param basic_variable: Components may have multiple variables, but every
+            component has only one basic variable. It is used to restrict
+            capacities, set operation rates, and calculate CAPEX and OPEX
+            (if available). Usually, the basic variable points to a commodity
+            variable on the inlet or the outlet of the component. In this case,
+            users need to use string inputs 'inlet_variable' or
+            'outlet_variable', respectively. If any other variable should be
+            used as the basic variable (e.g., added via keyword argument
+            'additional_vars'), users need to set the variable name directly,
+            as specified during declaration.
+        :type basic_variable: str
+
+        :param inlet: The inlet holds a set of aristopy's Flow instances,
+            transporting commodities, entering the component.
+            The commodities are creating variables inside of the component.
+            The variable name is consistent with the name of the commodity,
+            if not specified differently in the Flow instance. |br|
+            Example: inlet=aristopy.Flow('ABC', var_name='XYZ') => commodity
+            'ABC' is entering the component, and is represented by a newly an
+            internally added variable with the name 'XYZ'.
+            |br| *Default: None*
+        :type inlet: (list of) instance(s) of aristopy's Flow class, or None
+
+        :param outlet: See description of keyword argument 'inlet'.
+            |br| *Default: None*
+        :type outlet: (list of) instance(s) of aristopy's Flow class, or None
+
+        :param has_existence_binary_var: States if the component has a binary
+            variable that indicates its existence status. If the parameter is
+            set to True, a scalar pyomo binary variable is added to the pyomo
+            block model of the component (name specified in utils-file,
+            default: 'BI_EX'). It can be used to enable minimal component
+            capacities ('capacity_min'), or capacity-independent CAPEX and OPEX
+            ('capex_if_exist', 'opex_if_exist').
+            |br| *Default: False*
+        :type has_existence_binary_var: bool
+
+        :param has_operation_binary_var: States if the component has a binary
+            variable that indicates its operational status. If the parameter is
+            set to True, a pyomo binary variable, utilizing the global
+            EnergySystem time set, is added to the pyomo block model of the
+            component (name specified in utils-file, default: 'BI_OP').
+            It can be used to enable load-depending conversion rates (via
+            'user_expressions'), or minimal part-loads ('min_load_rel'), and
+            start-up cost ('start_up_cost') (the last two only for Conversion).
+            |br| *Default: False*
+        :type has_operation_binary_var: bool
+
+        :param time_series_data: Keyword argument for adding time series data to
+            the component by using instances of aristopy’s Series class. This
+            data can be used for manual scripting in the 'user_expressions'.
+            |br| *Default: None*
+        :type time_series_data: (list of) instance(s) of aristopy's Series
+            class, or None
+
+        :param scalar_params: Keyword argument for adding scalar parameters to
+            the component by using a Python dict {'parameter_name': value}.
+            The scalar parameters can be used for manual scripting in the
+            'user_expressions'.
+            |br| *Default: None*
+        :type scalar_params: dict, or None
+
+        :param additional_vars: Keyword argument for adding variables to the
+            component, that are not automatically created, e.g., by attaching
+            Flows to the inlet or outlet. The variables are provided by adding a
+            set of aristopy's Var instances. |br|
+            Example: additional_vars=aristopy.Var('ABC', domain='Reals', ub=42)
+            |br| *Default: None*
+        :type additional_vars: (list of) instance(s) of aristopy's Var class,
+            or None
+
+        :param user_expressions: Keyword argument for adding expression-like
+            strings, which are converted into pyomo constraints during model
+            declaration. User expressions can be applied for various ends, e.g.,
+            for specifying commodity conversion rates, or limiting capacities.
+            The options for mathematical operators are: '==', '>=', '<=', '**',
+            '*', '/', '+', '-', '(', ')'. The expressions can handle variables
+            that are created with standard names (see Globals in utils-file,
+            e.g., CAP), and the variables and parameters added by the user via
+            keyword arguments: 'inlet', 'outlet', 'time_series_data',
+            'scalar_params', 'additional_vars'.
+            |br| Example: user_expressions=['Q == 0.5*F + 2*BI_OP', 'CAP <= 42']
+            |br| *Default: None*
+        :type user_expressions: (list of) str, or None
+
+        :param capacity: States the fixed capacity value of the component, if
+            the component exists. Hence, if the parameter
+            'has_existence_binary_var' is set to True, the value for 'capacity'
+            is only applied if the component is selected in the optimal design
+            (BI_EX=1).
+            |br| *Default: None*
+        :type capacity: float or int (>=0), or None
+
+        :param capacity_min: States the minimal component capacity, if the
+            component exists. Hence, if the parameter 'has_existence_binary_var'
+            is set to True, the value for 'capacity_min' is only applied if the
+            component is selected in the optimal design (BI_EX=1).
+            |br| *Default: None*
+        :type capacity_min: float or int (>=0), or None
+
+        :param capacity_max: States the maximal component capacity. This value
+            introduces an upper bound for the capacity variable. It also serves
+            as an over-estimator and is required if the parameters
+            'has_existence_binary_var' or 'has_operation_binary_var' is True.
+            |br| *Default: None*
+        :type capacity_max: float or int (>=0), or None
+
+        :param capacity_per_module: If a component is modular, its capacity can
+            be modeled with parameter 'capacity_per_module'. If a value is
+            introduced, an additional binary variable is created (default name:
+            'BI_MODULE_EX'), which indicates the existence of each module.
+            |br| *Default: None*
+        :type capacity_per_module: float or int (>=0), or None
+
+        :param maximal_module_number: This keyword argument works in combination
+            with parameter 'capacity_per_module' and indicates the maximal
+            number of modules to be installed in the optimal design.
+            |br| *Default: None*
+        :type maximal_module_number: int (>0), or None
+
+        :param capex_per_capacity: Parameter to calculate the capital investment
+            cost associated with the CAPACITY of a component. The final value
+            for capacity-related CAPEX is obtained by multiplying
+            'capex_per_capacity' with the capacity variable value (CAP).
+            |br| *Default: 0*
+        :type capex_per_capacity: float or int (>=0)
+
+        :param capex_if_exist: Parameter to calculate the capital investment
+            cost associated with the EXISTENCE of a component. The final value
+            for existence-related CAPEX is obtained by multiplying
+            'capex_if_exist' with the binary existence variable value (BI_EX).
+            |br| *Default: 0*
+        :type capex_if_exist: float or int (>=0)
+
+        :param opex_per_capacity: Parameter to calculate the annual operational
+            cost associated with the CAPACITY of a component. The final value
+            for capacity-related OPEX is obtained by multiplying
+            'opex_per_capacity' with the capacity variable value (CAP).
+            |br| *Default: 0*
+        :type opex_per_capacity: float or int (>=0)
+
+        :param opex_if_exist: Parameter to calculate the annual operational
+            cost associated with the EXISTENCE of a component. The final value
+            for existence-related OPEX is obtained by multiplying
+            'opex_if_exist' with the binary existence variable value (BI_EX).
+            |br| *Default: 0*
+        :type opex_if_exist: float or int (>=0)
+
+        :param opex_operation: Parameter to calculate the annual operational
+            cost associated with the OPERATION of a component (associated with
+            its basic variable). The final value for operation-related OPEX is
+            obtained by summarizing the products of 'opex_operation' with the
+            time-dependent values of the basic variable.
+            |br| *Default: 0*
+        :type opex_operation: float or int (>=0)
         """
-        # Todo: Documentation: see file "components_attributes_description.txt".
 
+        # General attributes:
         utils.is_energy_system_instance(ensys)
         self.ensys = ensys
-
-        # Set general component data
         utils.is_string(name)
-        self.name = name  # might be changed by "add_to_energy_system_model"
+        self.name = name  # might be changed by "add_to_energy_system"
         self.group_name = name
         self.number_in_group = 1  # dito
         self.block = None  # pyomo simple Block object
@@ -90,38 +225,38 @@ class Component(metaclass=ABCMeta):
 
         # V A R I A B L E S:
         # ------------------
-        # Initialize an empty pandas DataFrame to store the component variables
-        self.variables = pd.DataFrame(index=['domain', 'has_time_set',
-                                             'alternative_set', 'init',
-                                             'ub', 'lb', 'pyomo'])
-        # Holds a copy of the variables DataFrame for later reset. It is stored
-        # while variables are edited, imported or relaxed (if requested).
-        self.variables_copy = pd.DataFrame(index=['domain', 'has_time_set',
-                                                  'alternative_set', 'init',
-                                                  'ub', 'lb'])
+        # Initialize an empty pandas DataFrame to store the component variables.
+        self.variables = pd.DataFrame(index=[
+            'domain', 'has_time_set', 'alternative_set', 'init', 'ub', 'lb',
+            'pyomo'])
+        # Holds a copy of the 'variables' DataFrame for later reset. It is
+        # stored while variables are edited, imported or relaxed (if requested).
+        self.variables_copy = pd.DataFrame(index=[
+            'domain', 'has_time_set', 'alternative_set', 'init', 'ub', 'lb'])
 
         # Check and set input values for capacities:
         self.capacity, self.capacity_min, self.capacity_max, \
             self.capacity_per_module, self.maximal_module_number = \
-            utils.check_and_set_capacities(capacity, capacity_min, capacity_max,
-                                           capacity_per_module,
-                                           maximal_module_number)
+            utils.check_and_set_capacities(
+                capacity, capacity_min, capacity_max,
+                capacity_per_module, maximal_module_number)
 
         # Specify a capacity variable (with standard name -> see: utils.CAP) if
-        # capacities are stated and add it to variables DataFrame.
+        # capacities are stated and add it to the 'variables' DataFrame.
         # Set 'capacity_max' as upper bound for the capacity variable.
-        # Lower bound is only used if component is built (depends on status of
-        # the existence binary variable if specified) --> see constraints!
-        self.has_capacity_var = True \
-            if self.capacity_min or self.capacity_max is not None else False
+        # Lower bound is only used if component is built (depends on the status
+        # of the existence binary variable if specified) --> see constraints!
+        self.has_capacity_var = True if self.capacity_min is not None or \
+            self.capacity_max is not None else False
+
         if self.has_capacity_var:
             self._add_var(utils.CAP, has_time_set=False, ub=self.capacity_max)
 
         if self.capacity_per_module is not None:
             # add binary variables for the existence of modules of a component
             self._add_var(name=utils.BI_MODULE_EX, has_time_set=False,
-                          alternative_set=range(1, self.maximal_module_number
-                                                + 1),  # 1 to end inclusive
+                          alternative_set=range(
+                              1, self.maximal_module_number+1),  # 1 to incl end
                           domain='Binary')
 
         # Add binary variables for existence and operation with standard names
@@ -138,21 +273,6 @@ class Component(metaclass=ABCMeta):
             raise ValueError('An over-estimator is required if a binary '
                              'operation or existence variable is specified. '
                              'Hence, please enter a value for "capacity_max"!')
-
-        # Multiple instances formed and collected in one group
-        self.instances_in_group = utils.set_if_positive(instances_in_group)
-        utils.is_boolean(group_has_existence_order)
-        self.group_has_existence_order = group_has_existence_order
-        if self.instances_in_group > 1 and not self.has_bi_ex and \
-                self.group_has_existence_order:  # is True
-            raise ValueError('Group requires a binary existence variable if an '
-                             'existence order is requested!')
-        utils.is_boolean(group_has_operation_order)
-        self.group_has_operation_order = group_has_operation_order
-        if self.instances_in_group > 1 and not self.has_bi_op and \
-                self.group_has_operation_order:  # is True
-            raise ValueError('Group requires a binary operation variable if an '
-                             'operation order is requested!')
 
         # C O M P O N E N T   C O N N E C T I O N S:
         # ------------------------------------------
@@ -173,7 +293,7 @@ class Component(metaclass=ABCMeta):
             # Add variable to variables DataFrame if not available:
             if flow.var_name not in self.variables:
                 self._add_var(flow.var_name)
-            # Only add commodity it if it is not already declared at inlet
+            # Only add commodity it if it is not already declared at inlet:
             if self.inlet_commod_and_var_names.get(flow.commodity) is None:
                 self.inlet_commod_and_var_names[flow.commodity] = flow.var_name
 
@@ -183,7 +303,7 @@ class Component(metaclass=ABCMeta):
                 raise ValueError(
                     'Commodity "%s" is found at inlet and outlet of '
                     'component "%s" with the same variable name "%s". '
-                    'Please use different names for both sides!'
+                    'Please use different variable names for both sides!'
                     % (flow.commodity, name, flow.var_name))
             # Add commodity to the commodities list if not available:
             if flow.commodity not in self.commodities:
@@ -191,11 +311,11 @@ class Component(metaclass=ABCMeta):
             # Add variable to variables DataFrame if not available:
             if flow.var_name not in self.variables:
                 self._add_var(flow.var_name)
-            # Only add commodity it if it is not already declared at outlet
+            # Only add commodity it if it is not already declared at outlet:
             if self.outlet_commod_and_var_names.get(flow.commodity) is None:
                 self.outlet_commod_and_var_names[flow.commodity] = flow.var_name
 
-        # Dict used for plotting. Updated during EnergySystem declaration.
+        # Dictionary used for plotting. Updated during EnergySystem declaration.
         self.var_connections = {}  # {var_name: [connected_arc_names]}
 
         # ADDITIONAL VARIABLES can be added by the 'additional_vars' argument
@@ -237,11 +357,11 @@ class Component(metaclass=ABCMeta):
             for key, val in scalar_params.items():
                 self._add_param(key, init=val)
 
-        # Add time series data from argument 'time_series_data'
-        # Check that it only holds instances of aristopy's Series class
+        # Add time series data from keyword argument 'time_series_data'.
+        # Check that it only holds instances of aristopy's Series class.
         series_list = utils.check_and_set_time_series_data(time_series_data)
         for series in series_list:
-            # Make sure time series has correct length and index
+            # Make sure time series has correct length and index:
             data = utils.check_and_convert_time_series(ensys, series.data)
             self._add_param(series.name, init=data,
                             tsam_weight=series.weighting_factor)
@@ -264,12 +384,12 @@ class Component(metaclass=ABCMeta):
                              'if you use existence related CAPEX or OPEX.')
 
         # Dictionary to store the contributions of the component to the global
-        # objective function value
-        self.comp_obj_dict = {'capex_capacity': 0, 'capex_exist': 0,
-                              'opex_capacity': 0, 'opex_exist': 0,
-                              'opex_operation': 0,
-                              'commodity_cost': 0, 'commodity_revenues': 0,
-                              'start_up_cost': 0}
+        # objective function value:
+        self.comp_obj_dict = {
+            'capex_capacity': 0, 'capex_exist': 0,
+            'opex_capacity': 0, 'opex_exist': 0, 'opex_operation': 0,
+            'commodity_cost': 0, 'commodity_revenues': 0,
+            'start_up_cost': 0}
 
         # U S E R   E X P R E S S I O N S:
         # --------------------------------
@@ -287,27 +407,46 @@ class Component(metaclass=ABCMeta):
             self.block.pprint()
 
     # ==========================================================================
-    #    A D D   C O M P O N E N T   T O   T H E   E N S Y S - M O D E L
+    #    A D D   C O M P O N E N T   T O   T H E   E N E R G Y   S Y S T E M
     # ==========================================================================
-    def add_to_energy_system_model(self, ensys, group, instances_in_group=1):
+    def add_to_energy_system(self, ensys, group, instances_in_group=1):
         """
-        Add the component to an EnergySystem instance.
+        Add the component to the specified instance of the EnergySystem class.
+        This implies, creation of copies with unique names if multiple identical
+        components should be instantiated ('instances_in_group' > 1), adding the
+        component to the dictionary 'components' of the EnergySystem, and
+        initializing a Logger instance for each component.
 
-        :param group: TODO: Add description!
-        :param instances_in_group: TODO: Add description!
-        :param ensys: EnergySystem instance representing the energy system
-            in which the component should be modeled.
-        :type ensys: EnergySystem instance
+        :param ensys: EnergySystem instance the component is added to.
+        :type ensys: instance of aristopy's EnergySystem class
+
+        :param group: Name of the group where the component is added to
+            (corresponds to initialization keyword attribute 'name').
+        :type group: str
+
+        :param instances_in_group: States the number of similar component
+            instances that are simultaneously created and arranged in a group.
+            That means, the user has the possibility to instantiate multiple
+            component instances (only for Conversion!) with identical
+            specifications. These components work independently, but may have an
+            order for their binary existence and/or operation variables (see:
+            'group_has_existence_order', 'group_has_operation_order'). If a
+            number larger than 1 is provided, the names of the components are
+            extended with integers starting from 1 (e.g., 'conversion_1', ...).
+            |br| *Default: 1*
+        :type instances_in_group: int (>0)
         """
-        ensys.is_data_clustered = False  # reset flag
+        # Reset flags if new components are added
+        ensys.is_model_declared, ensys.is_data_clustered = False, False
 
         for nbr in range(1, instances_in_group + 1):
             if instances_in_group > 1:
                 # Create a DEEP-copy of self! Shallow copy creates problems
-                # since the Component object holds complicated elements
+                # since the Component object holds complicating elements
+                # (e.g., pandas DataFrames)
                 instance = copy.deepcopy(self)
-                # Anyways, we need a reference on the original EnSys model and
-                # not a newly created copy of it!
+                # We always need the reference on the original EnergySystem
+                # instance and not on a newly created copy of it!
                 instance.ensys = self.ensys
                 instance.name = group + '_{}'.format(nbr)  # overwrite name
                 instance.number_in_group = nbr  # overwrite number_in_group
@@ -315,18 +454,17 @@ class Component(metaclass=ABCMeta):
                 instance = self  # reference self in 'instance'
             # If component name already exists raise an error.
             if instance.name in ensys.components:
-                raise ValueError('Component name {} is not unique.'
-                                 .format(instance.name))
+                raise ValueError('Component name "%s" already exists!'
+                                 % instance.name)
             else:
                 # Add component with its name and all attributes and methods to
-                # the dictionary 'components' of the energy system model
-                ensys.components.update({instance.name: instance})
+                # the dictionary 'components' of the EnergySystem instance
+                ensys.components[instance.name] = instance
 
-                # Define an own logger for every added component instance
-                instance.log = instance.ensys.logger\
-                    .get_logger(instance)
-                instance.log.info('Add component "%s" to the energy system '
-                                  'model' % instance.name)
+                # Define an own Logger instance for every added component
+                instance.log = instance.ensys.logger.get_logger(instance)
+                instance.log.info('Add component "%s" to the EnergySystem'
+                                  % instance.name)
 
     # ==========================================================================
     #    A D D ,  E D I T,  R E S E T,  F I X ,  R E L A X   V A R I A B L E S

@@ -10,5 +10,5 @@ This section provides an overview of the implemented main classes and their sub-
    :maxdepth: 2
    
    energySystemDoc
-   componentsDoc
+   componentDoc
    

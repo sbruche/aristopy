@@ -149,9 +149,11 @@ def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
     """  Check input values for capacity arguments. """
 
     # positive floats or integers if not None
-    for val in [cap, cap_min, cap_max, cap_per_mod, max_mod_nbr]:
+    for val in [cap, cap_min, cap_max, cap_per_mod]:
         if val is not None:
             is_positive_number(val)
+    if max_mod_nbr is not None:
+        is_strictly_positive_int(max_mod_nbr)
 
     # fixed capacity dominates other arguments
     if cap is not None:
@@ -174,7 +176,7 @@ def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
                          ' maximal capacity!')
 
     # calculate cap_max from cap_per_mod and max_mod_nbr if needed and possible
-    if cap_per_mod and max_mod_nbr is not None and cap_max is None:
+    if cap_per_mod is not None and max_mod_nbr is not None and cap_max is None:
         cap_max = cap_per_mod * max_mod_nbr
 
     # "maximal_module_number" is useless without "capacity_per_module" --> raise
@@ -190,7 +192,7 @@ def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
                              ' an additional value for "maximal_module_number"'
                              ' or "capacity_max" is required.')
         else:
-            max_mod_nbr = cap_max // cap_per_mod  # round down!
+            max_mod_nbr = cap_max // cap_per_mod  # round down to integer!
 
     return cap, cap_min, cap_max, cap_per_mod, max_mod_nbr
 

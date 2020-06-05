@@ -22,7 +22,8 @@ class Conversion(Component):
                  capacity_per_module=None, maximal_module_number=None,
                  capex_per_capacity=0, capex_if_exist=0,
                  opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
-                 start_up_cost=0, min_load_rel=None, instances_in_group=1,
+                 start_up_cost=0, min_load_rel=None,
+                 instances_in_group=1,
                  group_has_existence_order=True, group_has_operation_order=True,
                  use_inter_period_formulation=True
                  ):
@@ -52,9 +53,29 @@ class Conversion(Component):
         :param opex_operation:
         :param start_up_cost:
         :param min_load_rel:
-        :param instances_in_group:
+
+        :param instances_in_group: States the number of similar component
+            instances that are simultaneously created and arranged in a group.
+            That means, the user has the possibility to instantiate multiple
+            component instances (only for Conversion!) with identical
+            specifications. These components work independently, but may have an
+            order for their binary existence and/or operation variables (see:
+            'group_has_existence_order', 'group_has_operation_order'). If a
+            number larger than 1 is provided, the names of the components are
+            extended with integers starting from 1 (e.g., 'conversion_1', ...).
+            |br| *Default: 1*
+        :type instances_in_group: int (>0)
+
         :param group_has_existence_order:
+            |br| *Default: True*
+        :type group_has_existence_order: bool
+
         :param group_has_operation_order:
+            |br| *Default: True*
+        :type group_has_operation_order: bool
+
+        :param use_inter_period_formulation:
+        :type use_inter_period_formulation: bool
         """
 
         Component.__init__(self, ensys, name, basic_variable=basic_variable,
@@ -74,10 +95,7 @@ class Conversion(Component):
                            capex_if_exist=capex_if_exist,
                            opex_per_capacity=opex_per_capacity,
                            opex_if_exist=opex_if_exist,
-                           opex_operation=opex_operation,
-                           instances_in_group=instances_in_group,
-                           group_has_existence_order=group_has_existence_order,
-                           group_has_operation_order=group_has_operation_order
+                           opex_operation=opex_operation
                            )
 
         # Check and set the value for the minimal relative part-load
@@ -95,6 +113,23 @@ class Conversion(Component):
         utils.is_boolean(use_inter_period_formulation)  # check input
         self.use_inter_period_formulation = use_inter_period_formulation
 
+        # Multiple instances formed and collected in one group
+        utils.is_strictly_positive_int(instances_in_group)
+        self.instances_in_group = instances_in_group
+        utils.is_boolean(group_has_existence_order)
+        self.group_has_existence_order = group_has_existence_order
+        if self.instances_in_group > 1 and not self.has_bi_ex and \
+                self.group_has_existence_order:  # is True
+            raise ValueError('Group requires a binary existence variable if an '
+                             'existence order is requested!')
+        utils.is_boolean(group_has_operation_order)
+        self.group_has_operation_order = group_has_operation_order
+        if self.instances_in_group > 1 and not self.has_bi_op and \
+                self.group_has_operation_order:  # is True
+            raise ValueError('Group requires a binary operation variable if an '
+                             'operation order is requested!')
+
+        # Add variables for Start-up
         if self.start_up_cost != 0:
             if not self.has_bi_op:
                 raise ValueError('Start-up cost require the availability '
@@ -107,8 +142,8 @@ class Conversion(Component):
                               has_time_set=False, init=0,
                               alternative_set='inter_period_time_set')
 
-        # Last step: Add the component to the energy system model instance
-        self.add_to_energy_system_model(ensys, name, instances_in_group)
+        # Last step: Add the component to the EnergySystem instance
+        self.add_to_energy_system(ensys, name, instances_in_group)
 
     def __repr__(self):
         return '<Conversion: "%s">' % self.name

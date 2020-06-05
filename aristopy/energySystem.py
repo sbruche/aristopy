@@ -70,7 +70,8 @@ class EnergySystem:
 
         :param economic_lifetime: Years to consider for calculating the net
             present value of an investment with annual incoming and outgoing
-            cash flows. |br| *Default: 20*
+            cash flows.
+            |br| *Default: 20*
         :type economic_lifetime:  int (>0)
 
         :param logging: Specify the behavior of the logging by setting an own
