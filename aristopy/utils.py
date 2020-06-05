@@ -211,11 +211,10 @@ def check_and_set_commodity_rates(comp, rate_min, rate_max, rate_fix):
     # Check if data types are correct and add data to parameters DataFrame
     def _check_and_set_rate(data, name):
         if isinstance(data, (int, float)):
-            comp._add_param(name, init=data)
+            comp.add_param(name, data)
         elif isinstance(data, aristopy.Series):
             conv_data = check_and_convert_time_series(comp.ensys, data.data)
-            comp._add_param(data.name, init=conv_data,
-                            tsam_weight=data.weighting_factor)
+            comp.add_param(data.name, conv_data, data.weighting_factor)
             name = data.name
         elif isinstance(data, type(None)):
             name = None
@@ -255,8 +254,7 @@ def check_and_set_cost_and_revenues(comp, data):
     # if aristopy Series is provided --> add it to the parameters DataFrame
     elif isinstance(data, aristopy.Series):
         conv_data = check_and_convert_time_series(comp.ensys, data.data)
-        comp._add_param(data.name, init=conv_data,
-                        tsam_weight=data.weighting_factor)
+        comp.add_param(data.name, conv_data, data.weighting_factor)
         time_series_name = data.name
     else:
         raise ValueError('Found invalid data type for commodity cost or revenue'
@@ -372,8 +370,8 @@ def check_declare_model_input(time_series_aggregation, is_data_clustered,
                          '"gurobi_persistent" and "cplex_persistent"!')
 
 
-def check_edit_var_input(variable, store_vars, **kwargs):
-    is_string(variable)
+def check_edit_var_input(name, store_vars, **kwargs):
+    is_string(name)
     is_boolean(store_vars)
     for key, val in kwargs.items():
         if key not in ['ub', 'lb', 'domain', 'has_time_set', 'init']:

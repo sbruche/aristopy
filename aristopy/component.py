@@ -177,35 +177,35 @@ class Component(metaclass=ABCMeta):
         :type maximal_module_number: int (>0), or None
 
         :param capex_per_capacity: Parameter to calculate the capital investment
-            cost associated with the CAPACITY of a component. The final value
+            cost associated with the *CAPACITY* of a component. The final value
             for capacity-related CAPEX is obtained by multiplying
             'capex_per_capacity' with the capacity variable value (CAP).
             |br| *Default: 0*
         :type capex_per_capacity: float or int (>=0)
 
         :param capex_if_exist: Parameter to calculate the capital investment
-            cost associated with the EXISTENCE of a component. The final value
+            cost associated with the *EXISTENCE* of a component. The final value
             for existence-related CAPEX is obtained by multiplying
             'capex_if_exist' with the binary existence variable value (BI_EX).
             |br| *Default: 0*
         :type capex_if_exist: float or int (>=0)
 
         :param opex_per_capacity: Parameter to calculate the annual operational
-            cost associated with the CAPACITY of a component. The final value
+            cost associated with the *CAPACITY* of a component. The final value
             for capacity-related OPEX is obtained by multiplying
             'opex_per_capacity' with the capacity variable value (CAP).
             |br| *Default: 0*
         :type opex_per_capacity: float or int (>=0)
 
         :param opex_if_exist: Parameter to calculate the annual operational
-            cost associated with the EXISTENCE of a component. The final value
+            cost associated with the *EXISTENCE* of a component. The final value
             for existence-related OPEX is obtained by multiplying
             'opex_if_exist' with the binary existence variable value (BI_EX).
             |br| *Default: 0*
         :type opex_if_exist: float or int (>=0)
 
         :param opex_operation: Parameter to calculate the annual operational
-            cost associated with the OPERATION of a component (associated with
+            cost associated with the *OPERATION* of a component (associated with
             its basic variable). The final value for operation-related OPEX is
             obtained by summarizing the products of 'opex_operation' with the
             time-dependent values of the basic variable.
@@ -250,24 +250,24 @@ class Component(metaclass=ABCMeta):
             self.capacity_max is not None else False
 
         if self.has_capacity_var:
-            self._add_var(utils.CAP, has_time_set=False, ub=self.capacity_max)
+            self.add_var(utils.CAP, has_time_set=False, ub=self.capacity_max)
 
         if self.capacity_per_module is not None:
             # add binary variables for the existence of modules of a component
-            self._add_var(name=utils.BI_MODULE_EX, has_time_set=False,
-                          alternative_set=range(
-                              1, self.maximal_module_number+1),  # 1 to incl end
-                          domain='Binary')
+            self.add_var(name=utils.BI_MODULE_EX, has_time_set=False,
+                         alternative_set=range(
+                             1, self.maximal_module_number+1),  # 1 to incl. end
+                         domain='Binary')
 
         # Add binary variables for existence and operation with standard names
         # (see: utils.BI_EX, and utils.BI_OP, respectively) if required:
         self.has_bi_ex = has_existence_binary_var
         if self.has_bi_ex:
-            self._add_var(name=utils.BI_EX, domain='Binary', has_time_set=False)
+            self.add_var(name=utils.BI_EX, domain='Binary', has_time_set=False)
 
         self.has_bi_op = has_operation_binary_var
         if self.has_bi_op:
-            self._add_var(name=utils.BI_OP, domain='Binary', has_time_set=True)
+            self.add_var(name=utils.BI_OP, domain='Binary', has_time_set=True)
 
         if self.capacity_max is None and (self.has_bi_op or self.has_bi_ex):
             raise ValueError('An over-estimator is required if a binary '
@@ -292,7 +292,7 @@ class Component(metaclass=ABCMeta):
                 self.commodities.append(flow.commodity)
             # Add variable to variables DataFrame if not available:
             if flow.var_name not in self.variables:
-                self._add_var(flow.var_name)
+                self.add_var(flow.var_name)
             # Only add commodity it if it is not already declared at inlet:
             if self.inlet_commod_and_var_names.get(flow.commodity) is None:
                 self.inlet_commod_and_var_names[flow.commodity] = flow.var_name
@@ -310,7 +310,7 @@ class Component(metaclass=ABCMeta):
                 self.commodities.append(flow.commodity)
             # Add variable to variables DataFrame if not available:
             if flow.var_name not in self.variables:
-                self._add_var(flow.var_name)
+                self.add_var(flow.var_name)
             # Only add commodity it if it is not already declared at outlet:
             if self.outlet_commod_and_var_names.get(flow.commodity) is None:
                 self.outlet_commod_and_var_names[flow.commodity] = flow.var_name
@@ -323,9 +323,9 @@ class Component(metaclass=ABCMeta):
         # to raise an error, if variable name already exists).
         add_var_list = utils.check_add_vars_input(additional_vars)
         for var in add_var_list:
-            self._add_var(name=var.name, domain=var.domain,
-                          has_time_set=var.has_time_set, ub=var.ub, lb=var.lb,
-                          alternative_set=var.alternative_set, init=var.init)
+            self.add_var(name=var.name, domain=var.domain,
+                         has_time_set=var.has_time_set, ub=var.ub, lb=var.lb,
+                         alternative_set=var.alternative_set, init=var.init)
 
         # Every component has a basic variable. It is used to restrict
         # capacities, set operation rates and calculate capex and opex. Usually,
@@ -355,7 +355,7 @@ class Component(metaclass=ABCMeta):
         if scalar_params is not None:
             utils.check_scalar_params_dict(scalar_params)
             for key, val in scalar_params.items():
-                self._add_param(key, init=val)
+                self.add_param(name=key, data=val)
 
         # Add time series data from keyword argument 'time_series_data'.
         # Check that it only holds instances of aristopy's Series class.
@@ -363,8 +363,7 @@ class Component(metaclass=ABCMeta):
         for series in series_list:
             # Make sure time series has correct length and index:
             data = utils.check_and_convert_time_series(ensys, series.data)
-            self._add_param(series.name, init=data,
-                            tsam_weight=series.weighting_factor)
+            self.add_param(series.name, data, series.weighting_factor)
 
         # Check and set the input values for the cost parameters and prevent
         # invalid parameter combinations.
@@ -402,7 +401,7 @@ class Component(metaclass=ABCMeta):
         return '<Component: "%s">' % self.name
 
     def pprint(self):
-        """ Easy access to pretty print functionality of pyomo model Block """
+        """ Access the pretty print functionality of the pyomo model Block """
         if isinstance(self.block, pyomo.Block):
             self.block.pprint()
 
@@ -417,24 +416,21 @@ class Component(metaclass=ABCMeta):
         component to the dictionary 'components' of the EnergySystem, and
         initializing a Logger instance for each component.
 
+        *Method is not intended for public access!*
+
         :param ensys: EnergySystem instance the component is added to.
-        :type ensys: instance of aristopy's EnergySystem class
-
-        :param group: Name of the group where the component is added to
+        :param group: Name (str) of the group where the component is added to
             (corresponds to initialization keyword attribute 'name').
-        :type group: str
-
-        :param instances_in_group: States the number of similar component
-            instances that are simultaneously created and arranged in a group.
-            That means, the user has the possibility to instantiate multiple
-            component instances (only for Conversion!) with identical
+        :param instances_in_group: (int > 0) States the number of similar
+            component instances that are simultaneously created and arranged in
+            a group. That means, the user has the possibility to instantiate
+            multiple component instances (only for Conversion!) with identical
             specifications. These components work independently, but may have an
             order for their binary existence and/or operation variables (see:
             'group_has_existence_order', 'group_has_operation_order'). If a
             number larger than 1 is provided, the names of the components are
             extended with integers starting from 1 (e.g., 'conversion_1', ...).
             |br| *Default: 1*
-        :type instances_in_group: int (>0)
         """
         # Reset flags if new components are added
         ensys.is_model_declared, ensys.is_data_clustered = False, False
@@ -467,10 +463,28 @@ class Component(metaclass=ABCMeta):
                                   % instance.name)
 
     # ==========================================================================
-    #    A D D ,  E D I T,  R E S E T,  F I X ,  R E L A X   V A R I A B L E S
+    #    M A N I P U L A T I O N   O F   V A R I A B L E S
     # ==========================================================================
-    def _add_var(self, name, domain='NonNegativeReals', has_time_set=True,
-                 alternative_set=None, ub=None, lb=None, init=None):
+    def add_var(self, name, domain='NonNegativeReals', has_time_set=True,
+                alternative_set=None, ub=None, lb=None, init=None):
+        """
+        Method for adding a variable to the pandas DataFrame 'variables'.
+
+        *Method is not intended for public access!*
+
+        :param name: (str) Name / identifier of the added variable.
+        :param domain: (str) A super-set of the values the variable can take on.
+            Possible values are: 'Reals', 'NonNegativeReals', 'Binary'.
+            |br| *Default: 'NonNegativeReals'*
+        :param has_time_set: (bool) Is True, if the time set of the EnergySystem
+            instance is also a set of the added variable. |br| * Default: True
+        :param alternative_set: Alternative variable sets can be added here via
+            iterable Python objects (e.g. list). |br| *Default: None*
+        :param ub: (float, int, None) Upper variable bound. |br| *Default: None*
+        :param lb: (float, int, None) Lower variable bound. |br| *Default: None*
+        :param init: A function or Python object that provides starting values
+            for the added variable. |br| *Default: None*
+        """
         # Make sure the variable name is unique in the Dataframe
         if name in self.variables:
             raise ValueError('Variable with name "%s" already found in the '
@@ -488,18 +502,22 @@ class Component(metaclass=ABCMeta):
                             'pyomo': None})
         self.variables[name] = series
 
-    def _store_var_copy(self, name, var):
+    def store_var_copy(self, name, var):
         """
-        Internal function to store a variable in the DataFrame "variables_copy".
-        :param name: Name of the stored variable (string)
-        :param var: Variable data to store (pandas Series)
+        Method to store the current specifications of a provided variable in
+        the pandas DataFrame "variables_copy".
+
+        *Method is not intended for public access!*
+
+        :param name: (str) Name / identifier of the stored variable.
+        :param var: (pandas Series) Variable data to store.
         """
         series = pd.Series({'has_time_set': var['has_time_set'],
                             'alternative_set': var['alternative_set'],
                             'domain': var['domain'], 'init': var['init'],
                             'ub': var['ub'], 'lb': var['lb']})
-        # Only store it if it is not already in the DataFrame -> otherwise
-        # a more original version might be overwritten unintentionally
+        # Only store it if it is not already in the DataFrame => otherwise
+        # a more original version might be overwritten unintentionally.
         if name not in self.variables_copy:
             self.variables_copy[name] = series
 
@@ -507,32 +525,36 @@ class Component(metaclass=ABCMeta):
                           include_time_dependent=True,
                           store_previous_variables=True):
         """
-        Function to relax the integrality of the binary variables. This means
-        binary variables are declared to be 'NonNegativeReals with an upper
-        bound of 1. This function encompasses the resetting of the DataFrame
+        Method to relax the integrality of the binary variables. This means
+        binary variables are declared to be 'NonNegativeReals' with an upper
+        bound of 1. This method encompasses the resetting of the DataFrame
         "variables" and the pyomo variables itself (if already constructed).
         The relaxation can be performed for the binary existence variable, the
         module existence binary variables and time-dependent binary variables.
 
         :param include_existence: State whether the integrality of the binary
             existence variables should be relaxed (if available).
-        :type include_existence: boolean
+            |br| *Default: True*
+        :type include_existence: bool
 
         :param include_modules: State whether the integrality of the binary
             modules existence variables should be relaxed (if available).
-        :type include_modules: boolean
+            |br| *Default: True*
+        :type include_modules: bool
 
         :param include_time_dependent: State whether the integrality of the
             time-dependent binary variables should be relaxed. (if available).
-        :type include_time_dependent: boolean
+            |br| *Default: True*
+        :type include_time_dependent: bool
 
         :param store_previous_variables: State whether the representation of the
-            variables before applying the configuration import should be stored
-            in DataFrame "variables_copy" of each component. This representation
-            can be used by function "reset_variables" to undo changes.
-        :type store_previous_variables: boolean
+            variables before applying the relaxation should be stored in the
+            DataFrame "variables_copy". This representation can be used by
+            method "reset_variables" to undo changes.
+            |br| *Default: True*
+        :type store_previous_variables: bool
         """
-        # Check the input of the function:
+        # Check the input:
         utils.is_boolean(include_existence)
         utils.is_boolean(include_modules)
         utils.is_boolean(include_time_dependent)
@@ -564,104 +586,63 @@ class Component(metaclass=ABCMeta):
             # Include the global existence variable:
             if include_existence and v == utils.BI_EX:
                 if store_previous_variables:
-                    self._store_var_copy(v, self.variables[v])
+                    self.store_var_copy(v, self.variables[v])
                 relax_variable(self.variables[v])
                 # self.log.debug('Relax integrality of variable: "%s"' % v)
             # Include the module existence variables:
             elif include_modules and v == utils.BI_MODULE_EX:
                 if store_previous_variables:
-                    self._store_var_copy(v, self.variables[v])
+                    self.store_var_copy(v, self.variables[v])
                 relax_variable(self.variables[v])
                 # self.log.debug('Relax integrality of variable: "%s"' % v)
             # Include time-dependent variables
             elif include_time_dependent and self.variables[v]['domain'] \
                     == 'Binary' and self.variables[v]['has_time_set']:
                 if store_previous_variables:
-                    self._store_var_copy(v, self.variables[v])
+                    self.store_var_copy(v, self.variables[v])
                 relax_variable(self.variables[v])
                 # self.log.debug('Relax integrality of variable: "%s"' % v)
 
-    # ******   R E S E T   V A R I A B L E S   *********************************
-    def reset_variables(self):
+    def edit_variable(self, name, store_previous_variables=True, **kwargs):
         """
-        Function to reset the variables to their state stored in the DataFrame
-        "variables_copy". This includes the resetting of the DataFrame
-        "variables" and the pyomo variables itself (if already constructed).
-        """
-        # Loop through variables in DataFrame "variables_copy"
-        for var_copy_name in self.variables_copy:
+        Method on component level for manipulating the specifications of
+        already defined component variables (e.g., change variable domain,
+        add variable bounds, etc.).
 
-            # The variable should be in the DataFrame "variables"
-            if var_copy_name in self.variables:
-
-                # Reset the "variables" DataFrame to values in "variables_copy"
-                for attr in ['domain', 'has_time_set', 'alternative_set',
-                             'init', 'ub', 'lb']:
-                    self.variables[var_copy_name][attr] = \
-                        self.variables_copy[var_copy_name][attr]
-
-                # Reset the pyomo variable if it has already been constructed
-                if self.ensys.is_model_declared:
-                    var_pyomo = self.variables[var_copy_name]['pyomo']
-                    var_copy_dict = self.variables_copy[var_copy_name]
-                    domain = getattr(pyomo, var_copy_dict['domain'])
-
-                    # Reset domain & unfix var (works globally on (non)-indexed)
-                    var_pyomo.domain = domain
-                    var_pyomo.unfix()
-
-                    # Set lower and upper bounds and update persistent solver
-                    if not var_pyomo.is_indexed():
-                        var_pyomo.setlb(var_copy_dict['lb'])
-                        var_pyomo.setub(var_copy_dict['ub'])
-                        if self.ensys.is_persistent_model_declared:
-                            self.ensys.solver.update_var(var_pyomo)
-                    else:
-                        # variable is indexed --> might take a while, especially
-                        # if a persistent model needs to be updated idx by idx
-                        for idx in var_pyomo:
-                            var_pyomo[idx].setlb(var_copy_dict['lb'])
-                            var_pyomo[idx].setub(var_copy_dict['ub'])
-                            if self.ensys.is_persistent_model_declared:
-                                self.ensys.solver.update_var(var_pyomo[idx])
-
-            # Delete the variable from the DataFrame variables_copy after reset
-            self.variables_copy.drop(var_copy_name, axis=1, inplace=True)
-
-    # ******   E D I T   V A R I A B L E   *************************************
-    def edit_variable(self, variable, store_previous_variables=True, **kwargs):
-        """
-        Public function on component level for manipulating the specifications
-        of already defined component variables.
-
-        :param variable: Name of the variable (str)
+        :param name: Name / identifier of the edited variable.
+        :type name: str
 
         :param store_previous_variables: State whether the representation of the
-            variables before applying the edit function should be stored
+            variables before applying the edit_variable method should be stored
             in DataFrame "variables_copy" of each component. This representation
-            can be used by function "reset_variables" to undo changes.
-        :type store_previous_variables: boolean
-        """
-        # Check the function input (done locally because might be called
-        # directly from component).
-        utils.check_edit_var_input(variable, store_previous_variables, **kwargs)
+            can be used by mehtod "reset_variables" to undo changes.
+            |br| *Default: True*
+        :type store_previous_variables: bool
 
-        # Check if the variable with name "variable" is available for editing:
-        if variable not in self.variables.columns:
-            self.log.warn('No variable "%s" available for editing' % variable)
+        :param kwargs: Additional keyword arguments for editing. Options are:
+            'ub' and 'lb' to add an upper or lower variable bound, 'domain' to
+            set the variable domain, and 'has_time_set' to define if the
+            variable should inherit the global time set of the EnergySystem.
+        """
+        # Check the method input (done locally because might be called
+        # directly from component).
+        utils.check_edit_var_input(name, store_previous_variables, **kwargs)
+
+        # Check if the variable with given 'name' is available for editing:
+        if name not in self.variables.columns:
+            self.log.warn('No variable "%s" available for editing' % name)
         else:
-            self.log.info('Edit variable: "%s"' % variable)
+            self.log.info('Edit variable: "%s"' % name)
             # Store the previous variable setting if requested
             if store_previous_variables:
-                self._store_var_copy(name=variable,
-                                     var=self.variables[variable])
+                self.store_var_copy(name=name, var=self.variables[name])
             # Write keyword arguments in "variables" DataFrame
             for key, val in kwargs.items():
-                self.variables[variable][key] = val
+                self.variables[name][key] = val
 
             # Edit the pyomo variable if it has already been constructed
             if self.ensys.is_model_declared:
-                var_pyomo = self.variables[variable]['pyomo']
+                var_pyomo = self.variables[name]['pyomo']
                 edit_domain, edit_lb, edit_ub = False, False, False  # init
                 if 'domain' in kwargs.keys():
                     domain = getattr(pyomo, kwargs['domain'])
@@ -697,13 +678,63 @@ class Component(metaclass=ABCMeta):
                                 edit_domain or edit_lb or edit_ub):
                             self.ensys.solver.update_var(var_pyomo[idx])
 
+    def reset_variables(self):
+        """
+        Method to reset the variables to the state, that is stored in the
+        DataFrame "variables_copy". This includes the resetting of the DataFrame
+        "variables" and the pyomo variables itself (if already constructed).
+        """
+        # Loop through variables in DataFrame "variables_copy"
+        for var_copy_name in self.variables_copy:
+
+            # The variable should be declared in the DataFrame "variables"
+            if var_copy_name in self.variables:
+
+                # Reset the "variables" DataFrame to values in "variables_copy"
+                for attr in ['domain', 'has_time_set', 'alternative_set',
+                             'init', 'ub', 'lb']:
+                    self.variables[var_copy_name][attr] = \
+                        self.variables_copy[var_copy_name][attr]
+
+                # Reset the pyomo variable if it has already been constructed
+                if self.ensys.is_model_declared:
+                    var_pyomo = self.variables[var_copy_name]['pyomo']
+                    var_copy_dict = self.variables_copy[var_copy_name]
+                    domain = getattr(pyomo, var_copy_dict['domain'])
+
+                    # Reset domain & unfix var (works globally on (non)-indexed)
+                    var_pyomo.domain = domain
+                    var_pyomo.unfix()
+
+                    # Set lower and upper bounds and update persistent solver
+                    if not var_pyomo.is_indexed():
+                        var_pyomo.setlb(var_copy_dict['lb'])
+                        var_pyomo.setub(var_copy_dict['ub'])
+                        if self.ensys.is_persistent_model_declared:
+                            self.ensys.solver.update_var(var_pyomo)
+                    else:
+                        # variable is indexed --> might take a while, especially
+                        # if a persistent model needs to be updated idx by idx
+                        for idx in var_pyomo:
+                            var_pyomo[idx].setlb(var_copy_dict['lb'])
+                            var_pyomo[idx].setub(var_copy_dict['ub'])
+                            if self.ensys.is_persistent_model_declared:
+                                self.ensys.solver.update_var(var_pyomo[idx])
+
+            # Delete the variable from the "variables_copy" after resetting
+            self.variables_copy.drop(var_copy_name, axis=1, inplace=True)
+
+    # ==========================================================================
+    #    E X P O R T   AND   I M P O R T   C O N F I G U R A T I O N
+    # ==========================================================================
     def export_component_configuration(self):
         """
-        This function exports the component configuration data (results of the
+        This method exports the component configuration data (results of the
         optimization) as a pandas Series. The features are (if exist):
-        |br| * the binary existence variable (utils.BI_EX),
-        |br| * the binary existence variables of modules (utils.BI_MODULE_EX)
-        |br| * the component capacity variable (of main commodity, utils.CAP)
+
+        * the binary existence variable (utils.BI_EX),
+        * the binary existence variables of modules (utils.BI_MODULE_EX)
+        * the component capacity variable (of main commodity, utils.CAP)
 
         :return: The configuration of the modelled component instance.
         :rtype: pandas Series
@@ -733,8 +764,7 @@ class Component(metaclass=ABCMeta):
                                        fix_modules=True, fix_capacity=True,
                                        store_previous_variables=True):
         """
-        Function to load a pandas Series (index=[utils.BI_EX,
-        utils.BI_MODULE_EX, utils.CAP]) with configuration specifications
+        Method to load a pandas Series with configuration specifications
         (binary existence variables and capacity variable values). The values
         are used to fix a specific component configuration (for example from
         other model runs).
@@ -744,34 +774,38 @@ class Component(metaclass=ABCMeta):
 
         :param fix_existence: Specify whether the imported (global) binary
             component existence variable should be fixed (if available).
-        :type fix_existence: boolean
+            |br| *Default: True*
+        :type fix_existence: bool
 
         :param fix_modules: Specify whether the imported binary existence
             variable of the component modules should be fixed (if available).
-        :type fix_modules: boolean
+            |br| *Default: True*
+        :type fix_modules: bool
 
         :param fix_capacity: Specify whether the imported component capacity
             variable (of the main commodity) should be fixed or not.
-        :type fix_capacity: boolean
+            |br| *Default: True*
+        :type fix_capacity: bool
 
         :param store_previous_variables: State whether the representation of the
             variables before applying the configuration import should be stored
             in DataFrame "variables_copy" of each component. This representation
-            can be used by function "reset_variables" to undo changes.
-        :type store_previous_variables: boolean
+            can be used by method "reset_variables" to undo changes.
+            |br| *Default: True*
+        :type store_previous_variables: bool
         """
         utils.is_series(data), utils.is_boolean(fix_existence),
         utils.is_boolean(fix_modules), utils.is_boolean(fix_capacity),
         utils.is_boolean(store_previous_variables)
 
-        # So far importing seems to work without rounding -> if not round values
+        # Note: Importing seems to work without rounding => if not: round values
 
         # EXISTENCE VARIABLE: Fix if required and available in model and data
         if fix_existence and self.has_bi_ex and data[utils.BI_EX] is not None:
             # Backup of variables in "variables_copy" if requested for resetting
             if store_previous_variables:
-                self._store_var_copy(name=utils.BI_EX,
-                                     var=self.variables[utils.BI_EX])
+                self.store_var_copy(name=utils.BI_EX,
+                                    var=self.variables[utils.BI_EX])
             # Always possible to set bounds (also if not declared)
             self.variables[utils.BI_EX]['lb'] = data[utils.BI_EX]
             self.variables[utils.BI_EX]['ub'] = data[utils.BI_EX]
@@ -787,8 +821,8 @@ class Component(metaclass=ABCMeta):
                 and data[utils.BI_MODULE_EX] is not None:
             # Backup of variables in "variables_copy" if requested for resetting
             if store_previous_variables:
-                self._store_var_copy(name=utils.BI_MODULE_EX,
-                                     var=self.variables[utils.BI_MODULE_EX])
+                self.store_var_copy(name=utils.BI_MODULE_EX,
+                                    var=self.variables[utils.BI_MODULE_EX])
             # Always possible to set bounds (also if not declared)
             self.variables[utils.BI_MODULE_EX]['lb'] = data[utils.BI_MODULE_EX]
             self.variables[utils.BI_MODULE_EX]['ub'] = data[utils.BI_MODULE_EX]
@@ -806,8 +840,8 @@ class Component(metaclass=ABCMeta):
                 and data[utils.CAP] is not None:
             # Backup of variables in "variables_copy" if requested for resetting
             if store_previous_variables:
-                self._store_var_copy(name=utils.CAP,
-                                     var=self.variables[utils.CAP])
+                self.store_var_copy(name=utils.CAP,
+                                    var=self.variables[utils.CAP])
             # Always possible to set bounds (also if not declared)
             self.variables[utils.CAP]['lb'] = data[utils.CAP]
             self.variables[utils.CAP]['ub'] = data[utils.CAP]
@@ -819,39 +853,41 @@ class Component(metaclass=ABCMeta):
                         self.variables[utils.CAP]['pyomo'])
 
     # ==========================================================================
-    #    A D D   P A R A M E T E R
+    #    P A R A M E T E R S   AND   T I M E   S E R I E S
     # ==========================================================================
-    def _add_param(self, name, tsam_weight=1, init=None):
+    def add_param(self, name, data, tsam_weight=1):
+        """
+        Method for adding a parameter to the pandas DataFrame 'parameters'.
+
+        *Method is not intended for public access!*
+
+        :param name: (str) Name / identifier of the added parameter.
+        :param data: (float, int, list, dict, numpy array, pandas Series) Data.
+        :param tsam_weight: (int or float) Weighting factor to use in case the
+            provided parameter is a series and an aggregation is requested.
+            |br| *Default: 1*
+        """
         # Make sure the parameter name is unique in the Dataframe
         if name in self.parameters:
             raise ValueError('Parameter with name "%s" already found in the '
                              'DataFrame. Please use a different name.' % name)
         # If input is integer or float, flag 'has_time_set' is set to False.
         # Else, (input: numpy array, list, dict or pandas series) flag -> True
-        has_time_set = False if isinstance(init, (int, float)) else True
+        has_time_set = False if isinstance(data, (int, float)) else True
         # Append data to DataFrame
         series = pd.Series({'tsam_weight': tsam_weight,
                             'has_time_set': has_time_set,
-                            'values': init, 'full_resolution': init,
+                            'values': data, 'full_resolution': data,
                             'aggregated': None})
         self.parameters[name] = series
 
-    # ==========================================================================
-    #    A D D   E X P R E S S I O N
-    # ==========================================================================
-    def add_expression(self, expression):
-        # Create a name for the expression by removing all spaces
-        expr_name = expression.replace(' ', '')
-        # Disassemble expr into its parts -> e.g. ['Q', '>=', '100']
-        expr_pieces = utils.disassemble_user_expression(expression)
-        # Append name and list of pieces to the 'user_expressions_dict'
-        self.user_expressions_dict[expr_name] = expr_pieces
-
     def set_time_series_data(self, time_series_aggregation):
         """
-        Method to set the time series data in the 'parameters' DataFrame of a
-        component depending on whether a calculation with aggregated time series
-        data should be performed or with the original data (without clustering).
+        Sets the time series data in the 'parameters' DataFrame of a component
+        depending on whether a calculation with aggregated time series data
+        should be performed or with the original data (without clustering).
+
+        *Method is not intended for public access!*
 
         :param time_series_aggregation: Use aggregated data (True), or original
             data (False).
@@ -869,10 +905,16 @@ class Component(metaclass=ABCMeta):
                     idx = pd.MultiIndex.from_product([[0], data.index])
                     param_dict['values'] = pd.Series(data.values, index=idx)
 
-    def get_data_for_time_series_aggregation(self):
+    def get_time_series_data_for_aggregation(self):
         """
-        Get all time series data and their respective weights of a component for
-        the time series aggregation.
+        Collect all time series data and their respective weights and merge
+        them in two dictionaries. The returned dictionaries are used for the
+        time series aggregation in the "cluster" method of the EnergySystem
+        instance.
+
+        *Method is not intended for public access!*
+
+        :returns: (dict) time series data, (dict) time series weights
         """
         data, weights = {}, {}
         for param in self.parameters:
@@ -884,8 +926,12 @@ class Component(metaclass=ABCMeta):
 
     def set_aggregated_time_series_data(self, data):
         """
-        Set (store) the aggregated time series data in the 'parameters'
-        dictionary of the component after applying the time series aggregation.
+        Store the aggregated time series data in the 'parameters' DataFrame.
+
+        *Method is not intended for public access!*
+
+        :param data: (pandas DataFrame) DataFrame with the aggregated time
+            series data of all components.
         """
         # Find time series data of a comp. (identifier starts with group name
         # and the parameter name is in the parameters DataFrame)
@@ -897,20 +943,31 @@ class Component(metaclass=ABCMeta):
                 # Store aggregated time series data in parameters dict of comp.
                 self.parameters[param_name]['aggregated'] = data[series_name]
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #   Functions for declaring components of the energy system and their
-    #   contributions to the objective function
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ==========================================================================
+    #    M O D E L   B L O C K   D E C L A R A T I O N
+    # ==========================================================================
     def declare_component_model_block(self, model):
         """
         Create a pyomo Block and store it in attribute 'block' of the component.
+        The pyomo Block is the container for all pyomo objects of the component.
+
+        *Method is not intended for public access!*
+
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
         """
         setattr(model, self.name, pyomo.Block())
         self.block = getattr(model, self.name)
 
+    # ==========================================================================
+    #    V A R I A B L E   D E C L A R A T I O N
+    # ==========================================================================
     def declare_component_variables(self, model):
         """
-        Create all variables stored in DataFrame 'variables'.
+        Create all pyomo variables that are stored in DataFrame 'variables'.
+
+        *Method is not intended for public access!*
+
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
         """
         for var_name in self.variables:
             # Get the pandas series from DataFrame and the variable specs
@@ -963,10 +1020,17 @@ class Component(metaclass=ABCMeta):
             pyomo_var = getattr(self.block, var_name)
             self.variables[var_name]['pyomo'] = pyomo_var
 
+    # ==========================================================================
+    #    P O R T   D E C L A R A T I O N
+    # ==========================================================================
     def declare_component_ports(self):
         """
-        Create all ports from dictionaries the 'inlet_commod_and_var_names' and
-        'outlet_commod_and_var_names' and add the variables to the ports.
+        Create all ports from the dictionaries 'inlet_commod_and_var_names' and
+        'outlet_commod_and_var_names', and assign port variables.
+
+        Note: The ports are currently always created with extensive behaviour!
+
+        *Method is not intended for public access!*
         """
         # Create inlet ports
         for commod, var_name in self.inlet_commod_and_var_names.items():
@@ -988,7 +1052,18 @@ class Component(metaclass=ABCMeta):
             port.add(getattr(self.block, var_name), commod,
                      network.Port.Extensive, include_splitfrac=False)
 
+    # ==========================================================================
+    #    U S E R   C O N S T R A I N T   D E C L A R A T I O N
+    # ==========================================================================
     def declare_component_user_constraints(self, model):
+        """
+        Create all constraints, that are introduced by manual scripting in the
+        keyword argument 'user_expressions'.
+
+        *Method is not intended for public access!*
+
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
+        """
         reserved_chars = ['*', '/', '+', '-', '(', ')', '==', '>=', '<=', '**']
         for expr_name, expr in self.user_expressions_dict.items():
             has_time_dependency = False  # init
@@ -1068,21 +1143,201 @@ class Component(metaclass=ABCMeta):
                 model.time_set if has_time_dependency else [None],
                 rule=built_user_constraint_rule))
 
+    # ==========================================================================
+    #    C O N V E N T I O N A L   C O N S T R A I N T   D E C L A R A T I O N
+    # ==========================================================================
     @abstractmethod
     def declare_component_constraints(self, ensys, model):
-        """ Declares constraints of a component. """
+        """ Abstract method to create (conventional) component constraints. """
         raise NotImplementedError
 
+    # **************************************************************************
+    #    Time-independent constraints
+    # **************************************************************************
+    def con_couple_bi_ex_and_cap(self):
+        """
+        Constraint to couple the global existence binary variable with the
+        capacity variable. If the component does not exist, the capacity must
+        take a value of 0. Note: The availability of the required 'capacity_max'
+        parameter is checked during initialization.
+        E.g.: |br| ``CAP <= BI_EX * capacity_max``
+
+        *Method is not intended for public access!*
+        """
+        if self.has_bi_ex:
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
+            cap = self.variables[utils.CAP]['pyomo']
+            cap_max = self.capacity_max
+
+            def con_couple_bi_ex_and_cap(m):
+                return cap <= bi_ex * cap_max
+            setattr(self.block, 'con_couple_bi_ex_and_cap',
+                    pyomo.Constraint(rule=con_couple_bi_ex_and_cap))
+
+    def con_cap_min(self):
+        """
+        Constraint to set the minimum capacity of a component (based on its
+        basic variable). If a binary existence variable is declared, the minimal
+        capacity is only enforced if the component exists. E.g.: |br|
+        ``CAP >= capacity_min * BI_EX``  or |br|
+        ``CAP >= capacity_min`` |br|
+
+        *Method is not intended for public access!*
+        """
+        if self.capacity_min is not None:
+            cap = self.variables[utils.CAP]['pyomo']
+            cap_min = self.capacity_min
+
+            def con_cap_min(m):
+                if self.has_bi_ex:
+                    bi_ex = self.variables[utils.BI_EX]['pyomo']
+                    return cap >= cap_min * bi_ex
+                else:
+                    return cap >= cap_min
+            setattr(self.block, 'con_cap_min',
+                    pyomo.Constraint(rule=con_cap_min))
+
+    def con_cap_modular(self):
+        """
+        Constraint to calculate the nominal capacity of a component from the
+        product of the capacity per module and the number of existing modules.
+        E.g.: |br| ``CAP == capacity_per_module * summation(BI_MODULE_EX)``
+
+        *Method is not intended for public access!*
+        """
+        if self.capacity_per_module is not None:
+            cap = self.variables[utils.CAP]['pyomo']
+            bi_mod = self.variables[utils.BI_MODULE_EX]['pyomo']
+            cap_per_mod = self.capacity_per_module
+
+            def con_cap_modular(m):
+                return cap == cap_per_mod * pyomo.summation(bi_mod)
+            setattr(self.block, 'con_cap_modular', pyomo.Constraint(
+                rule=con_cap_modular))
+
+    def con_modular_sym_break(self):
+        """
+        Constraint to state, that the next module can only be built if the
+        previous one already exists (symmetry break constraint for components
+        consisting of multiple modules).
+        E.g.: |br| ``BI_MODULE_EX[2] <= BI_MODULE_EX[1]``
+
+        *Method is not intended for public access!*
+        """
+        if self.capacity_per_module is not None:
+            bi_mod = self.variables[utils.BI_MODULE_EX]['pyomo']
+
+            def con_modular_sym_break(m, nr):
+                if nr != 1:
+                    return bi_mod[nr] <= bi_mod[nr-1]
+                else:
+                    return pyomo.Constraint.Skip
+            setattr(self.block, 'con_modular_sym_break',
+                    pyomo.Constraint(pyomo.RangeSet(self.maximal_module_number),
+                                     rule=con_modular_sym_break))
+
+    def con_couple_existence_and_modular(self):
+        """
+        Constraint to couple the global existence binary variable with the
+        binary existence status of the first module. All other modules are
+        indirectly coupled via symmetry breaks. E.g.: |br|
+        ``BI_EX >= BI_MODULE_EX[1]``
+
+        *Method is not intended for public access!*
+        """
+        if self.has_bi_ex and self.capacity_per_module is not None:
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
+            bi_mod = self.variables[utils.BI_MODULE_EX]['pyomo']
+
+            def con_couple_existence_and_modular(m):
+                if self.maximal_module_number >= 1:
+                    return bi_ex >= bi_mod[1]
+                else:
+                    return pyomo.Constraint.Skip
+            setattr(self.block, 'con_couple_existence_and_modular',
+                    pyomo.Constraint(rule=con_couple_existence_and_modular))
+
+    # **************************************************************************
+    #    Time-dependent constraints
+    # **************************************************************************
+    def con_bi_var_ex_and_op_relation(self, model):
+        """
+        Constraint to set a relationship between the binary variables for
+        existence and operation. A component can only be operated if it exists.
+        E.g.: |br| ``BI_OP[p, t] <= BI_EX``
+
+        *Method is not intended for public access!*
+        """
+        # Only required if both binary variables are considered
+        if self.has_bi_ex and self.has_bi_op:
+            bi_ex = self.variables[utils.BI_EX]['pyomo']
+            bi_op = self.variables[utils.BI_OP]['pyomo']
+
+            def con_bi_var_ex_and_op_relation(m, p, t):
+                return bi_op[p, t] <= bi_ex
+            setattr(self.block, 'con_bi_var_ex_and_op_relation',
+                    pyomo.Constraint(model.time_set,
+                                     rule=con_bi_var_ex_and_op_relation))
+
+    @abstractmethod
+    def con_operation_limit(self, model):
+        """
+        Constraint to limit the operation (value of the basic variable) of a
+        component (MWh) by its nominal power (MW) multiplied with the number of
+        hours per time step (not for Storage because it is already a capacity!).
+        E.g.: |br|
+        ``Q[p, t] <= CAP * dt``  (Conversion, Sink, Source) |br|
+        ``SOC[p, t] <= CAP`` (Storage) |br|
+        ``Q_IN[p, t] <= CAP * dt`` (Bus)
+
+        *Method is not intended for public access!*
+        """
+        raise NotImplementedError
+
+    def con_couple_op_binary_and_basic_var(self, model):
+        """
+        Constraint to couple the binary operation variable (is available), with
+        the basic variable of the component. Therefore, the "capacity_max"
+        parameter serves for overestimation (BigM). E.g.: |br|
+        ``Q[p, t] <= capacity_max * BI_OP[p, t] * dt``
+
+        *Method is not intended for public access!*
+        """
+        if self.has_bi_op and self.capacity_max is not None:
+            # Get variables:
+            bi_op = self.variables[utils.BI_OP]['pyomo']
+            basic_var = self.variables[self.basic_variable]['pyomo']
+            cap_max = self.capacity_max
+            dt = self.ensys.hours_per_time_step
+
+            def con_couple_op_binary_and_basic_var(m, p, t):
+                return basic_var[p, t] <= cap_max * bi_op[p, t] * dt
+            setattr(self.block, 'con_couple_op_binary_and_basic_var',
+                    pyomo.Constraint(model.time_set,
+                                     rule=con_couple_op_binary_and_basic_var))
+
+    # ==========================================================================
+    #    O B J E C T I V E   F U N C T I O N   C O N T R I B U T I O N
+    # ==========================================================================
     def get_objective_function_contribution(self, ensys, model):
-        """ Get contribution to the objective function. """
+        """
+        Calculate the objective function contributions of the component and add
+        the values to the component dictionary "comp_obj_dict".
+
+        *Method is not intended for public access!*
+
+        :param ensys: Instance of the EnergySystem class
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
+        """
+
         # The following part is the same for all components:
         # Alias of the components' objective function dictionary
         obj = self.comp_obj_dict
         # Get general required variables:
         basic_var = self.variables[self.basic_variable]['pyomo']
-        # ---------------
-        #   C A P E X
-        # ---------------
+
+        # CAPEX :
+        # ~~~~~~~
         # CAPEX depending on capacity of component
         if self.capex_per_capacity > 0:
             cap = self.variables[utils.CAP]['pyomo']
@@ -1092,9 +1347,9 @@ class Component(metaclass=ABCMeta):
         if self.capex_if_exist > 0:
             bi_ex = self.variables[utils.BI_EX]['pyomo']
             obj['capex_exist'] = -1 * self.capex_if_exist * bi_ex
-        # ---------------
-        #   O P E X
-        # ---------------
+
+        # OPEX :
+        # ~~~~~~
         # OPEX depending on capacity of component
         if self.opex_per_capacity > 0:
             cap = self.variables[utils.CAP]['pyomo']
@@ -1112,166 +1367,15 @@ class Component(metaclass=ABCMeta):
                 model.time_set) / ensys.number_of_years
 
     # ==========================================================================
-    # --------------------------------------------------------------------------
-    #    D E C L A R A T I O N   O F   V A L I D   C O N S T R A I N T S
-    # --------------------------------------------------------------------------
-    # ==========================================================================
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #    T I M E   I N D E P E N D E N T   C O N S T R A I N T S
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def con_couple_bi_ex_and_cap(self):
-        """
-        Couples the global existence binary variable with the capacity variable.
-        If component does not exist, capacity must take a value of 0.
-        Availability of required 'capacity_max' is checked in initialization.
-        E.g.: |br| ``CAP <= BI_EX * capacity_max``
-        """
-        if self.has_bi_ex:
-            bi_ex = self.variables[utils.BI_EX]['pyomo']
-            cap = self.variables[utils.CAP]['pyomo']
-            cap_max = self.capacity_max
-
-            def con_couple_bi_ex_and_cap(m):
-                return cap <= bi_ex * cap_max
-            setattr(self.block, 'con_couple_bi_ex_and_cap',
-                    pyomo.Constraint(rule=con_couple_bi_ex_and_cap))
-
-    def con_cap_min(self):
-        """
-        Specify the minimum (nominal) capacity of a component (based on its
-        basic variable). If a binary existence variable is declared, the minimal
-        capacity is only used if the component exists. E.g.: |br|
-        ``CAP >= capacity_min * BI_EX``  or |br|
-        ``CAP >= capacity_min`` |br|
-        (The maximal capacity is initially set by an upper variable bound.)
-        """
-        if self.capacity_min is not None:
-            cap = self.variables[utils.CAP]['pyomo']
-            cap_min = self.capacity_min
-
-            def con_cap_min(m):
-                if self.has_bi_ex:
-                    bi_ex = self.variables[utils.BI_EX]['pyomo']
-                    return cap >= cap_min * bi_ex
-                else:
-                    return cap >= cap_min
-            setattr(self.block, 'con_cap_min',
-                    pyomo.Constraint(rule=con_cap_min))
-
-    def con_cap_modular(self):
-        """
-        The nominal capacity of a component is calculated as a product of the
-        capacity per module and the number of existing modules. E.g.: |br|
-        ``CAP == capacity_per_module * summation(BI_MODULE_EX)``
-        """
-        if self.capacity_per_module is not None:
-            cap = self.variables[utils.CAP]['pyomo']
-            bi_mod = self.variables[utils.BI_MODULE_EX]['pyomo']
-            cap_per_mod = self.capacity_per_module
-
-            def con_cap_modular(m):
-                return cap == cap_per_mod * pyomo.summation(bi_mod)
-            setattr(self.block, 'con_cap_modular', pyomo.Constraint(
-                rule=con_cap_modular))
-
-    def con_modular_sym_break(self):
-        """
-        The next module can only be built if the previous one already exists.
-        E.g.: |br| ``BI_MODULE_EX[2] <= BI_MODULE_EX[1]``
-        """
-        if self.capacity_per_module is not None:
-            bi_mod = self.variables[utils.BI_MODULE_EX]['pyomo']
-
-            def con_modular_sym_break(m, nr):
-                if nr != 1:
-                    return bi_mod[nr] <= bi_mod[nr-1]
-                else:
-                    return pyomo.Constraint.Skip
-            setattr(self.block, 'con_modular_sym_break',
-                    pyomo.Constraint(pyomo.RangeSet(self.maximal_module_number),
-                                     rule=con_modular_sym_break))
-
-    def con_couple_existence_and_modular(self):
-        """
-        Couples the global existence binary variable with the binary existence
-        status of the first module. All other modules are indirectly coupled
-        via symmetry break constraints. E.g.: |br|
-        ``BI_EX >= BI_MODULE_EX[1]``
-        """
-        if self.has_bi_ex and self.capacity_per_module is not None:
-            bi_ex = self.variables[utils.BI_EX]['pyomo']
-            bi_mod = self.variables[utils.BI_MODULE_EX]['pyomo']
-
-            def con_couple_existence_and_modular(m):
-                if self.maximal_module_number >= 1:
-                    return bi_ex >= bi_mod[1]
-                else:
-                    return pyomo.Constraint.Skip
-            setattr(self.block, 'con_couple_existence_and_modular',
-                    pyomo.Constraint(rule=con_couple_existence_and_modular))
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #    T I M E   D E P E N D E N T   C O N S T R A I N T S
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def con_bi_var_ex_and_op_relation(self, model):
-        """
-        Relationship between the binary variables for existence and operation.
-        A component can only be operated if it does exist. E.g.: |br|
-        ``BI_OP[p, t] <= BI_EX``
-        """
-        # Only required if both binary variables are considered
-        if self.has_bi_ex and self.has_bi_op:
-            # Get variables:
-            bi_ex = self.variables[utils.BI_EX]['pyomo']
-            bi_op = self.variables[utils.BI_OP]['pyomo']
-
-            def con_bi_var_ex_and_op_relation(m, p, t):
-                return bi_op[p, t] <= bi_ex
-            setattr(self.block, 'con_bi_var_ex_and_op_relation',
-                    pyomo.Constraint(model.time_set,
-                                     rule=con_bi_var_ex_and_op_relation))
-
-    @abstractmethod
-    def con_operation_limit(self, model):
-        """
-        The operation of a component (MWh) is limit by its nominal power (MW)
-        multiplied with the number of hours per time step (not for storage
-        because it is already a capacity!)
-        (with reference to its basic variable).
-        E.g.: |br|
-        ``Q[p, t] <= CAP * dt``  (conversion, sink, source) or |br|
-        ``SOC[p, t] <= CAP`` (storage) or |br|
-        ``Q_INLET[p, t] <= CAP * dt`` (bus)
-        """
-        raise NotImplementedError
-
-    def con_couple_op_binary_and_basic_var(self, model):
-        """
-        If a binary operation variable is declared, it needs to be coupled with
-        the basic operation variable. Therefore, a value for overestimation is
-        needed. The capacity_max parameter is used for this. Hence, if not
-        specified, an error is raised. E.g.: |br|
-        ``Q[p, t] <= capacity_max * BI_OP[p, t] * dt``
-        """
-        if self.has_bi_op and self.capacity_max is not None:
-            # Get variables:
-            bi_op = self.variables[utils.BI_OP]['pyomo']
-            basic_var = self.variables[self.basic_variable]['pyomo']
-            cap_max = self.capacity_max
-            dt = self.ensys.hours_per_time_step
-
-            def con_couple_op_binary_and_basic_var(m, p, t):
-                return basic_var[p, t] <= cap_max * bi_op[p, t] * dt
-            setattr(self.block, 'con_couple_op_binary_and_basic_var',
-                    pyomo.Constraint(model.time_set,
-                                     rule=con_couple_op_binary_and_basic_var))
-
-    # ==========================================================================
     #    S E R I A L I Z E
     # ==========================================================================
     def serialize(self):
+        """
+        This method collects all relevant input data and optimization results
+        from the Component instance, and returns them in an ordered dictionary.
 
+        :return: OrderedDict
+        """
         return OrderedDict([
             ('model_class', self.__class__.__name__),
             ('group_name', self.group_name),

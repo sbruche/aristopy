@@ -135,12 +135,12 @@ class Conversion(Component):
                 raise ValueError('Start-up cost require the availability '
                                  'of a binary operation variable.')
             # Else: add Start-up binary variable
-            self._add_var(name=utils.BI_SU, domain='Binary', has_time_set=True)
+            self.add_var(name=utils.BI_SU, domain='Binary', has_time_set=True)
             # If inter-period-formulation is requested: add another binary var
             if self.use_inter_period_formulation:
-                self._add_var(name=utils.BI_SU_INTER, domain='Binary',
-                              has_time_set=False, init=0,
-                              alternative_set='inter_period_time_set')
+                self.add_var(name=utils.BI_SU_INTER, domain='Binary',
+                             has_time_set=False, init=0,
+                             alternative_set='inter_period_time_set')
 
         # Last step: Add the component to the EnergySystem instance
         self.add_to_energy_system(ensys, name, instances_in_group)

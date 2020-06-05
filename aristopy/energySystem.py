@@ -335,7 +335,7 @@ class EnergySystem:
         time_series_data, time_series_weights = {}, {}
         for comp in self.components.values():
             if comp.number_in_group == 1:  # Add only once per group
-                data, weights = comp.get_data_for_time_series_aggregation()
+                data, weights = comp.get_time_series_data_for_aggregation()
                 time_series_data.update(data)
                 time_series_weights.update(weights)
 
@@ -727,7 +727,12 @@ class EnergySystem:
         # (old data / variables are overwritten in 'comp.user_expressions_dict')
         for comp in self.components.values():
             for expr in comp.user_expressions:
-                comp.add_expression(expr)
+                # Create a name for the expression by removing all spaces
+                expr_name = expr.replace(' ', '')
+                # Disassemble expr into its parts -> e.g. ['Q', '>=', '100']
+                expr_pieces = utils.disassemble_user_expression(expr)
+                # Append name and list of pieces to the 'user_expressions_dict'
+                comp.user_expressions_dict[expr_name] = expr_pieces
 
         # ######################################################################
         #   P Y O M O   M O D E L
@@ -1251,14 +1256,14 @@ class EnergySystem:
                                        include_time_dependent,
                                        store_previous_variables)
 
-    def edit_component_variables(self, variable, which_instances='all',
+    def edit_component_variables(self, name, which_instances='all',
                                  store_previous_variables=True, **kwargs):
         """
         Method for manipulating the specifications of already defined component
         variables (e.g., change variable domain, add variable bounds, etc.).
 
-        :param variable: Name (identifier) of the edited variable
-        :type variable: str
+        :param name: Name / identifier of the edited variable.
+        :type name: str
 
         :param which_instances: State for which components the relaxation of the
             binary variables should be done. The keyword argument can either
@@ -1281,10 +1286,10 @@ class EnergySystem:
         self.log.info('Call of function "edit_component_variables"')
 
         # Run the function in the desired components
-        for name, comp in self.components.items():
-            if which_instances == 'all' or name in which_instances \
+        for comp in self.components.values():
+            if which_instances == 'all' or comp.name in which_instances \
                     or comp.group_name in which_instances:
-                comp.edit_variable(variable, store_previous_variables, **kwargs)
+                comp.edit_variable(name, store_previous_variables, **kwargs)
 
     def reset_component_variables(self, which_instances='all'):
         """

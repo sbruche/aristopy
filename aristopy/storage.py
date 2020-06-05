@@ -110,21 +110,21 @@ class Storage(Component):
         # Create a state of charge (SOC) variable and if the inter-period
         # formulation is selected create an additional inter-period SOC variable
         if not self.use_inter_period_formulation:
-            self._add_var(utils.SOC, has_time_set=False,
-                          alternative_set='intra_period_time_set')  # NonNegReal
+            self.add_var(utils.SOC, has_time_set=False,
+                         alternative_set='intra_period_time_set')  # NonNegReal
         # use inter-period formulation:
         else:
-            self._add_var(utils.SOC, domain='Reals', has_time_set=False,
-                          alternative_set='intra_period_time_set')  # Real
-            self._add_var(utils.SOC_INTER, has_time_set=False,
-                          alternative_set='inter_period_time_set')
+            self.add_var(utils.SOC, domain='Reals', has_time_set=False,
+                         alternative_set='intra_period_time_set')  # Real
+            self.add_var(utils.SOC_INTER, has_time_set=False,
+                         alternative_set='inter_period_time_set')
             if not self.precise_inter_period_modeling:
-                self._add_var(utils.SOC_MAX, has_time_set=False,
-                              alternative_set='typical_periods_set',
-                              domain='Reals')
-                self._add_var(utils.SOC_MIN, has_time_set=False,
-                              alternative_set='typical_periods_set',
-                              domain='Reals')
+                self.add_var(utils.SOC_MAX, has_time_set=False,
+                             alternative_set='typical_periods_set',
+                             domain='Reals')
+                self.add_var(utils.SOC_MIN, has_time_set=False,
+                             alternative_set='typical_periods_set',
+                             domain='Reals')
 
         # Last step: Add the component to the EnergySystem instance
         self.add_to_energy_system(ensys, name)
