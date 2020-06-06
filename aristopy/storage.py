@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-** The Storage class **
+**The Storage class**
 
-* Last edited: 2020-01-01
+* Last edited: 2020-06-06
 * Created by: Stefan Bruche (TU Berlin)
 """
 import pyomo.environ as pyomo
-
 from aristopy import utils
 from aristopy.component import Component
 
@@ -30,7 +29,7 @@ class Storage(Component):
                  precise_inter_period_modeling=False
                  ):
         """
-        Initialize a storage component.
+        Initialize an instance of the Storage class.
 
         :param ensys:
         :param name:

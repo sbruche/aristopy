@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-** The Conversion class **
+**The Conversion class**
 
-* Last edited: 2020-01-01
+* Last edited: 2020-06-06
 * Created by: Stefan Bruche (TU Berlin)
 """
 import pyomo.environ as pyomo
@@ -28,7 +28,7 @@ class Conversion(Component):
                  use_inter_period_formulation=True
                  ):
         """
-        Initialize a conversion component.
+        Initialize an instance of the Conversion class.
 
         :param ensys:
         :param name:

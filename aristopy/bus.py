@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-** The Bus class **
+**The Bus class**
 
-* Last edited: 2020-01-01
+* Last edited: 2020-06-06
 * Created by: Stefan Bruche (TU Berlin)
 """
 import pyomo.environ as pyomo
-
 from aristopy import utils
 from aristopy.component import Component
 
@@ -26,7 +25,7 @@ class Bus(Component):
                  losses=0
                  ):
         """
-        Initialize a bus component.
+        Initialize an instance of the Bus class.
 
         :param ensys:
         :param name:

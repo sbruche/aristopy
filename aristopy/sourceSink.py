@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-** The Source and Sink classes **
+**The Source and Sink classes**
 
-* Last edited: 2020-01-01
+* Last edited: 2020-06-06
 * Created by: Stefan Bruche (TU Berlin)
 """
 import pyomo.environ as pyomo
@@ -12,7 +12,10 @@ from aristopy import utils
 
 
 class Source(Component):
-    # Source components transfer commodities over the boundary into the system.
+    """
+    Sources are responsible for the transportation of commodities across the
+    system boundary into the EnergySystem instance.
+    """
     def __init__(self, ensys, name, basic_variable='outlet_variable',
                  inlet=None, outlet=None,
                  has_existence_binary_var=False, has_operation_binary_var=False,
@@ -27,30 +30,17 @@ class Source(Component):
                  ):
 
         """
-        Initialize a source component.
+        Initialize an instance of the Source class.
 
-        :param ensys:
-        :param name:
-        :param basic_variable:
-        :param inlet: ** Only accepts None for instances of Source **
-        :param outlet:
-        :param has_existence_binary_var:
-        :param has_operation_binary_var: Should not be used in this Component!
+        *See the documentation of the Component class for a description of all
+        keyword arguments and inherited methods.*
+
+        :param inlet: **Only accepts None for instances of Source**
+
         :param commodity_rate_min:
         :param commodity_rate_max:
         :param commodity_rate_fix:
-        :param time_series_data:
-        :param scalar_params:
-        :param additional_vars:
-        :param user_expressions:
-        :param capacity:
-        :param capacity_min:
-        :param capacity_max:
-        :param capex_per_capacity:
-        :param capex_if_exist:
-        :param opex_per_capacity:
-        :param opex_if_exist:
-        :param opex_operation:
+
         :param commodity_cost:
         :param commodity_revenues:
         """
@@ -287,7 +277,10 @@ class Source(Component):
 
 
 class Sink(Source):
-    # Sink components transfer commodities over the boundary out of the system.
+    """
+    Sinks are responsible for the transportation of commodities across the
+    system boundary out of the EnergySystem instance.
+    """
     def __init__(self, ensys, name, basic_variable='inlet_variable',
                  inlet=None,
                  has_existence_binary_var=None, has_operation_binary_var=None,
@@ -301,11 +294,14 @@ class Sink(Source):
                  commodity_cost=0, commodity_revenues=0
                  ):
         """
-        Initialize a sink component. The Sink class inherits from the Source
-        class. Both have the same input parameters with only one exception.
-        The Sink has an "inlet" attribute instead of "outlet".
+        Initialize an instance of the Sink class.
 
-        :param inlet: TODO: Add description!
+        The Sink class inherits from the Source class. Both have the same input
+        parameters with only one exception: The Sink has an "inlet" instead of
+        an "outlet" attribute.
+
+        *See the documentation of the Component class and the Source class for
+        a description of all keyword arguments and inherited methods.*
         """
 
         Source.__init__(self, ensys, name, basic_variable=basic_variable,
