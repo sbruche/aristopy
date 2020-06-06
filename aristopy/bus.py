@@ -132,24 +132,6 @@ class Bus(Component):
                 model.time_set, rule=con_bus_balance))
 
     # ==========================================================================
-    #    O B J E C T I V E   F U N C T I O N   C O N T R I B U T I O N
-    # ==========================================================================
-    def get_objective_function_contribution(self, ensys, model):
-        """
-        Calculate the objective function contributions of the component and add
-        the values to the component dictionary "comp_obj_dict".
-
-        *Method is not intended for public access!*
-
-        :param ensys: Instance of the EnergySystem class
-        :param model: Pyomo ConcreteModel of the EnergySystem instance
-        """
-        # Call method in "Component" class and calculate CAPEX and OPEX
-        super().get_objective_function_contribution(ensys, model)
-
-        return sum(self.comp_obj_dict.values())
-
-    # ==========================================================================
     #    S E R I A L I Z E
     # ==========================================================================
     def serialize(self):

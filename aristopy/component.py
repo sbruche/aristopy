@@ -1363,6 +1363,8 @@ class Component(metaclass=ABCMeta):
                 basic_var[p, t] * ensys.period_occurrences[p] for p, t in
                 model.time_set) / ensys.number_of_years
 
+        return sum(self.comp_obj_dict.values())
+
     # ==========================================================================
     #    S E R I A L I Z E
     # ==========================================================================
