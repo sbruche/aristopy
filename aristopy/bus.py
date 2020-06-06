@@ -14,8 +14,8 @@ from aristopy.component import Component
 class Bus(Component):
     # A Bus component collects and transfers a commodity.
     # They can also be used to model transmission lines between different sites.
-    def __init__(self, ensys, name, basic_variable='inlet_variable',
-                 inlet=None, outlet=None,
+    def __init__(self, ensys, name, inlet, outlet,
+                 basic_variable='inlet_variable',
                  has_existence_binary_var=None,
                  time_series_data=None, scalar_params=None,
                  additional_vars=None, user_expressions=None,
@@ -27,29 +27,18 @@ class Bus(Component):
         """
         Initialize an instance of the Bus class.
 
-        :param ensys:
-        :param name:
-        :param basic_variable:
-        :param inlet:
-        :param outlet:
-        :param has_existence_binary_var:
-        :param time_series_data:
-        :param scalar_params:
-        :param additional_vars:
-        :param user_expressions:
-        :param capacity:
-        :param capacity_min:
-        :param capacity_max:
-        :param capex_per_capacity:
-        :param capex_if_exist:
-        :param opex_per_capacity:
-        :param opex_if_exist:
-        :param opex_operation:
         :param losses:
         """
 
-        Component.__init__(self, ensys, name, basic_variable=basic_variable,
+        # "not-None-specs" at inlet & outlet! (Flows checked in Component init)
+        if inlet is None:
+            raise utils.io_error_message('Bus', name, 'inlet')
+        if outlet is None:
+            raise utils.io_error_message('Bus', name, 'outlet')
+
+        Component.__init__(self, ensys=ensys, name=name,
                            inlet=inlet, outlet=outlet,
+                           basic_variable=basic_variable,
                            has_existence_binary_var=has_existence_binary_var,
                            time_series_data=time_series_data,
                            scalar_params=scalar_params,
@@ -68,8 +57,6 @@ class Bus(Component):
         self.losses = utils.set_if_between_zero_and_one(losses)  # relative loss
 
         # Store the names for the loading and unloading variables
-        if len(self.inlet) == 0 or len(self.outlet) == 0:
-            raise Exception('Bus needs at least one inlet and outlet Flow!')
         self.inlet_variable = self.inlet[0].var_name
         self.outlet_variable = self.outlet[0].var_name
 

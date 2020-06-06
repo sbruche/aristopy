@@ -13,8 +13,7 @@ from aristopy import utils
 
 class Conversion(Component):
     # A Conversion component converts commodities into each other.
-    def __init__(self, ensys, name, basic_variable,
-                 inlet=None, outlet=None,
+    def __init__(self, ensys, name, inlet, outlet, basic_variable,
                  has_existence_binary_var=None, has_operation_binary_var=None,
                  time_series_data=None, scalar_params=None,
                  additional_vars=None, user_expressions=None,
@@ -30,27 +29,6 @@ class Conversion(Component):
         """
         Initialize an instance of the Conversion class.
 
-        :param ensys:
-        :param name:
-        :param basic_variable:
-        :param inlet:
-        :param outlet:
-        :param has_existence_binary_var:
-        :param has_operation_binary_var:
-        :param time_series_data:
-        :param scalar_params:
-        :param additional_vars:
-        :param user_expressions:
-        :param capacity:
-        :param capacity_min:
-        :param capacity_max:
-        :param capacity_per_module:
-        :param maximal_module_number:
-        :param capex_per_capacity:
-        :param capex_if_exist:
-        :param opex_per_capacity:
-        :param opex_if_exist:
-        :param opex_operation:
         :param start_up_cost:
         :param min_load_rel:
 
@@ -78,8 +56,15 @@ class Conversion(Component):
         :type use_inter_period_formulation: bool
         """
 
-        Component.__init__(self, ensys, name, basic_variable=basic_variable,
+        # "not-None-specs" at inlet & outlet! (Flows checked in Component init)
+        if inlet is None:
+            raise utils.io_error_message('Conversion', name, 'inlet')
+        if outlet is None:
+            raise utils.io_error_message('Conversion', name, 'outlet')
+
+        Component.__init__(self, ensys=ensys, name=name,
                            inlet=inlet, outlet=outlet,
+                           basic_variable=basic_variable,
                            has_existence_binary_var=has_existence_binary_var,
                            has_operation_binary_var=has_operation_binary_var,
                            time_series_data=time_series_data,

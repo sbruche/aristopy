@@ -35,8 +35,7 @@ class Component(metaclass=ABCMeta):
     instantiated itself. The abstract methods are later overwritten by the child
     classes to enable instantiation.
     """
-    def __init__(self, ensys, name, basic_variable,
-                 inlet=None, outlet=None,
+    def __init__(self, ensys, name, inlet, outlet, basic_variable,
                  has_existence_binary_var=False, has_operation_binary_var=False,
                  time_series_data=None, scalar_params=None,
                  additional_vars=None, user_expressions=None,
@@ -56,6 +55,19 @@ class Component(metaclass=ABCMeta):
         :param name: Unique name of the component or the component group.
         :type name: str
 
+        :param inlet: The inlet holds a set of aristopy's Flow instances,
+            transporting commodities, entering the component.
+            The commodities are creating variables inside of the component.
+            The variable name is consistent with the name of the commodity,
+            if not specified differently in the Flow instance. |br|
+            Example: inlet=aristopy.Flow('ABC', var_name='XYZ') => commodity
+            'ABC' is entering the component, and is represented by a newly an
+            internally added variable with the name 'XYZ'.
+        :type inlet: (list of) instance(s) of aristopy's Flow class, or None
+
+        :param outlet: See description of keyword argument 'inlet'.
+        :type outlet: (list of) instance(s) of aristopy's Flow class, or None
+
         :param basic_variable: Components may have multiple variables, but every
             component has only one basic variable. It is used to restrict
             capacities, set operation rates, and calculate CAPEX and OPEX
@@ -67,21 +79,6 @@ class Component(metaclass=ABCMeta):
             'additional_vars'), users need to set the variable name directly,
             as specified during declaration.
         :type basic_variable: str
-
-        :param inlet: The inlet holds a set of aristopy's Flow instances,
-            transporting commodities, entering the component.
-            The commodities are creating variables inside of the component.
-            The variable name is consistent with the name of the commodity,
-            if not specified differently in the Flow instance. |br|
-            Example: inlet=aristopy.Flow('ABC', var_name='XYZ') => commodity
-            'ABC' is entering the component, and is represented by a newly an
-            internally added variable with the name 'XYZ'.
-            |br| *Default: None*
-        :type inlet: (list of) instance(s) of aristopy's Flow class, or None
-
-        :param outlet: See description of keyword argument 'inlet'.
-            |br| *Default: None*
-        :type outlet: (list of) instance(s) of aristopy's Flow class, or None
 
         :param has_existence_binary_var: States if the component has a binary
             variable that indicates its existence status. If the parameter is

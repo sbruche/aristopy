@@ -32,7 +32,7 @@ def test_relax_integrality():
                             outlet=ar.Flow('ELEC', 'elec_sink'))
 
     power_plant = ar.Conversion(
-        es, 'power_plant', 'ELEC',
+        es, 'power_plant', basic_variable='ELEC',
         inlet=ar.Flow('FUEL', 'gas_source'),
         outlet=ar.Flow('ELEC', 'elec_sink'),
         has_existence_binary_var=True, has_operation_binary_var=True,

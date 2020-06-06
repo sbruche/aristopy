@@ -13,8 +13,8 @@ from aristopy.component import Component
 
 class Storage(Component):
     # Storage components store commodities and transfer them between time steps.
-    def __init__(self, ensys, name, basic_variable='inlet_variable',
-                 inlet=None, outlet=None,
+    def __init__(self, ensys, name, inlet, outlet,
+                 basic_variable='inlet_variable',
                  has_existence_binary_var=False,
                  time_series_data=None, scalar_params=None,
                  additional_vars=None, user_expressions=None,
@@ -31,26 +31,6 @@ class Storage(Component):
         """
         Initialize an instance of the Storage class.
 
-        :param ensys:
-        :param name:
-        :param basic_variable:
-        :param inlet:
-        :param outlet:
-        :param has_existence_binary_var:
-        :param time_series_data:
-        :param scalar_params:
-        :param additional_vars:
-        :param user_expressions:
-        :param capacity:
-        :param capacity_min:
-        :param capacity_max:
-        :param capacity_per_module:
-        :param maximal_module_number:
-        :param capex_per_capacity:
-        :param capex_if_exist:
-        :param opex_per_capacity:
-        :param opex_if_exist:
-        :param opex_operation:
         :param charge_rate:
         :param discharge_rate:
         :param self_discharge:
@@ -58,13 +38,20 @@ class Storage(Component):
         :param soc_max:
         """
 
+        # "not-None-specs" at inlet & outlet! (Flows checked in Component init)
+        if inlet is None:
+            raise utils.io_error_message('Storage', name, 'inlet')
+        if outlet is None:
+            raise utils.io_error_message('Storage', name, 'outlet')
+
         # Set an upper bound for the storage capacity if nothing is specified to
         # make sure that storage components always have a capacity variable!
         if not capacity and not capacity_min and not capacity_max:
             capacity_max = 1e6
 
-        Component.__init__(self, ensys, name, basic_variable=basic_variable,
+        Component.__init__(self, ensys=ensys, name=name,
                            inlet=inlet, outlet=outlet,
+                           basic_variable=basic_variable,
                            has_existence_binary_var=has_existence_binary_var,
                            time_series_data=time_series_data,
                            scalar_params=scalar_params,
@@ -101,8 +88,6 @@ class Storage(Component):
         self.precise_inter_period_modeling = precise_inter_period_modeling
 
         # Store the names of the charging and discharging variables
-        if len(self.inlet) == 0 or len(self.outlet) == 0:
-            raise Exception('Storage needs at least one inlet and outlet Flow!')
         self.charge_variable = self.inlet[0].var_name
         self.discharge_variable = self.outlet[0].var_name
 

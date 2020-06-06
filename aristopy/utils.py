@@ -475,6 +475,13 @@ def check_scalar_params_dict(data):
         is_number(val)  # value type: integer or float
 
 
+def io_error_message(class_name, comp_name, io_name):
+    """ Error message to return for missing inlet / outlet specifications """
+    return ValueError('%s "%s" requires at least on %s Flow (not None!). Please'
+                      ' check your specifications for keyword argument %s.'
+                      % (class_name, comp_name, io_name, io_name))
+
+
 def is_boolean(value):
     if not isinstance(value, bool):
         raise TypeError('The input argument has to be boolean (True or False).')

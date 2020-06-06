@@ -16,8 +16,7 @@ class Source(Component):
     Sources are responsible for the transportation of commodities across the
     system boundary into the EnergySystem instance.
     """
-    def __init__(self, ensys, name, basic_variable='outlet_variable',
-                 inlet=None, outlet=None,
+    def __init__(self, ensys, name, outlet, basic_variable='outlet_variable',
                  has_existence_binary_var=False, has_operation_binary_var=False,
                  commodity_rate_min=None, commodity_rate_max=None,
                  commodity_rate_fix=None,
@@ -26,7 +25,8 @@ class Source(Component):
                  capacity=None, capacity_min=None, capacity_max=None,
                  capex_per_capacity=0, capex_if_exist=0,
                  opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
-                 commodity_cost=0, commodity_revenues=0
+                 commodity_cost=0, commodity_revenues=0,
+                 **kwargs
                  ):
 
         """
@@ -35,8 +35,6 @@ class Source(Component):
         *See the documentation of the Component class for a description of all
         keyword arguments and inherited methods.*
 
-        :param inlet: **Only accepts None for instances of Source**
-
         :param commodity_rate_min:
         :param commodity_rate_max:
         :param commodity_rate_fix:
@@ -44,11 +42,23 @@ class Source(Component):
         :param commodity_cost:
         :param commodity_revenues:
         """
-        # The 'inlet' keyword should not be changed from default value 'None'
-        if self.__class__ == Source and inlet is not None:
-            raise ValueError('Source "%s" cannot have inlet Flows!' % name)
 
-        Component.__init__(self, ensys, name,
+        inlet = None  # init (used for Source) => is overwritten for Sink class
+
+        # Source: needs outlet Flow (not None!) and kwargs should not be used
+        if self.__class__ == Source:
+            if outlet is None:
+                raise utils.io_error_message('Source', name, 'outlet')
+            if len(kwargs.keys()) != 0:
+                raise ValueError('Found unexpected keyword arguments for Source'
+                                 ' component: %s' % list(kwargs.keys()))
+        # Sinks: needs inlet Flow (not None!). __init__ doesn't allow kwargs
+        if self.__class__ == Sink:
+            inlet = kwargs['inlet']
+            if inlet is None:
+                raise utils.io_error_message('Sink', name, 'inlet')
+
+        Component.__init__(self, ensys=ensys, name=name,
                            inlet=inlet, outlet=outlet,
                            basic_variable=basic_variable,
                            has_existence_binary_var=has_existence_binary_var,
@@ -281,8 +291,7 @@ class Sink(Source):
     Sinks are responsible for the transportation of commodities across the
     system boundary out of the EnergySystem instance.
     """
-    def __init__(self, ensys, name, basic_variable='inlet_variable',
-                 inlet=None,
+    def __init__(self, ensys, name, inlet, basic_variable='inlet_variable',
                  has_existence_binary_var=None, has_operation_binary_var=None,
                  commodity_rate_min=None, commodity_rate_max=None,
                  commodity_rate_fix=None,
@@ -304,8 +313,9 @@ class Sink(Source):
         a description of all keyword arguments and inherited methods.*
         """
 
-        Source.__init__(self, ensys, name, basic_variable=basic_variable,
-                        inlet=inlet,
+        Source.__init__(self, ensys=ensys, name=name,
+                        outlet=None, inlet=inlet,  # introduced by **kwargs!
+                        basic_variable=basic_variable,
                         has_existence_binary_var=has_existence_binary_var,
                         has_operation_binary_var=has_operation_binary_var,
                         commodity_rate_min=commodity_rate_min,
