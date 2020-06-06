@@ -30,7 +30,12 @@ class Conversion(Component):
         Initialize an instance of the Conversion class.
 
         :param start_up_cost:
+            |br| *Default: 0*
+        :type start_up_cost:
+
         :param min_load_rel:
+            |br| *Default: None*
+        :type min_load_rel:
 
         :param instances_in_group: States the number of similar component
             instances that are simultaneously created and arranged in a group.
@@ -53,10 +58,11 @@ class Conversion(Component):
         :type group_has_operation_order: bool
 
         :param use_inter_period_formulation:
+            |br| *Default: True*
         :type use_inter_period_formulation: bool
         """
 
-        # "not-None-specs" at inlet & outlet! (Flows checked in Component init)
+        # Prevent None at inlet & outlet! (Flows are checked in Component init)
         if inlet is None:
             raise utils.io_error_message('Conversion', name, 'inlet')
         if outlet is None:
@@ -164,37 +170,6 @@ class Conversion(Component):
         self.con_start_up_cost(ensys, model)
         self.con_start_up_cost_inter(ensys, model)
         self.con_operation_sym_break(ensys, model)
-
-    def get_objective_function_contribution(self, ensys, model):
-        """ Get contribution to the objective function. """
-        # Check if the component is completely unconnected. If this is True,
-        # don't use the objective function contributions of this component
-        # (could create infeasibilities!)
-        if len(self.var_connections.keys()) == 0:
-            self.log.warn('Found an unconnected component! Skipped possible '
-                          'objective function contributions.')
-            return 0
-
-        # Call function in "Component" class and calculate CAPEX and OPEX
-        super().get_objective_function_contribution(ensys, model)
-
-        # ------------------
-        #   START-UP_COST
-        # ------------------
-        if self.start_up_cost > 0:
-            bi_su = self.variables[utils.BI_SU]['pyomo']  # only avail. if '>0'
-            start_cost_intra = -1 * ensys.pvf * self.start_up_cost * sum(
-                bi_su[p, t] * ensys.period_occurrences[p] for p, t in
-                model.time_set) / ensys.number_of_years
-            if self.use_inter_period_formulation and ensys.is_data_clustered:
-                bi_su_inter = self.variables[utils.BI_SU_INTER]['pyomo']
-                start_cost_inter = -1 * ensys.pvf * self.start_up_cost * pyomo.\
-                    summation(bi_su_inter) / ensys.number_of_years
-            else:
-                start_cost_inter = 0
-            self.comp_obj_dict['start_up_cost'] = \
-                start_cost_intra + start_cost_inter
-        return sum(self.comp_obj_dict.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   I N D E P E N D E N T   C O N S .
@@ -341,6 +316,40 @@ class Conversion(Component):
                     return pyomo.Constraint.Skip
             setattr(self.block, 'con_start_up_cost_inter', pyomo.Constraint(
                 ensys.periods, rule=con_start_up_cost_inter))
+
+    # ==========================================================================
+    #    O B J E C T I V E   F U N C T I O N   C O N T R I B U T I O N
+    # ==========================================================================
+    def get_objective_function_contribution(self, ensys, model):
+        """
+        Calculate the objective function contributions of the component and add
+        the values to the component dictionary "comp_obj_dict".
+
+        *Method is not intended for public access!*
+
+        :param ensys: Instance of the EnergySystem class
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
+        """
+        # Call method in "Component" class and calculate CAPEX and OPEX
+        super().get_objective_function_contribution(ensys, model)
+
+        # START-UP COST :
+        # ~~~~~~~~~~~~~~~
+        if self.start_up_cost > 0:
+            bi_su = self.variables[utils.BI_SU]['pyomo']  # only avail. if '>0'
+            start_cost_intra = -1 * ensys.pvf * self.start_up_cost * sum(
+                bi_su[p, t] * ensys.period_occurrences[p] for p, t in
+                model.time_set) / ensys.number_of_years
+            if self.use_inter_period_formulation and ensys.is_data_clustered:
+                bi_su_inter = self.variables[utils.BI_SU_INTER]['pyomo']
+                start_cost_inter = -1 * ensys.pvf * self.start_up_cost * pyomo.\
+                    summation(bi_su_inter) / ensys.number_of_years
+            else:
+                start_cost_inter = 0
+            self.comp_obj_dict['start_up_cost'] = \
+                start_cost_intra + start_cost_inter
+
+        return sum(self.comp_obj_dict.values())
 
     # ==========================================================================
     #    S E R I A L I Z E

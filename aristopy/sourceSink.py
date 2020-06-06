@@ -18,13 +18,13 @@ class Source(Component):
     """
     def __init__(self, ensys, name, outlet, basic_variable='outlet_variable',
                  has_existence_binary_var=False, has_operation_binary_var=False,
-                 commodity_rate_min=None, commodity_rate_max=None,
-                 commodity_rate_fix=None,
                  time_series_data=None, scalar_params=None,
                  additional_vars=None, user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capex_per_capacity=0, capex_if_exist=0,
                  opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
+                 commodity_rate_min=None, commodity_rate_max=None,
+                 commodity_rate_fix=None,
                  commodity_cost=0, commodity_revenues=0,
                  **kwargs
                  ):
@@ -36,11 +36,24 @@ class Source(Component):
         keyword arguments and inherited methods.*
 
         :param commodity_rate_min:
+            |br| *Default: None*
+        :type commodity_rate_min:
+
         :param commodity_rate_max:
+            |br| *Default: None*
+        :type commodity_rate_max:
+
         :param commodity_rate_fix:
+            |br| *Default: None*
+        :type commodity_rate_fix:
 
         :param commodity_cost:
+            |br| *Default: 0*
+        :type commodity_cost:
+
         :param commodity_revenues:
+            |br| *Default: 0*
+        :type commodity_revenues:
         """
 
         inlet = None  # init (used for Source) => is overwritten for Sink class
@@ -124,56 +137,6 @@ class Source(Component):
         self.con_commodity_rate_min(model)
         self.con_commodity_rate_max(model)
         self.con_commodity_rate_fix(model)
-
-    def get_objective_function_contribution(self, ensys, model):
-        """ Get contribution to the objective function. """
-        # Check if the component is completely unconnected. If this is True,
-        # don't use the objective function contributions of this component
-        # (could create infeasibilities!)
-        if len(self.var_connections.keys()) == 0:
-            self.log.warn('Found an unconnected component! Skipped possible '
-                          'objective function contributions.')
-            return 0
-
-        # Call function in "Component" class and calculate CAPEX and OPEX
-        super().get_objective_function_contribution(ensys, model)
-
-        # --------------------------------
-        #   COMMODITY COST AND REVENUES
-        # --------------------------------
-        # Get the basic variable:
-        basic_var = self.variables[self.basic_variable]['pyomo']
-
-        # Time-independent cost of a commodity (scalar cost value)
-        if self.commodity_cost > 0:
-            self.comp_obj_dict['commodity_cost'] = \
-                -1 * ensys.pvf * self.commodity_cost * sum(
-                    basic_var[p, t] * ensys.period_occurrences[p]
-                    for p, t in model.time_set) / ensys.number_of_years
-
-        # Time-dependent cost of a commodity (time series cost values)
-        if self.commodity_cost_time_series is not None:
-            cost_ts = self.parameters[self.commodity_cost_time_series]['values']
-            self.comp_obj_dict['commodity_cost'] = -1 * ensys.pvf * sum(
-                cost_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
-                for p, t in model.time_set) / ensys.number_of_years
-
-        # Time-independent revenues for of a commodity (scalar revenue value)
-        if self.commodity_revenues > 0:
-            self.comp_obj_dict['commodity_revenues'] = \
-                ensys.pvf * self.commodity_revenues * sum(
-                    basic_var[p, t] * ensys.period_occurrences[p]
-                    for p, t in model.time_set) / ensys.number_of_years
-
-        # Time-dependent revenues for a commodity (time series revenue values)
-        if self.commodity_revenues_time_series is not None:
-            rev_ts = self.parameters[
-                self.commodity_revenues_time_series]['values']
-            self.comp_obj_dict['commodity_revenues'] = ensys.pvf * sum(
-                rev_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
-                for p, t in model.time_set) / ensys.number_of_years
-
-        return sum(self.comp_obj_dict.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
@@ -272,6 +235,58 @@ class Source(Component):
                 model.time_set, rule=con_commodity_rate_fix))
 
     # ==========================================================================
+    #    O B J E C T I V E   F U N C T I O N   C O N T R I B U T I O N
+    # ==========================================================================
+    def get_objective_function_contribution(self, ensys, model):
+        """
+        Calculate the objective function contributions of the component and add
+        the values to the component dictionary "comp_obj_dict".
+
+        *Method is not intended for public access!*
+
+        :param ensys: Instance of the EnergySystem class
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
+        """
+        # Call method in "Component" class and calculate CAPEX and OPEX
+        super().get_objective_function_contribution(ensys, model)
+
+        # Get the basic variable:
+        basic_var = self.variables[self.basic_variable]['pyomo']
+
+        # COMMODITY COST AND REVENUES :
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Time-independent cost of a commodity (scalar cost value)
+        if self.commodity_cost > 0:
+            self.comp_obj_dict['commodity_cost'] = \
+                -1 * ensys.pvf * self.commodity_cost * sum(
+                    basic_var[p, t] * ensys.period_occurrences[p]
+                    for p, t in model.time_set) / ensys.number_of_years
+
+        # Time-dependent cost of a commodity (time series cost values)
+        if self.commodity_cost_time_series is not None:
+            cost_ts = self.parameters[self.commodity_cost_time_series]['values']
+            self.comp_obj_dict['commodity_cost'] = -1 * ensys.pvf * sum(
+                cost_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
+                for p, t in model.time_set) / ensys.number_of_years
+
+        # Time-independent revenues of a commodity (scalar revenue value)
+        if self.commodity_revenues > 0:
+            self.comp_obj_dict['commodity_revenues'] = \
+                ensys.pvf * self.commodity_revenues * sum(
+                    basic_var[p, t] * ensys.period_occurrences[p]
+                    for p, t in model.time_set) / ensys.number_of_years
+
+        # Time-dependent revenues of a commodity (time series revenue values)
+        if self.commodity_revenues_time_series is not None:
+            rev_ts = self.parameters[
+                self.commodity_revenues_time_series]['values']
+            self.comp_obj_dict['commodity_revenues'] = ensys.pvf * sum(
+                rev_ts[p, t] * basic_var[p, t] * ensys.period_occurrences[p]
+                for p, t in model.time_set) / ensys.number_of_years
+
+        return sum(self.comp_obj_dict.values())
+
+    # ==========================================================================
     #    S E R I A L I Z E
     # ==========================================================================
     def serialize(self):
@@ -293,13 +308,13 @@ class Sink(Source):
     """
     def __init__(self, ensys, name, inlet, basic_variable='inlet_variable',
                  has_existence_binary_var=None, has_operation_binary_var=None,
-                 commodity_rate_min=None, commodity_rate_max=None,
-                 commodity_rate_fix=None,
                  time_series_data=None, scalar_params=None,
                  additional_vars=None, user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
                  capex_per_capacity=0, capex_if_exist=0,
                  opex_per_capacity=0, opex_if_exist=0, opex_operation=0,
+                 commodity_rate_min=None, commodity_rate_max=None,
+                 commodity_rate_fix=None,
                  commodity_cost=0, commodity_revenues=0
                  ):
         """
@@ -318,9 +333,6 @@ class Sink(Source):
                         basic_variable=basic_variable,
                         has_existence_binary_var=has_existence_binary_var,
                         has_operation_binary_var=has_operation_binary_var,
-                        commodity_rate_min=commodity_rate_min,
-                        commodity_rate_max=commodity_rate_max,
-                        commodity_rate_fix=commodity_rate_fix,
                         time_series_data=time_series_data,
                         scalar_params=scalar_params,
                         additional_vars=additional_vars,
@@ -332,6 +344,9 @@ class Sink(Source):
                         opex_per_capacity=opex_per_capacity,
                         opex_if_exist=opex_if_exist,
                         opex_operation=opex_operation,
+                        commodity_rate_min=commodity_rate_min,
+                        commodity_rate_max=commodity_rate_max,
+                        commodity_rate_fix=commodity_rate_fix,
                         commodity_cost=commodity_cost,
                         commodity_revenues=commodity_revenues)
 

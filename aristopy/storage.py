@@ -32,13 +32,47 @@ class Storage(Component):
         Initialize an instance of the Storage class.
 
         :param charge_rate:
+            |br| *Default: 1*
+        :type charge_rate:
+
         :param discharge_rate:
+            |br| *Default: 1*
+        :type discharge_rate:
+
         :param self_discharge:
+            |br| *Default: 0*
+        :type self_discharge:
+
+        :param charge_efficiency:
+            |br| *Default: 1*
+        :type charge_efficiency:
+
+        :param discharge_efficiency:
+            |br| *Default: 1*
+        :type discharge_efficiency:
+
         :param soc_min:
+            |br| *Default: 0*
+        :type soc_min:
+
         :param soc_max:
+            |br| *Default: 1*
+        :type soc_max:
+
+        :param soc_initial:
+            |br| *Default: None*
+        :type soc_initial:
+
+        :param use_inter_period_formulation:
+            |br| *Default: True*
+        :type use_inter_period_formulation:
+
+        :param precise_inter_period_modeling:
+            |br| *Default: False*
+        :type precise_inter_period_modeling:
         """
 
-        # "not-None-specs" at inlet & outlet! (Flows checked in Component init)
+        # Prevent None at inlet & outlet! (Flows are checked in Component init)
         if inlet is None:
             raise utils.io_error_message('Storage', name, 'inlet')
         if outlet is None:
@@ -149,21 +183,6 @@ class Storage(Component):
         self.con_soc_bounds_without_inter_period_formulation(ensys, model)
         self.con_soc_bounds_with_inter_period_formulation_simple(ensys, model)
         self.con_soc_bounds_with_inter_period_formulation_precise(ensys, model)
-
-    def get_objective_function_contribution(self, ensys, model):
-        """ Get contribution to the objective function. """
-        # Check if the component is completely unconnected. If this is True,
-        # don't use the objective function contributions of this component
-        # (could create infeasibilities!)
-        if len(self.var_connections.keys()) == 0:
-            self.log.warn('Found an unconnected component! Skipped possible '
-                          'objective function contributions.')
-            return 0
-
-        # Call function in "Component" class and calculate CAPEX and OPEX
-        super().get_objective_function_contribution(ensys, model)
-
-        return sum(self.comp_obj_dict.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
@@ -477,6 +496,24 @@ class Storage(Component):
             setattr(model, 'con_soc_min_bound_precise', pyomo.Constraint(
                 ensys.periods, range(ensys.number_of_time_steps_per_period),
                 rule=con_soc_min_bound_precise))
+
+    # ==========================================================================
+    #    O B J E C T I V E   F U N C T I O N   C O N T R I B U T I O N
+    # ==========================================================================
+    def get_objective_function_contribution(self, ensys, model):
+        """
+        Calculate the objective function contributions of the component and add
+        the values to the component dictionary "comp_obj_dict".
+
+        *Method is not intended for public access!*
+
+        :param ensys: Instance of the EnergySystem class
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
+        """
+        # Call method in "Component" class and calculate CAPEX and OPEX
+        super().get_objective_function_contribution(ensys, model)
+
+        return sum(self.comp_obj_dict.values())
 
     # ==========================================================================
     #    S E R I A L I Z E

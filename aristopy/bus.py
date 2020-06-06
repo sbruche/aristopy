@@ -28,9 +28,11 @@ class Bus(Component):
         Initialize an instance of the Bus class.
 
         :param losses:
+            |br| *Default: 0*
+        :type losses:
         """
 
-        # "not-None-specs" at inlet & outlet! (Flows checked in Component init)
+        # Prevent None at inlet & outlet! (Flows are checked in Component init)
         if inlet is None:
             raise utils.io_error_message('Bus', name, 'inlet')
         if outlet is None:
@@ -89,20 +91,6 @@ class Bus(Component):
         self.con_operation_limit(model)
         self.con_bus_balance(model)
 
-    def get_objective_function_contribution(self, ensys, model):
-        """ Get contribution to the objective function. """
-        # Check if the component is completely unconnected. If this is True,
-        # don't use the objective function contributions of this component
-        # (could create infeasibilities!)
-        if len(self.var_connections.keys()) == 0:
-            self.log.warn('Found an unconnected component! Skipped possible '
-                          'objective function contributions.')
-            return 0
-
-        # Call function in "Component" class and calculate CAPEX and OPEX
-        super().get_objective_function_contribution(ensys, model)
-
-        return sum(self.comp_obj_dict.values())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
@@ -142,6 +130,24 @@ class Bus(Component):
 
         setattr(self.block, 'con_bus_balance', pyomo.Constraint(
                 model.time_set, rule=con_bus_balance))
+
+    # ==========================================================================
+    #    O B J E C T I V E   F U N C T I O N   C O N T R I B U T I O N
+    # ==========================================================================
+    def get_objective_function_contribution(self, ensys, model):
+        """
+        Calculate the objective function contributions of the component and add
+        the values to the component dictionary "comp_obj_dict".
+
+        *Method is not intended for public access!*
+
+        :param ensys: Instance of the EnergySystem class
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
+        """
+        # Call method in "Component" class and calculate CAPEX and OPEX
+        super().get_objective_function_contribution(ensys, model)
+
+        return sum(self.comp_obj_dict.values())
 
     # ==========================================================================
     #    S E R I A L I Z E
