@@ -7,7 +7,7 @@ funded by the German Federal Ministry for Economic Affairs and Energy (project r
 The funding is gratefully acknowledged.
 
 .. image:: https://www.energietechnik.tu-berlin.de/fileadmin/fg106/Fotos/bwmi_logo_small.png
-    :target: https://www.energietechnik.tu-berlin.de/menue/forschung/laufende_projekte/minlp_optimierung/
+    :target: https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/
     :width: 200px
     :alt: BMWi Logo
     :align: left

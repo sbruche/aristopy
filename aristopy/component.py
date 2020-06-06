@@ -1300,8 +1300,7 @@ class Component(metaclass=ABCMeta):
 
         *Method is not intended for public access!*
         """
-        if self.has_bi_op and self.capacity_max is not None:
-            # Get variables:
+        if self.has_bi_op:
             bi_op = self.variables[utils.BI_OP]['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
             cap_max = self.capacity_max

@@ -35,25 +35,36 @@ class Source(Component):
         *See the documentation of the Component class for a description of all
         keyword arguments and inherited methods.*
 
-        :param commodity_rate_min:
+        :param commodity_rate_min: Scalar value or time series that provides a
+            minimal value (lower bound) for the basic variable (typically, Sink
+            inlet commodity, or Source outlet commodity) for every time step.
             |br| *Default: None*
-        :type commodity_rate_min:
+        :type commodity_rate_min: int, or float, or aristopy Series, or None
 
-        :param commodity_rate_max:
+        :param commodity_rate_max: Scalar value or time series that provides a
+            maximal value (upper bound) for the basic variable (typically, Sink
+            inlet commodity, or Source outlet commodity) for every time step.
             |br| *Default: None*
-        :type commodity_rate_max:
+        :type commodity_rate_max: int, or float, or aristopy Series, or None
 
-        :param commodity_rate_fix:
+        :param commodity_rate_fix: Scalar value or time series that provides a
+            fixed value for the basic variable (typically, Sink inlet commodity,
+            or Source outlet commodity) for every time step.
             |br| *Default: None*
-        :type commodity_rate_fix:
+        :type commodity_rate_fix: int, or float, or aristopy Series, or None
 
-        :param commodity_cost:
+        :param commodity_cost: Incurred costs for the use / expenditure of the
+            basic variable. Keyword argument takes scalar values or time series
+            data (Note: scalar values provide the same functionality like
+            keyword argument 'opex_operation').
             |br| *Default: 0*
-        :type commodity_cost:
+        :type commodity_cost: int, or float, or aristopy Series
 
-        :param commodity_revenues:
+        :param commodity_revenues: Accruing revenues associated with the
+            allocation of the basic variable. Keyword argument takes scalar
+            values or time series data.
             |br| *Default: 0*
-        :type commodity_revenues:
+        :type commodity_revenues: int, or float, or aristopy Series
         """
 
         inlet = None  # init (used for Source) => is overwritten for Sink class
@@ -90,13 +101,13 @@ class Source(Component):
                            opex_operation=opex_operation
                            )
 
-        # Check and set sink / source specific input arguments
+        # Check and set additional input arguments
         self.commodity_cost, self.commodity_cost_time_series = \
             utils.check_and_set_cost_and_revenues(self, commodity_cost)
         self.commodity_revenues, self.commodity_revenues_time_series = \
             utils.check_and_set_cost_and_revenues(self, commodity_revenues)
 
-        # Check and set time series for commodity rates (if available)
+        # Check and set data for commodity rates (scalar or time series or None)
         self.op_rate_min, self.op_rate_max, self.op_rate_fix = \
             utils.check_and_set_commodity_rates(
                 self, commodity_rate_min, commodity_rate_max,
@@ -108,29 +119,25 @@ class Source(Component):
     def __repr__(self):
         return '<Source: "%s">' % self.name
 
-    # **************************************************************************
-    #   Declare component constraints
-    # **************************************************************************
+    # ==========================================================================
+    #    C O N V E N T I O N A L   C O N S T R A I N T   D E C L A R A T I O N
+    # ==========================================================================
     def declare_component_constraints(self, ensys, model):
         """
-        Declare time independent and dependent constraints.
+        Method to declare all component constraints.
 
-        :param ensys: EnergySystem instance representing the energy system
-            in which the component should be added.
-        :type ensys: EnergySystem class instance
+        *Method is not intended for public access!*
 
-        :param model: Pyomo ConcreteModel which stores the mathematical
-            formulation of the energy system model.
-        :type model: Pyomo ConcreteModel
+        :param ensys: Instance of the EnergySystem class
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
         """
-
-        # Time independent constraints:
-        # -----------------------------
+        # Time-independent constraints :
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         self.con_couple_bi_ex_and_cap()
         self.con_cap_min()
 
-        # Time dependent constraints:
-        # ---------------------------
+        # Time-dependent constraints:
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         self.con_bi_var_ex_and_op_relation(model)
         self.con_operation_limit(model)
         self.con_couple_op_binary_and_basic_var(model)
@@ -138,19 +145,21 @@ class Source(Component):
         self.con_commodity_rate_max(model)
         self.con_commodity_rate_fix(model)
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # **************************************************************************
+    #    Time-dependent constraints
+    # **************************************************************************
     def con_operation_limit(self, model):
         """
-        The operation variable (ref.: basic variable / basic commodity) of a
-        sink / source unit (MWh) is limit by its nominal power (MW) multiplied
-        with the number of hours per time step. E.g.: |br|
+        The basic variable of a component is limited by its nominal capacity.
+        This usually means, the operation (main commodity) of a sink / source
+        (MWh) is limited by its nominal power (MW) multiplied with the number of
+        hours per time step. E.g.: |br|
         ``Q[p, t] <= CAP * dt``
+
+        *Method is not intended for public access!*
         """
         # Only required if component has a capacity variable
         if self.has_capacity_var:
-            # Get variables:
             cap = self.variables[utils.CAP]['pyomo']
             basic_var = self.variables[self.basic_variable]['pyomo']
             has_time_set = self.variables[self.basic_variable]['has_time_set']
@@ -160,6 +169,7 @@ class Source(Component):
                 if has_time_set:
                     return basic_var[p, t] <= cap * dt
                 else:
+                    # Exceptional case: Selection of a scalar basic variable
                     return basic_var <= cap
 
             setattr(self.block, 'con_operation_limit', pyomo.Constraint(
@@ -168,14 +178,15 @@ class Source(Component):
     def con_commodity_rate_min(self, model):
         """
         The basic variable of a component needs to have a minimal value of
-        "commodity_rate_min" in every time step. E.g.: |br|
+        "commodity_rate_min" in every time step. (Without correction with
+        "hours_per_time_step" because it should already be included in the time
+        series). E.g.: |br|
         ``Q[p, t] >= op_rate_min[p, t]``
-        (No correction with "hours_per_time_step" needed because it should
-        already be included in the time series for "commodity_rate_min")
+
+        *Method is not intended for public access!*
         """
         # Only required if component has a time series for "commodity_rate_min".
         if self.op_rate_min is not None:
-            # Get variables:
             op_min = self.parameters[self.op_rate_min]['values']
             basic_var = self.variables[self.basic_variable]['pyomo']
             has_time_set = self.parameters[self.op_rate_min]['has_time_set']
@@ -184,6 +195,7 @@ class Source(Component):
                 if has_time_set:
                     return basic_var[p, t] >= op_min[p, t]
                 else:
+                    # if 'commodity_rate_min' is provided as scalar value
                     return basic_var[p, t] >= op_min
             setattr(self.block, 'con_commodity_rate_min', pyomo.Constraint(
                 model.time_set, rule=con_commodity_rate_min))
@@ -191,14 +203,15 @@ class Source(Component):
     def con_commodity_rate_max(self, model):
         """
         The basic variable of a component can have a maximal value of
-        "commodity_rate_max" in every time step. E.g.: |br|
+        "commodity_rate_max" in every time step. (Without correction with
+        "hours_per_time_step" because it should already be included in the time
+        series). E.g.: |br|
         ``Q[p, t] <= op_rate_max[p, t]``
-        (No correction with "hours_per_time_step" needed because it should
-        already be included in the time series for "commodity_rate_max")
+
+        *Method is not intended for public access!*
         """
         # Only required if component has a time series for "commodity_rate_max".
         if self.op_rate_max is not None:
-            # Get variables:
             op_max = self.parameters[self.op_rate_max]['values']
             basic_var = self.variables[self.basic_variable]['pyomo']
             has_time_set = self.parameters[self.op_rate_max]['has_time_set']
@@ -207,6 +220,7 @@ class Source(Component):
                 if has_time_set:
                     return basic_var[p, t] <= op_max[p, t]
                 else:
+                    # if 'commodity_rate_max' is provided as scalar value
                     return basic_var[p, t] <= op_max
             setattr(self.block, 'con_commodity_rate_max', pyomo.Constraint(
                 model.time_set, rule=con_commodity_rate_max))
@@ -214,14 +228,15 @@ class Source(Component):
     def con_commodity_rate_fix(self, model):
         """
         The basic variable of a component needs to have a value of
-        "commodity_rate_fix" in every time step. E.g.: |br|
+        "commodity_rate_fix" in every time step. (Without correction with
+        "hours_per_time_step" because it should already be included in the time
+        series). E.g.: |br|
         ``Q[p, t] == op_rate_fix[p, t]``
-        (No correction with "hours_per_time_step" needed because it should
-        already be included in the time series for "commodity_rate_fix")
+
+        *Method is not intended for public access!*
         """
         # Only required if component has a time series for "commodity_rate_fix"
         if self.op_rate_fix is not None:
-            # Get variables:
             op_fix = self.parameters[self.op_rate_fix]['values']
             basic_var = self.variables[self.basic_variable]['pyomo']
             has_time_set = self.parameters[self.op_rate_fix]['has_time_set']
@@ -230,6 +245,7 @@ class Source(Component):
                 if has_time_set:
                     return basic_var[p, t] == op_fix[p, t]
                 else:
+                    # if 'commodity_rate_fix' is provided as scalar value
                     return basic_var[p, t] == op_fix
             setattr(self.block, 'con_commodity_rate_fix', pyomo.Constraint(
                 model.time_set, rule=con_commodity_rate_fix))
@@ -290,6 +306,12 @@ class Source(Component):
     #    S E R I A L I Z E
     # ==========================================================================
     def serialize(self):
+        """
+        This method collects all relevant input data and optimization results
+        from the Component instance, and returns them in an ordered dictionary.
+
+        :return: OrderedDict
+        """
         comp_dict = super().serialize()
         comp_dict['commodity_rate_min'] = self.op_rate_min
         comp_dict['commodity_rate_max'] = self.op_rate_max

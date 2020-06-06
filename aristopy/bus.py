@@ -12,8 +12,10 @@ from aristopy.component import Component
 
 
 class Bus(Component):
-    # A Bus component collects and transfers a commodity.
-    # They can also be used to model transmission lines between different sites.
+    """
+    A Bus component collects and transfers a commodity.
+    They can also be used to model transmission lines between different sites.
+    """
     def __init__(self, ensys, name, inlet, outlet,
                  basic_variable='inlet_variable',
                  has_existence_binary_var=None,
@@ -26,6 +28,9 @@ class Bus(Component):
                  ):
         """
         Initialize an instance of the Bus class.
+
+        *See the documentation of the Component class for a description of all
+        keyword arguments and inherited methods.*
 
         :param losses:
             |br| *Default: 0*
@@ -55,7 +60,7 @@ class Bus(Component):
                            opex_operation=opex_operation
                            )
 
-        # Check and set bus (transmission) specific input arguments
+        # Check and set additional input arguments
         self.losses = utils.set_if_between_zero_and_one(losses)  # relative loss
 
         # Store the names for the loading and unloading variables
@@ -68,33 +73,31 @@ class Bus(Component):
     def __repr__(self):
         return '<Bus: "%s">' % self.name
 
+    # ==========================================================================
+    #    C O N V E N T I O N A L   C O N S T R A I N T   D E C L A R A T I O N
+    # ==========================================================================
     def declare_component_constraints(self, ensys, model):
         """
-        Declare time independent and dependent constraints.
+        Method to declare all component constraints.
 
-        :param ensys: EnergySystem instance representing the energy system
-            in which the component should be added.
-        :type ensys: EnergySystem class instance
+        *Method is not intended for public access!*
 
-        :param model: Pyomo ConcreteModel which stores the mathematical
-            formulation of the energy system model.
-        :type model: Pyomo ConcreteModel
+        :param ensys: Instance of the EnergySystem class
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
         """
-
-        # Time independent constraints:
-        # -----------------------------
+        # Time-independent constraints :
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         self.con_couple_bi_ex_and_cap()
         self.con_cap_min()
 
-        # Time dependent constraints:
-        # ---------------------------
+        # Time-dependent constraints :
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         self.con_operation_limit(model)
         self.con_bus_balance(model)
 
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # **************************************************************************
+    #    Time-dependent constraints
+    # **************************************************************************
     def con_operation_limit(self, model):
         """
         The operation of a bus comp. (inlet variable!) is limit by its nominal
@@ -135,6 +138,12 @@ class Bus(Component):
     #    S E R I A L I Z E
     # ==========================================================================
     def serialize(self):
+        """
+        This method collects all relevant input data and optimization results
+        from the Component instance, and returns them in an ordered dictionary.
+
+        :return: OrderedDict
+        """
         comp_dict = super().serialize()
         comp_dict['inlet_variable'] = self.inlet_variable
         comp_dict['outlet_variable'] = self.outlet_variable

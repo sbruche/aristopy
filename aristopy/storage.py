@@ -12,7 +12,11 @@ from aristopy.component import Component
 
 
 class Storage(Component):
-    # Storage components store commodities and transfer them between time steps.
+    """
+    A storage component can collect a commodity at the inlet at one time step
+    and make it available at the outlet at another time step.
+    Thus, it is a component to provide flexibility.
+    """
     def __init__(self, ensys, name, inlet, outlet,
                  basic_variable='inlet_variable',
                  has_existence_binary_var=False,
@@ -30,6 +34,9 @@ class Storage(Component):
                  ):
         """
         Initialize an instance of the Storage class.
+
+        *See the documentation of the Component class for a description of all
+        keyword arguments and inherited methods.*
 
         :param charge_rate:
             |br| *Default: 1*
@@ -81,7 +88,7 @@ class Storage(Component):
         # Set an upper bound for the storage capacity if nothing is specified to
         # make sure that storage components always have a capacity variable!
         if not capacity and not capacity_min and not capacity_max:
-            capacity_max = 1e6
+            capacity_max = 1e9
 
         Component.__init__(self, ensys=ensys, name=name,
                            inlet=inlet, outlet=outlet,
@@ -103,7 +110,7 @@ class Storage(Component):
                            opex_operation=opex_operation
                            )
 
-        # Check and set storage specific input arguments
+        # Check and set additional input arguments
         self.charge_rate = utils.set_if_positive(charge_rate)
         self.discharge_rate = utils.set_if_positive(discharge_rate)
         self.self_discharge = utils.set_if_between_zero_and_one(self_discharge)
@@ -150,28 +157,28 @@ class Storage(Component):
     def __repr__(self):
         return '<Storage: "%s">' % self.name
 
+    # ==========================================================================
+    #    C O N V E N T I O N A L   C O N S T R A I N T   D E C L A R A T I O N
+    # ==========================================================================
     def declare_component_constraints(self, ensys, model):
         """
-        Declare time independent and dependent constraints.
+        Method to declare all component constraints.
 
-        :param ensys: EnergySystem instance representing the energy system
-            in which the component should be added.
-        :type ensys: EnergySystem class instance
+        *Method is not intended for public access!*
 
-        :param model: Pyomo ConcreteModel which stores the mathematical
-            formulation of the energy system model.
-        :type model: Pyomo ConcreteModel
+        :param ensys: Instance of the EnergySystem class
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
         """
-        # Time independent constraints:
-        # -----------------------------
+        # Time-independent constraints :
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         self.con_couple_bi_ex_and_cap()
         self.con_cap_min()
         self.con_cap_modular()
         self.con_modular_sym_break()
         self.con_couple_existence_and_modular()
 
-        # Time dependent constraints:
-        # ---------------------------
+        # Time-dependent constraints :
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         self.con_operation_limit(model)
         self.con_soc_balance(ensys, model)
         self.con_charge_rate(ensys, model)
@@ -184,9 +191,9 @@ class Storage(Component):
         self.con_soc_bounds_with_inter_period_formulation_simple(ensys, model)
         self.con_soc_bounds_with_inter_period_formulation_precise(ensys, model)
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # **************************************************************************
+    #    Time-dependent constraints
+    # **************************************************************************
     def con_operation_limit(self, model):
         """
         The operation of a storage component (state of charge) is limit by its
@@ -501,6 +508,12 @@ class Storage(Component):
     #    S E R I A L I Z E
     # ==========================================================================
     def serialize(self):
+        """
+        This method collects all relevant input data and optimization results
+        from the Component instance, and returns them in an ordered dictionary.
+
+        :return: OrderedDict
+        """
         comp_dict = super().serialize()
         comp_dict['charge_variable'] = self.charge_variable
         comp_dict['discharge_variable'] = self.discharge_variable

@@ -12,7 +12,10 @@ from aristopy import utils
 
 
 class Conversion(Component):
-    # A Conversion component converts commodities into each other.
+    """
+    A conversion component takes commodities at the inlet and provides other
+    commodities at the outlet after an internal conversion.
+    """
     def __init__(self, ensys, name, inlet, outlet, basic_variable,
                  has_existence_binary_var=None, has_operation_binary_var=None,
                  time_series_data=None, scalar_params=None,
@@ -28,6 +31,9 @@ class Conversion(Component):
                  ):
         """
         Initialize an instance of the Conversion class.
+
+        *See the documentation of the Component class for a description of all
+        keyword arguments and inherited methods.*
 
         :param start_up_cost:
             |br| *Default: 0*
@@ -139,21 +145,20 @@ class Conversion(Component):
     def __repr__(self):
         return '<Conversion: "%s">' % self.name
 
+    # ==========================================================================
+    #    C O N V E N T I O N A L   C O N S T R A I N T   D E C L A R A T I O N
+    # ==========================================================================
     def declare_component_constraints(self, ensys, model):
         """
-        Declare time independent and dependent constraints.
+        Method to declare all component constraints.
 
-        :param ensys: EnergySystem instance representing the energy system
-            in which the component should be added.
-        :type ensys: EnergySystem class instance
+        *Method is not intended for public access!*
 
-        :param model: Pyomo ConcreteModel which stores the mathematical
-            formulation of the energy system model.
-        :type model: Pyomo ConcreteModel
+        :param ensys: Instance of the EnergySystem class
+        :param model: Pyomo ConcreteModel of the EnergySystem instance
         """
-
-        # Time independent constraints:
-        # -----------------------------
+        # Time-independent constraints :
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         self.con_couple_bi_ex_and_cap()
         self.con_cap_min()
         self.con_cap_modular()
@@ -161,8 +166,8 @@ class Conversion(Component):
         self.con_couple_existence_and_modular()
         self.con_existence_sym_break(ensys)
 
-        # Time dependent constraints:
-        # ---------------------------
+        # Time-dependent constraints :
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         self.con_bi_var_ex_and_op_relation(model)
         self.con_operation_limit(model)
         self.con_couple_op_binary_and_basic_var(model)
@@ -171,9 +176,9 @@ class Conversion(Component):
         self.con_start_up_cost_inter(ensys, model)
         self.con_operation_sym_break(ensys, model)
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #    A D D I T I O N A L   T I M E   I N D E P E N D E N T   C O N S .
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # **************************************************************************
+    #    Time-independent constraints
+    # **************************************************************************
     def con_existence_sym_break(self, ensys):
         """
         TODO: Add description!
@@ -190,9 +195,9 @@ class Conversion(Component):
             setattr(self.block, 'con_existence_sym_break',
                     pyomo.Constraint(rule=con_existence_sym_break))
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #    A D D I T I O N A L   T I M E   D E P E N D E N T   C O N S .
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # **************************************************************************
+    #    Time-dependent constraints
+    # **************************************************************************
     def con_operation_sym_break(self, ensys, model):
         """
         TODO: Add description!
@@ -355,5 +360,11 @@ class Conversion(Component):
     #    S E R I A L I Z E
     # ==========================================================================
     def serialize(self):
+        """
+        This method collects all relevant input data and optimization results
+        from the Component instance, and returns them in an ordered dictionary.
+
+        :return: OrderedDict
+        """
         comp_dict = super().serialize()
         return comp_dict
