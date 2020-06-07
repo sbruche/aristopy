@@ -32,9 +32,11 @@ class Bus(Component):
         *See the documentation of the Component class for a description of all
         keyword arguments and inherited methods.*
 
-        :param losses:
+        :param losses: Factor to specify the relative loss of the transported
+            commodity between inlet and outlet per hour of operation
+            (0 => no loss; 1 => 100% loss).
             |br| *Default: 0*
-        :type losses:
+        :type losses: float or int (0<=value<=1)
         """
 
         # Prevent None at inlet & outlet! (Flows are checked in Component init)
@@ -100,31 +102,35 @@ class Bus(Component):
     # **************************************************************************
     def con_operation_limit(self, model):
         """
-        The operation of a bus comp. (inlet variable!) is limit by its nominal
-        power (MW) multiplied with the number of hours per time step.
-        E.g.: |br| ``Q_IN[p, t] <= CAP * dt``
+        The basic variable of a component is limited by its nominal capacity.
+        This means, the operation (commodity at inlet or outlet) of a bus
+        (MWh) is limited by its nominal power (MW) multiplied with the number of
+        hours per time step. E.g.: |br|
+        ``Q_IN[p, t] <= CAP * dt``
+
+        *Method is not intended for public access!*
         """
         # Only required if component has a capacity variable
         if self.has_capacity_var:
-            # Get variables:
             cap = self.variables[utils.CAP]['pyomo']
-            inlet_var = self.variables[self.inlet_variable]['pyomo']
+            basic_var = self.variables[self.basic_variable]['pyomo']
             dt = self.ensys.hours_per_time_step
 
             def con_operation_limit(m, p, t):
-                return inlet_var[p, t] <= cap * dt
+                return basic_var[p, t] <= cap * dt
 
             setattr(self.block, 'con_operation_limit', pyomo.Constraint(
                 model.time_set, rule=con_operation_limit))
 
     def con_bus_balance(self, model):
         """
-        The sum of outlets must equal the sum of the inlets minus the share of
-        the transmission losses. A bus component cannot store a commodity.
+        The quantity of the commodity at the outlet must equal the quantity at
+        the inlet minus the the transmission loss share. A bus component cannot
+        store a commodity (correction with "hours_per_time_step" not needed).
         E.g.: |br| ``Q_OUT[p, t] == Q_IN[p, t] * (1 - losses)``
-        (correction with "hours_per_time_step" not needed)
+
+        *Method is not intended for public access!*
         """
-        # Get variables:
         inlet_var = self.variables[self.inlet_variable]['pyomo']
         outlet_var = self.variables[self.outlet_variable]['pyomo']
 

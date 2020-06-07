@@ -26,7 +26,7 @@ class Source(Component):
                  commodity_rate_min=None, commodity_rate_max=None,
                  commodity_rate_fix=None,
                  commodity_cost=0, commodity_revenues=0,
-                 **kwargs
+                 **kwargs  # only a backdoor for 'inlet' keyword of Sink class
                  ):
 
         """
