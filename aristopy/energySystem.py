@@ -279,8 +279,7 @@ class EnergySystem:
         self.log.info('Call of function "add_objective_function_contribution"')
 
         # Check the input:
-        if name is not None:
-            utils.is_string(name)
+        assert isinstance(name, (str, type(None))), '"name" should be a string!'
         if not callable(rule):
             raise TypeError('The "rule" needs to hold a callable object!')
         if name is None:
@@ -321,9 +320,9 @@ class EnergySystem:
         :type cluster_method: str
         """
         # Check input arguments
-        utils.check_clustering_input(number_of_typical_periods,
-                                     number_of_time_steps_per_period,
-                                     self.number_of_time_steps)
+        utils.check_cluster_input(number_of_typical_periods,
+                                  number_of_time_steps_per_period,
+                                  self.number_of_time_steps)
 
         time_start = time.time()
         self.log.info('Start clustering with %s typical periods and %s time '
@@ -390,7 +389,7 @@ class EnergySystem:
         self.log.debug('periods_order: %s' % self.periods_order)
         self.log.debug('period_occurrences: %s' % self.period_occurrences)
 
-    def declare_time_sets(self, model, time_series_aggregation):
+    def declare_time_sets(self, model, use_clustered_data):
         """
         Initialize time parameters and four different time sets.
 
@@ -423,19 +422,19 @@ class EnergySystem:
             and the objective function.
         :type model: pyomo ConcreteModel
 
-        :param time_series_aggregation: Declare optimization model with original
+        :param use_clustered_data: Declare optimization model with original
             (full scale) time series (=> False) or clustered data (=> True).
-        :type time_series_aggregation: bool
+        :type use_clustered_data: bool
         """
         self.log.info('    Declare time sets')
 
         # Set the time series data for all modelled components
         for comp in self.components.values():
-            comp.set_time_series_data(time_series_aggregation)
+            comp.set_time_series_data(use_clustered_data)
 
         # Reset time-relevant attributes and initialize sets if full scale
         # problem is considered.
-        if not time_series_aggregation:
+        if not use_clustered_data:
             self.periods = [0]
             self.periods_order = [0]
             self.period_occurrences = [1]
@@ -517,8 +516,8 @@ class EnergySystem:
             return NPV
         model.Obj = pyomo.Objective(rule=objective, sense=pyomo.maximize)
 
-    def declare_model(self, time_series_aggregation=False,
-                      persistent_model=False,
+    def declare_model(self, use_clustered_data=False,
+                      declare_persistent=False,
                       persistent_solver='gurobi_persistent'):
         """
         Declare the pyomo optimization model of the EnergySystem instance.
@@ -528,34 +527,34 @@ class EnergySystem:
         component model blocks, variables, ports, constraints, arcs, and the
         objective function are added.
 
-        :param time_series_aggregation: Declare optimization model with original
+        :param use_clustered_data: Declare optimization model with original
             (full scale) time series (=> False) or clustered data (=> True).
             |br| *Default: False*
-        :type time_series_aggregation: bool
+        :type use_clustered_data: bool
 
-        :param persistent_model: Indicates if a persistent model instance should
+        :param declare_persistent: States if a persistent model instance should
             be formed. In this case, after model declaration a persistent solver
             instance is created and the declared model instance is assigned.
             |br| *Default: False*
-        :type persistent_model: bool
+        :type declare_persistent: bool
 
         :param persistent_solver: Name of the persistent solver to be used.
             Possible options are "gurobi_persistent" and "cplex_persistent".
-            Is ignored if keyword "persistent_model" is False.
+            Is ignored if keyword "declare_persistent" is False.
             |br| *Default: 'gurobi_persistent'*
         :type persistent_solver: str
         """
         self.log.info('Declare optimization model with '
-                      'time_series_aggregation=%s and persistent_model=%s'
-                      % (time_series_aggregation, persistent_model))
+                      'use_clustered_data=%s and declare_persistent=%s'
+                      % (use_clustered_data, declare_persistent))
 
         time_start = time.time()
 
         # Check inputs:
         persistent_solver = persistent_solver.lower()
         utils.check_declare_model_input(
-            time_series_aggregation, self.is_data_clustered,
-            persistent_model, persistent_solver)
+            use_clustered_data, self.is_data_clustered,
+            declare_persistent, persistent_solver)
 
         # Initialize flags of model status
         self.is_model_declared = False
@@ -747,7 +746,7 @@ class EnergySystem:
         # **********************************************************************
         #   Declare time sets
         # **********************************************************************
-        self.declare_time_sets(self.model, time_series_aggregation)
+        self.declare_time_sets(self.model, use_clustered_data)
 
         # **********************************************************************
         #   Declare component blocks, variables, ports and constraints
@@ -850,9 +849,9 @@ class EnergySystem:
         self.declare_objective(self.model)
 
         # **********************************************************************
-        #   Built persistent model instance (if "persistent_model" is True)
+        #   Built persistent model instance (if "declare_persistent" is True)
         # **********************************************************************
-        if persistent_model:
+        if declare_persistent:
             # Store persistent solver name
             self.run_info['solver_name'] = persistent_solver
 
@@ -878,8 +877,9 @@ class EnergySystem:
     # ==========================================================================
     #    O P T I M I Z E
     # ==========================================================================
-    def optimize(self, declare_model=True, time_series_aggregation=False,
-                 persistent_model=False, persistent_solver='gurobi_persistent',
+    def optimize(self, declare_model=True, use_clustered_data=False,
+                 declare_persistent=False,
+                 persistent_solver='gurobi_persistent',
                  solver='gurobi', time_limit=None, optimization_specs='',
                  results_file='results.json', tee=True):
         """
@@ -894,20 +894,20 @@ class EnergySystem:
             |br| *Default: True*
         :type declare_model: bool
 
-        :param time_series_aggregation: Declare optimization model with original
+        :param use_clustered_data: Declare optimization model with original
             (full scale) time series (=> False) or clustered data (=> True).
             |br| *Default: False*
-        :type time_series_aggregation: bool
+        :type use_clustered_data: bool
 
-        :param persistent_model: Indicates if a persistent model instance should
+        :param declare_persistent: States if a persistent model instance should
             be formed. In this case, after model declaration a persistent solver
             instance is created and the declared model instance is assigned.
             |br| *Default: False*
-        :type persistent_model: bool
+        :type declare_persistent: bool
 
         :param persistent_solver: Name of the persistent solver to be used.
             Possible options are "gurobi_persistent" and "cplex_persistent".
-            Is ignored if keyword "persistent_model" is False.
+            Is ignored if keyword "declare_persistent" is False.
             |br| *Default: 'gurobi_persistent'*
         :type persistent_solver: str
 
@@ -945,9 +945,9 @@ class EnergySystem:
         solver, persistent_solver = solver.lower(), persistent_solver.lower()
 
         if declare_model:
-            self.declare_model(persistent_model=persistent_model,
+            self.declare_model(declare_persistent=declare_persistent,
                                persistent_solver=persistent_solver,
-                               time_series_aggregation=time_series_aggregation)
+                               use_clustered_data=use_clustered_data)
         elif not self.is_model_declared:
             raise ValueError('The optimization model is not declared yet. Set '
                              'the argument "declare_model" to True or call the '
@@ -956,8 +956,8 @@ class EnergySystem:
         time_start = time.time()
 
         # Check input arguments
-        utils.check_optimize_input(time_series_aggregation,
-                                   persistent_model, persistent_solver,
+        utils.check_optimize_input(use_clustered_data,
+                                   declare_persistent, persistent_solver,
                                    self.is_data_clustered, solver,
                                    time_limit, optimization_specs)
 
@@ -1081,9 +1081,13 @@ class EnergySystem:
         """
         self.log.info('Call of function "import_component_configuration"')
 
-        utils.is_dataframe(config), utils.is_boolean(fix_existence),
-        utils.is_boolean(fix_modules), utils.is_boolean(fix_capacity),
-        utils.is_boolean(store_previous_variables)
+        if not isinstance(config, pd.DataFrame):
+            raise TypeError('The data needs to be imported as a pd.DataFrame!')
+        utils.check_and_set_bool(fix_existence, 'fix_existence'),
+        utils.check_and_set_bool(fix_modules, 'fix_modules')
+        utils.check_and_set_bool(fix_capacity, 'fix_capacity')
+        utils.check_and_set_bool(store_previous_variables,
+                                 'store_previous_variables')
 
         for comp_name in config:
             if comp_name not in self.components.keys():
@@ -1132,7 +1136,8 @@ class EnergySystem:
         if which_instances != 'all' and not isinstance(which_instances, list):
             raise TypeError('"which_instances" takes string "all" or holds '
                             'a list of component names!')
-        utils.is_boolean(include_existence), utils.is_boolean(include_modules)
+        utils.check_and_set_bool(include_existence, 'include_existence')
+        utils.check_and_set_bool(include_modules, 'include_modules')
 
         # Run the 'add_integer_cut_constraint' function with the desired comps
         # https://pyomo.readthedocs.io/en/latest/working_models.html
@@ -1244,9 +1249,12 @@ class EnergySystem:
         if which_instances != 'all' and not isinstance(which_instances, list):
             raise TypeError('"which_instances" takes string "all" or holds '
                             'a list of component names!')
-        utils.is_boolean(include_existence), utils.is_boolean(include_modules)
-        utils.is_boolean(include_time_dependent)
-        utils.is_boolean(store_previous_variables)
+        utils.check_and_set_bool(include_existence, 'include_existence')
+        utils.check_and_set_bool(include_modules, 'include_modules')
+        utils.check_and_set_bool(include_time_dependent,
+                                 'include_time_dependent')
+        utils.check_and_set_bool(store_previous_variables,
+                                 'store_previous_variables')
 
         # Run the 'relax_integrality' function in the desired components
         for name, comp in self.components.items():

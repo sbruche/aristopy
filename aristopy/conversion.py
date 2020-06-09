@@ -126,7 +126,7 @@ class Conversion(Component):
 
         # Check and set the value for the minimal relative part-load
         if min_load_rel is not None:
-            utils.is_positive_number(min_load_rel)
+            utils.check_and_set_positive_number(min_load_rel, 'min_load_rel')
             assert min_load_rel <= 1, 'Maximal value for "min_load_rel" is 1!'
             if not self.has_bi_op:
                 raise ValueError('Minimal part-loads require the availability '
@@ -144,21 +144,23 @@ class Conversion(Component):
         self.min_load_rel = min_load_rel
 
         # Check and set additional input arguments
-        self.start_up_cost = utils.set_if_positive(start_up_cost)  # [€/Start]
-        utils.is_boolean(use_inter_period_formulation)
-        self.use_inter_period_formulation = use_inter_period_formulation
+        self.start_up_cost = utils.check_and_set_positive_number(
+            start_up_cost, 'start_up_cost')
+        self.use_inter_period_formulation = utils.check_and_set_bool(
+            use_inter_period_formulation, 'use_inter_period_formulation')
 
         # Multiple instances formed and collected in one group
-        utils.is_strictly_positive_int(instances_in_group)
+        utils.check_nonzero_positive_int(instances_in_group,
+                                         'instances_in_group')
         self.instances_in_group = instances_in_group
-        utils.is_boolean(group_has_existence_order)
-        self.group_has_existence_order = group_has_existence_order
+        self.group_has_existence_order = utils.check_and_set_bool(
+            group_has_existence_order, 'group_has_existence_order')
         if self.instances_in_group > 1 and not self.has_bi_ex and \
                 self.group_has_existence_order:  # is True
             raise ValueError('Group requires a binary existence variable if an '
                              'existence order is requested!')
-        utils.is_boolean(group_has_operation_order)
-        self.group_has_operation_order = group_has_operation_order
+        self.group_has_operation_order = utils.check_and_set_bool(
+            group_has_operation_order, 'group_has_operation_order')
         if self.instances_in_group > 1 and not self.has_bi_op and \
                 self.group_has_operation_order:  # is True
             raise ValueError('Group requires a binary operation variable if an '

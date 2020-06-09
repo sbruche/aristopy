@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-** Utility functions **
+**Utility functions**
 
-* Last edited: 2020-06-01
+* Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
 """
 import warnings
 import pandas as pd
 import numpy as np
-import pyomo.environ as pyomo
 import aristopy
 
 # ==============================================================================
@@ -34,9 +33,9 @@ SOC_INTER = 'SOC_INTER'        # State of charge var. (inter-period time-steps)
 def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
                           aggregate_by='sum'):
     """
-    Function to compress the original (full scale) time series to a shorter one.
-    Returns an array with aggregated values. For aggregation the values can
-    either be summed up ('sum') or averaged ('mean').
+    Helper function to compress the original (full scale) time series to a
+    shorter one. Returns an array with aggregated values. For aggregation the
+    values can either be summed up ('sum') or averaged ('mean').
     (E.g. s = aggregate_time_series([1, 2, 3, 4], 2, 'sum') >> s = [3, 7]
 
     :param full_series: Original (full scale) hourly time series to aggregate.
@@ -45,17 +44,18 @@ def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
 
     :param number_of_time_steps_to_aggregate: Number of time steps to aggregate.
         Should be an integer divisor of the length of the full series.
-    :type number_of_time_steps_to_aggregate: integer
+    :type number_of_time_steps_to_aggregate: int
 
     :param aggregate_by: aggregation method to apply. Can either be 'sum'
         (values are summed up) or 'mean' (values are averaged).
-    :type aggregate_by: string ('sum' or 'mean')
+    :type aggregate_by: str ('sum' or 'mean')
     """
     # Check the user input:
     if not (isinstance(full_series, (pd.Series, np.ndarray, list))):
         raise ValueError('The "full_series" can either by a pandas Series or a '
                          'numpy ndarray or a Python list.')
-    is_strictly_positive_int(number_of_time_steps_to_aggregate)
+    check_nonzero_positive_int(number_of_time_steps_to_aggregate,
+                               'number_of_time_steps_to_aggregate')
     if not (aggregate_by == 'sum' or aggregate_by == 'mean'):
         raise ValueError('Keyword "aggregate_by" can either be "sum" or "mean"')
 
@@ -77,12 +77,13 @@ def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
 
 def check_add_constraint(rule, name, has_time_set, alternative_set):
     """ Check the user input for the function 'add_constraint' that can be used
-        to manually add constraints to the main model instance. """
+        to manually add constraints to the ConcreteModel instance. """
     if not callable(rule):
         raise TypeError('The "rule" keyword needs to hold a callable object!')
-    if name is not None:
-        is_string(name)
-    is_boolean(has_time_set)
+
+    assert isinstance(name, (str, type(None))), '"name" should be a string'
+    assert isinstance(has_time_set, bool), '"has_time_set" should be a boolean'
+
     if alternative_set is not None and not hasattr(alternative_set, '__iter__'):
         raise TypeError('The "alternative_set" keyword requires a iterable '
                         'Python object!')
@@ -112,8 +113,13 @@ def check_add_vars_input(data):
 
 def check_and_convert_time_series(ensys, data):
     """
-    Compare the length of the data with the time indices of the energy
-    system model. And make sure the data is available as indexed pandas series.
+    Function to check time series data. Main tasks:
+    * Compare data length with the time index of the EnergySystem instance.
+      Raise an error if it is not sufficient, shorten data if it is too long.
+    * Convert provided data to pandas Series if necessary and add the time
+      index of the EnergySystem instance.
+
+    :return: converted data as pandas Series
     """
     #  If length of data is not sufficient raise an error
     if len(data) < ensys.number_of_time_steps:
@@ -145,15 +151,23 @@ def check_and_convert_time_series(ensys, data):
     return data
 
 
+def check_and_set_bool(value, name=None):
+    """ Check and return boolean value (True or False) """
+    param = '' if name is None else '"' + name + '" '  # ending with space!
+    if not isinstance(value, bool):
+        raise TypeError('Input argument {}requires a boolean value '
+                        '(True or False)'.format(param))
+    return value
+
+
 def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
     """  Check input values for capacity arguments. """
-
     # positive floats or integers if not None
     for val in [cap, cap_min, cap_max, cap_per_mod]:
         if val is not None:
-            is_positive_number(val)
+            check_and_set_positive_number(val)
     if max_mod_nbr is not None:
-        is_strictly_positive_int(max_mod_nbr)
+        check_nonzero_positive_int(max_mod_nbr, 'maximal_module_number')
 
     # fixed capacity dominates other arguments
     if cap is not None:
@@ -169,7 +183,6 @@ def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
     # if fixed capacities are used (cap_min = cap_max) set cap to the same value
     if cap_min == cap_max and cap is None:
         cap = cap_min
-
     # raise an error if cap_min is larger than cap_max
     if cap_min is not None and cap_max is not None and cap_min > cap_max:
         raise ValueError('The minimal capacity of a component cannot exceed its'
@@ -178,12 +191,10 @@ def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
     # calculate cap_max from cap_per_mod and max_mod_nbr if needed and possible
     if cap_per_mod is not None and max_mod_nbr is not None and cap_max is None:
         cap_max = cap_per_mod * max_mod_nbr
-
     # "maximal_module_number" is useless without "capacity_per_module" --> raise
     if cap_per_mod is None and max_mod_nbr is not None:
         raise ValueError('Please specify a value for the "capacity_per_module" '
                          'if you set a value for "maximal_module_number".')
-
     # Prevent invalid parameter combination and calculate max_mod_nbr if needed
     if cap_per_mod is not None and max_mod_nbr is None:
         if cap_max is None:
@@ -208,7 +219,7 @@ def check_and_set_commodity_rates(comp, rate_min, rate_max, rate_fix):
                       '"commodity_rate_min" and "commodity_rate_max" are not '
                       'required and are set to None.')
 
-    # Check if data types are correct and add data to parameters DataFrame
+    # Check if data types are correct and add data to 'parameters' DataFrame
     def _check_and_set_rate(data, name):
         if isinstance(data, (int, float)):
             comp.add_param(name, data)
@@ -249,9 +260,9 @@ def check_and_set_cost_and_revenues(comp, data):
     """
     scalar_value, time_series_name = 0, None  # init
     if isinstance(data, (int, float)):
-        is_positive_number(data)  # raise error if value not >= 0
+        check_and_set_positive_number(data)  # raise error if value not >= 0
         scalar_value = data
-    # if aristopy Series is provided --> add it to the parameters DataFrame
+    # if aristopy Series is provided --> add it to the 'parameters' DataFrame
     elif isinstance(data, aristopy.Series):
         conv_data = check_and_convert_time_series(comp.ensys, data.data)
         comp.add_param(data.name, conv_data, data.weighting_factor)
@@ -297,6 +308,24 @@ def check_and_set_flows(data):
         raise exception
 
 
+def check_and_set_positive_number(value, name=None):
+    """ Check and return positive input value (float, int) """
+    param = '' if name is None else '"'+name+'" '  # ending with space!
+    if not (isinstance(value, (float, int))) or not value >= 0:
+        raise TypeError('Input argument {}requires a positive float or '
+                        'integer!'.format(param))
+    return value
+
+
+def check_and_set_range_zero_one(value, name=None):
+    """  Check the return positive input value less or equal one. """
+    check_and_set_positive_number(value, name)  # type float or int and val >= 0
+    param = '' if name is None else '"'+name+'" '  # ending with space!
+    if not value <= 1:
+        raise ValueError('Maximal value for argument {}is "1".'.format(param))
+    return value
+
+
 def check_and_set_time_series_data(data):
     """
     Function to check if the provided content of the time_series_data argument
@@ -339,80 +368,86 @@ def check_and_set_user_expr(data):
         raise exception
 
 
-def check_clustering_input(number_of_typical_periods,
-                           number_of_time_steps_per_period,
-                           number_of_time_steps):
-    is_strictly_positive_int(number_of_typical_periods)
-    is_strictly_positive_int(number_of_time_steps_per_period)
+def check_cluster_input(number_of_typical_periods,
+                        number_of_time_steps_per_period, number_of_time_steps):
+    """ Check correctness of input arguments to the 'cluster' method """
+    check_nonzero_positive_int(
+        number_of_typical_periods, 'number_of_typical_periods')
+    check_nonzero_positive_int(
+        number_of_time_steps_per_period, 'number_of_time_steps_per_period')
     if not number_of_time_steps % number_of_time_steps_per_period == 0:
-        raise ValueError('The number_of_time_steps_per_period has to be an '
-                         'integer divisor of the total number of time steps '
-                         'considered in the energy system model.')
-    if number_of_time_steps < \
-            number_of_typical_periods * number_of_time_steps_per_period:
-        raise ValueError('The product of the number_of_typical_periods and the '
-                         'number_of_time_steps_per_period has to be smaller '
-                         'than the total number of considered time steps.')
+
+        raise ValueError('The total number of model time steps is "%d". This '
+                         'number cannot be divided into an integer number of '
+                         'periods of length "%d" without a remainder. Consider '
+                         'changing parameter "number_of_time_steps_per_period".'
+                         % (number_of_time_steps,
+                            number_of_time_steps_per_period))
+    t_product = number_of_typical_periods * number_of_time_steps_per_period
+    if number_of_time_steps < t_product:
+        raise ValueError('The total number of model time steps is "%d". The '
+                         'product of the requested "number_of_typical_periods" '
+                         'and "number_of_time_steps_per_period" is "%d" which '
+                         'is out of range.' % (number_of_time_steps, t_product))
 
 
-def check_declare_model_input(time_series_aggregation, is_data_clustered,
-                              persistent_model, persistent_solver):
-    if not isinstance(time_series_aggregation, bool):
-        raise TypeError('Parameter time_series_aggregation has to be boolean.')
-    if time_series_aggregation and not is_data_clustered:
-        raise ValueError('The time series_aggregation flag indicates possible '
-                         'inconsistencies in the aggregated time series data.\n'
-                         'First call cluster function and optimize afterwards.')
-    if not isinstance(persistent_model, bool):
-        raise ValueError('The "persistent_model" parameter has to be boolean!')
+def check_declare_model_input(use_clustered_data, is_data_clustered,
+                              declare_persistent, persistent_solver):
+    """ Check correctness of input arguments to the 'declare_model' method """
+    check_and_set_bool(use_clustered_data, 'use_clustered_data')
+    if use_clustered_data and not is_data_clustered:
+        raise ValueError('Model declaration with clustered time series data is'
+                         ' requested ("use_clustered_data"=True), but the model'
+                         ' flag states that clustered data is not available. \n'
+                         'Please call the method "cluster" first and call '
+                         '"declare_model" or "optimize" afterward.')
+    check_and_set_bool(declare_persistent, 'declare_persistent')
     if persistent_solver not in ['gurobi_persistent', 'cplex_persistent']:
         raise ValueError('Valid solvers for the persistent interface are '
                          '"gurobi_persistent" and "cplex_persistent"!')
 
 
 def check_edit_var_input(name, store_vars, **kwargs):
-    is_string(name)
-    is_boolean(store_vars)
+    """ Check input to the Component method 'edit_variable' """
+    assert isinstance(name, str), 'The variable name should be a string!'
+    check_and_set_bool(store_vars, 'store_previous_variables')
     for key, val in kwargs.items():
         if key not in ['ub', 'lb', 'domain', 'has_time_set', 'init']:
             warnings.warn('Keyword argument "{}" not recognized. Options '
                           'for variable editing are: "domain", "ub", "lb", '
                           '"has_time_set", "init".'.format(key))
-
         if (key == 'ub' or key == 'lb') and val is not None:
-            is_number(val)
-        if key == 'domain' and \
-                val not in ['Binary', 'NonNegativeReals', 'Reals']:
+            assert isinstance(val, (float, int)), 'Input requires float or int!'
+        if key == 'domain' and val not in [
+                'Binary', 'NonNegativeReals', 'Reals']:
             raise TypeError('Select the domain of the variable from '
                             '"Binary", "NonNegativeReals", "Reals"')
         if key == 'has_time_set':
-            is_boolean(val)
+            check_and_set_bool(val, 'has_time_set')
 
 
 def check_energy_system_input(number_of_time_steps, hours_per_time_step,
                               interest_rate, economic_lifetime, logging):
-    """ Check the correctness of the user input for the initialization of an
-    EnergySystem instance. """
-    is_strictly_positive_int(number_of_time_steps)
-    is_strictly_positive_int(hours_per_time_step)
-    is_strictly_positive_int(economic_lifetime)
-    is_positive_number(interest_rate)
-
+    """ Check input to initialization method of the EnergySystem class """
+    check_nonzero_positive_int(number_of_time_steps, 'number_of_time_steps')
+    check_nonzero_positive_int(hours_per_time_step, 'hours_per_time_step')
+    check_nonzero_positive_int(economic_lifetime, 'economic_lifetime')
+    check_and_set_positive_number(interest_rate, 'interest_rate')
     if logging is not None and not isinstance(logging, aristopy.Logger):
         raise TypeError('"logging" only takes instances of the class "Logger"')
 
 
 def check_logger_input(logfile, delete_old, default_handler, local_handler,
                        default_level, local_level, screen_to_log):
-    is_string(logfile), is_boolean(delete_old), is_boolean(screen_to_log)
-
+    """ Check input to initialization method of the Logger class """
+    assert isinstance(logfile, str), 'The logfile name should be a string!'
+    check_and_set_bool(delete_old, 'delete_old_logs')
+    check_and_set_bool(screen_to_log, 'write_screen_output_to_logfile')
     if default_handler not in ['file', 'stream']:
         raise ValueError('Input argument should be "file" or "stream".')
-
     if default_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
         raise ValueError('Options for logger levels are: "DEBUG", "INFO", '
                          '"WARNING", "ERROR", "CRITICAL"')
-
     for key, val in local_handler.items():
         if key not in ['EnergySystem', 'Source', 'Sink', 'Conversion',
                        'Storage', 'Bus']:
@@ -421,7 +456,6 @@ def check_logger_input(logfile, delete_old, default_handler, local_handler,
                              '"Conversion", "Storage", "Bus"')
         if val not in ['file', 'stream']:
             raise ValueError('Input argument should be "file" or "stream".')
-
     for key, val in local_level.items():
         if key not in ['EnergySystem', 'Source', 'Sink', 'Conversion',
                        'Storage', 'Bus']:
@@ -433,36 +467,44 @@ def check_logger_input(logfile, delete_old, default_handler, local_handler,
                              '"WARNING", "ERROR", "CRITICAL"')
 
 
-def check_optimize_input(time_series_aggregation, persistent_model,
+def check_nonzero_positive_int(value, name=None):
+    """ Check that the input value is a positive and non-zero integer. """
+    param = '' if name is None else '"'+name+'" '  # ending with space!
+    if not isinstance(value, int) or not value > 0:
+        raise ValueError('Input argument {}requires a positive and non-zero '
+                         'integer.'.format(param))
+
+
+def check_optimize_input(use_clustered_data, declare_persistent,
                          persistent_solver, is_data_clustered,
                          solver, time_limit, optimization_specs):
-    """ Check correctness of input arguments to the optimize function of the
-     energy system model instance"""
-    check_declare_model_input(time_series_aggregation, is_data_clustered,
-                              persistent_model, persistent_solver)
-    if not isinstance(solver, str):
-        raise TypeError('The solver parameter has to be a string.')
+    """ Check correctness of input arguments to the 'optimize' method """
+    check_declare_model_input(use_clustered_data, is_data_clustered,
+                              declare_persistent, persistent_solver)
+    assert isinstance(solver, str), 'The "solver" parameter should be a string!'
     if time_limit is not None:
-        is_strictly_positive_int(time_limit)
-    if not isinstance(optimization_specs, str):
-        raise TypeError('The optimization_specs parameter has to be a string.')
+        check_nonzero_positive_int(time_limit, 'time_limit')
+    assert isinstance(optimization_specs, str), \
+        'The "optimization_specs" parameter should be a string!'
 
 
 def check_plot_operation_input(data, comp, commod, scale, single_period, level,
                                show_plot, save_plot, file_name):
+    """ Function to check the input for Plotter method 'plot_operation' """
     if comp not in data['components']:
         raise Exception('Component not found in JSON-File!')
     if commod not in data['components'][comp]['commodities']:
         raise Exception('Could not find commodity "{}" in component {}!'
                         .format(commod, comp))
-    if single_period is not None \
-            and single_period not \
-            in list(range(data['number_of_typical_periods'])):
+    if single_period is not None and single_period not in list(range(
+            data['number_of_typical_periods'])):
         raise Exception('Period index for plotting is out of range!')
     if level != 1 and level != 2:
         raise Exception('Level of detail can take values 1 or 2!')
-    is_string(file_name)
-    is_boolean(scale), is_boolean(show_plot), is_boolean(save_plot)
+    assert isinstance(file_name, str), 'The "file_name" should be a string!'
+    check_and_set_bool(scale, 'scale_to_hourly_resolution')
+    check_and_set_bool(show_plot, 'show_plot')
+    check_and_set_bool(save_plot, 'save_plot')
 
 
 def check_scalar_params_dict(data):
@@ -472,7 +514,7 @@ def check_scalar_params_dict(data):
     for key, val in data.items():
         if not isinstance(key, str):
             raise TypeError('Check "scalar_params". Keys need to be strings!')
-        is_number(val)  # value type: integer or float
+        assert isinstance(val, (float, int)), 'Input requires float or int!'
 
 
 def io_error_message(class_name, comp_name, io_name):
@@ -480,75 +522,6 @@ def io_error_message(class_name, comp_name, io_name):
     return ValueError('%s "%s" requires at least on %s Flow (not None!). Please'
                       ' check your specifications for keyword argument %s.'
                       % (class_name, comp_name, io_name, io_name))
-
-
-def is_boolean(value):
-    if not isinstance(value, bool):
-        raise TypeError('The input argument has to be boolean (True or False).')
-
-
-def is_dataframe(data):
-    if not isinstance(data, pd.DataFrame):
-        raise TypeError('The data needs to be imported as a pandas DataFrame!')
-
-
-def is_energy_system_instance(ensys):
-    if not isinstance(ensys, aristopy.EnergySystem):
-        raise TypeError('The input is not an EnergySystem instance.')
-
-
-def is_number(value):
-    if not (isinstance(value, (float, int))):
-        raise TypeError('The input argument has to be a number.')
-
-
-def is_positive_number(value):
-    """ Check if the input argument is a positive number. """
-    is_number(value)
-    if not value >= 0:
-        raise ValueError('The input argument has to be positive.')
-
-
-def is_pyomo_object(obj):
-    if not (isinstance(obj, (pyomo.Set, pyomo.Param, pyomo.Var,
-                             pyomo.Constraint))):
-        raise TypeError('The input is not an valid pyomo object. Valid objects '
-                        'are: sets, parameters, variables and constraints.')
-
-
-def is_series(data):
-    if not isinstance(data, pd.Series):
-        raise TypeError('The data needs to be imported as a pandas Series!')
-
-
-def is_strictly_positive_int(value):
-    """ Check if the input argument is a strictly positive integer. """
-    if not isinstance(value, int):
-        raise TypeError('The input argument has to be an integer.')
-    if not value > 0:
-        raise ValueError('The input argument has to be strictly positive.')
-
-
-def is_string(string):
-    """ Check if the input argument is a string. """
-    if not type(string) == str:
-        raise TypeError('The input argument has to be a string')
-
-
-def set_if_between_zero_and_one(data):
-    """  Check the input data for positivity and value less or equal one. """
-    # type float or integer and data >= 0.
-    is_positive_number(data)
-    if not data <= 1:
-        raise ValueError('The maximal value if the input argument is "1".')
-    return data
-
-
-def set_if_positive(data):
-    """  Check the input data for positivity and return the value. """
-    # type float or integer and data >= 0.
-    is_positive_number(data)
-    return data
 
 
 # ==============================================================================

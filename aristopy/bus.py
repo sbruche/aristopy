@@ -63,7 +63,7 @@ class Bus(Component):
                            )
 
         # Check and set additional input arguments
-        self.losses = utils.set_if_between_zero_and_one(losses)  # relative loss
+        self.losses = utils.check_and_set_range_zero_one(losses, 'losses')
 
         # Store the names for the loading and unloading variables
         self.inlet_variable = self.inlet[0].var_name

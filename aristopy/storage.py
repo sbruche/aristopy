@@ -149,22 +149,25 @@ class Storage(Component):
                            )
 
         # Check and set additional input arguments
-        self.charge_rate = utils.set_if_positive(charge_rate)
-        self.discharge_rate = utils.set_if_positive(discharge_rate)
-        self.self_discharge = utils.set_if_between_zero_and_one(self_discharge)
-        self.charge_efficiency = utils.set_if_between_zero_and_one(
-            charge_efficiency)
-        self.discharge_efficiency = utils.set_if_between_zero_and_one(
-            discharge_efficiency)
-        self.soc_min = utils.set_if_between_zero_and_one(soc_min)
-        self.soc_max = utils.set_if_between_zero_and_one(soc_max)
-        self.soc_initial = utils.set_if_between_zero_and_one(soc_initial) \
-            if soc_initial is not None else None
+        self.charge_rate = utils.check_and_set_positive_number(
+            charge_rate, 'charge_rate')
+        self.discharge_rate = utils.check_and_set_positive_number(
+            discharge_rate, 'discharge_rate')
+        self.self_discharge = utils.check_and_set_range_zero_one(
+            self_discharge, 'self_discharge')
+        self.charge_efficiency = utils.check_and_set_range_zero_one(
+            charge_efficiency, 'charge_efficiency')
+        self.discharge_efficiency = utils.check_and_set_range_zero_one(
+            discharge_efficiency, 'discharge_efficiency')
+        self.soc_min = utils.check_and_set_range_zero_one(soc_min, 'soc_min')
+        self.soc_max = utils.check_and_set_range_zero_one(soc_max, 'soc_max')
+        self.soc_initial = utils.check_and_set_range_zero_one(
+            soc_initial, 'soc_initial') if soc_initial is not None else None
 
-        utils.is_boolean(use_inter_period_formulation)  # check input
-        self.use_inter_period_formulation = use_inter_period_formulation
-        utils.is_boolean(precise_inter_period_modeling)
-        self.precise_inter_period_modeling = precise_inter_period_modeling
+        self.use_inter_period_formulation = utils.check_and_set_bool(
+            use_inter_period_formulation, 'use_inter_period_formulation')
+        self.precise_inter_period_modeling = utils.check_and_set_bool(
+            precise_inter_period_modeling, 'precise_inter_period_modeling')
 
         # Store the names of the charging and discharging variables
         self.charge_variable = self.inlet[0].var_name

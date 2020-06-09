@@ -14,7 +14,7 @@ from numpy import nan
 import operator as oper
 import pyomo.environ as pyomo
 import pyomo.network as network
-from aristopy import utils
+from aristopy import utils, EnergySystem
 
 
 # In Python even a class is an object. The metaclass is the class of a class.
@@ -210,10 +210,11 @@ class Component(metaclass=ABCMeta):
         :type opex_operation: float or int (>=0)
         """
 
-        # General attributes:
-        utils.is_energy_system_instance(ensys)
+        # Check and set general attributes:
+        if not isinstance(ensys, EnergySystem):
+            raise TypeError('Input "ensys" requires an EnergySystem instance.')
         self.ensys = ensys
-        utils.is_string(name)
+        assert isinstance(name, str), 'The component "name" should be a string!'
         self.name = name  # might be changed by "add_to_energy_system"
         self.group_name = name
         self.number_in_group = 1  # dito
@@ -364,11 +365,16 @@ class Component(metaclass=ABCMeta):
 
         # Check and set the input values for the cost parameters and prevent
         # invalid parameter combinations.
-        self.capex_per_capacity = utils.set_if_positive(capex_per_capacity)
-        self.capex_if_exist = utils.set_if_positive(capex_if_exist)
-        self.opex_per_capacity = utils.set_if_positive(opex_per_capacity)
-        self.opex_if_exist = utils.set_if_positive(opex_if_exist)
-        self.opex_operation = utils.set_if_positive(opex_operation)
+        self.capex_per_capacity = utils.check_and_set_positive_number(
+            capex_per_capacity, 'capex_per_capacity')
+        self.capex_if_exist = utils.check_and_set_positive_number(
+            capex_if_exist, 'capex_if_exist')
+        self.opex_per_capacity = utils.check_and_set_positive_number(
+            opex_per_capacity, 'opex_per_capacity')
+        self.opex_if_exist = utils.check_and_set_positive_number(
+            opex_if_exist, 'opex_if_exist')
+        self.opex_operation = utils.check_and_set_positive_number(
+            opex_operation, 'opex_operation')
         if not self.has_capacity_var and (
                 self.capex_per_capacity > 0 or self.opex_per_capacity > 0):
             raise ValueError('Make sure there is a capacity restriction (e.g. '
@@ -552,10 +558,12 @@ class Component(metaclass=ABCMeta):
         :type store_previous_variables: bool
         """
         # Check the input:
-        utils.is_boolean(include_existence)
-        utils.is_boolean(include_modules)
-        utils.is_boolean(include_time_dependent)
-        utils.is_boolean(store_previous_variables)
+        utils.check_and_set_bool(include_existence, 'include_existence')
+        utils.check_and_set_bool(include_modules, 'include_modules')
+        utils.check_and_set_bool(include_time_dependent,
+                                 'include_time_dependent')
+        utils.check_and_set_bool(store_previous_variables,
+                                 'store_previous_variables')
 
         def relax_variable(var):
             # Manipulate "variables" (also possible if model not declared yet)
@@ -791,9 +799,14 @@ class Component(metaclass=ABCMeta):
             |br| *Default: True*
         :type store_previous_variables: bool
         """
-        utils.is_series(data), utils.is_boolean(fix_existence),
-        utils.is_boolean(fix_modules), utils.is_boolean(fix_capacity),
-        utils.is_boolean(store_previous_variables)
+        # Check input:
+        if not isinstance(data, pd.Series):
+            raise TypeError('The data needs to be imported as a pandas Series!')
+        utils.check_and_set_bool(fix_existence, 'fix_existence'),
+        utils.check_and_set_bool(fix_modules, 'fix_modules')
+        utils.check_and_set_bool(fix_capacity, 'fix_capacity'),
+        utils.check_and_set_bool(store_previous_variables,
+                                 'store_previous_variables')
 
         # Note: Importing seems to work without rounding => if not: round values
 
@@ -878,7 +891,7 @@ class Component(metaclass=ABCMeta):
                             'aggregated': None})
         self.parameters[name] = series
 
-    def set_time_series_data(self, time_series_aggregation):
+    def set_time_series_data(self, use_clustered_data):
         """
         Sets the time series data in the 'parameters' DataFrame of a component
         depending on whether a calculation with aggregated time series data
@@ -886,14 +899,14 @@ class Component(metaclass=ABCMeta):
 
         *Method is not intended for public access!*
 
-        :param time_series_aggregation: Use aggregated data (True), or original
+        :param use_clustered_data: Use aggregated data (True), or original
             data (False).
-        :type time_series_aggregation: bool
+        :type use_clustered_data: bool
         """
         for param in self.parameters:
             param_dict = self.parameters[param]
             if param_dict['has_time_set']:
-                if time_series_aggregation:
+                if use_clustered_data:
                     # Use aggregated data if time series aggr. is requested
                     param_dict['values'] = param_dict['aggregated']
                 else:
