@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-* Last edited: 2020-06-06
+* Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
 """
 from .energySystem import EnergySystem

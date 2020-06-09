@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-** The Series class **
+**The Series class**
 
-* Last edited: 2020-06-01
+* Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
 """
 import pandas as pd
@@ -20,15 +20,20 @@ class Series:
         dependent commodity cost or revenues, or generally for scripting of
         user expressions (added via 'time_series_data' argument).
 
-        :param name: Name of the time series data instance (string). Can be
+        :param name: Name (identifier) of the time series data instance. Can be
             used for scripting of user expressions.
-        :param data: Series data (type: list, dict, numpy array, pandas Series)
-        :param weighting_factor: Weighting factor to use for the series
-            aggregation (int or float, default: 1.0)
+        :type name: str
+
+        :param data: Time series data
+        :type data: list, dict, numpy array, pandas Series
+
+        :param weighting_factor: Weighting factor to use for the clustering
+            |br| *Default: 1.0*
+        :param weighting_factor: float or int
         """
 
-        # Check correctness of input types
-        assert isinstance(name, str), 'Expected "name" as a string'
+        # Check input arguments:
+        assert isinstance(name, str), '"name" should be a string'
         assert isinstance(data, (list, dict, np.ndarray, pd.Series)), \
             'Expected "data" with type list, dict, numpy array or pandas Series'
         assert isinstance(weighting_factor, (int, float)), \

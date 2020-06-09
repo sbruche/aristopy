@@ -3,7 +3,7 @@
 """
 **The Conversion class**
 
-* Last edited: 2020-06-06
+* Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
 """
 import pyomo.environ as pyomo

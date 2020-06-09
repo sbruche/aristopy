@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-** The solar classes **
+**The Solar classes**
 
 Please note: The classes SolarData, SolarThermalCollector and PVSystem require
 the availability of the Python module 'pvLib'. The module is not provided with
@@ -10,7 +10,7 @@ consider installing the module in your current environment, e.g., via
 >> pip install pvlib
 For further information see: https://pvlib-python.readthedocs.io/en/stable/
 
-* Last edited: 2020-06-01
+* Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
 """
 import pandas as pd
@@ -149,6 +149,7 @@ class SolarThermalCollector:
         """
         Required input arguments (either while creating the class object or
         while calling function 'get_collector_heat_output'.
+
         * 'optical_efficiency': Opt. eff of the collector (float, int)
         * 'thermal_loss_parameter_1': Th. loss of the collector (float, int)
         * 'thermal_loss_parameter_2': Th. loss of the collector (float, int)
@@ -313,6 +314,7 @@ class SolarThermalCollector:
         """
         Required input arguments (either while creating the class object or
         while calling function 'get_collector_heat_output'.
+
         * 'optical_efficiency': Opt. eff of the collector (float, int)
         * 'thermal_loss_parameter_1': Th. loss of the collector (float, int)
         * 'thermal_loss_parameter_2': Th. loss of the collector (float, int)

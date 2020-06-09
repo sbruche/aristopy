@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-** The Var (variable) class **
+**The Var (variable) class**
 
-* Last edited: 2020-06-01
+* Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
 """
 
@@ -17,33 +17,37 @@ class Var:
         of the EnergySystem instance (via function "add_variable").
 
         :param name: Name (identifier) of the added variable
-        :type name: string
+        :type name: str
 
         :param domain: A super-set of the values the variable can take on.
             Possible values are: 'Reals', 'NonNegativeReals', 'Binary'.
-            |br| * Default: 'NonNegativeReals'
-        :type domain: string
+            |br| *Default: 'NonNegativeReals'*
+        :type domain: str
 
-        :param has_time_set: Is True if the time set of the energy system model
-            is also a set of the added variable.
-            |br| * Default: True
-        :type has_time_set: boolean
+        :param has_time_set: Is True if the time set of the EnergySystem
+            instance is also a set of the added variable.
+            |br| *Default: True*
+        :type has_time_set: bool
 
         :param alternative_set: Alternative variable sets can be added here via
             iterable Python objects (e.g. list)
+            |br| *Default: None*
 
         :param ub: Upper variable bound.
-        :type ub: Number (integer or float)
+            |br| *Default: None*
+        :type ub: float or int
 
         :param lb: Lower variable bound.
-        :type lb: Number (integer or float)
+            |br| *Default: None*
+        :type lb: float or int
 
         :param init: A function or Python object that provides starting values
             for the added variable.
+            |br| *Default: None*
         """
 
-        # Check correctness of input types
-        assert isinstance(name, str), 'Expected variable "name" as a string'
+        # Check input arguments:
+        assert isinstance(name, str), '"name" should be a string'
         assert domain in ['Binary', 'NonNegativeReals', 'Reals'], \
             'Select variable domain from "Binary", "NonNegativeReals", "Reals"'
         assert isinstance(has_time_set, bool), 'Expected "has_time_set as bool'

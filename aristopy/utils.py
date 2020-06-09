@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-**Utility functions**
+**Globals, helper and utility functions**
 
 * Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
