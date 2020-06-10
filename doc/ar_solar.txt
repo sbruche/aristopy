@@ -1,0 +1,39 @@
+*****
+Solar
+*****
+
+.. |br| raw:: html
+
+   <br />
+
+.. automodule:: aristopy.solar
+
+SolarData
+==========
+
+.. autoclass:: SolarData
+   :members:
+   :undoc-members:
+   :member-order: bysource
+
+   .. automethod:: __init__
+
+SolarThermalCollector
+=====================
+   
+.. autoclass:: SolarThermalCollector
+   :members:
+   :undoc-members:
+   :member-order: bysource
+
+   .. automethod:: __init__
+   
+PVSystem
+========
+
+.. autoclass:: PVSystem
+   :members:
+   :undoc-members:
+   :member-order: bysource
+
+   .. automethod:: __init__

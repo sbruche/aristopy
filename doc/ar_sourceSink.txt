@@ -1,0 +1,30 @@
+***************
+Source and Sink
+***************
+
+.. |br| raw:: html
+
+   <br />
+
+.. automodule:: aristopy.sourceSink
+
+Source
+==========
+
+.. autoclass:: Source
+   :members:
+   :undoc-members:
+   :member-order: bysource
+
+   .. automethod:: __init__
+
+
+Sink
+==========
+
+.. autoclass:: aristopy.Sink
+   :members:
+   :undoc-members:
+   :member-order: bysource
+
+   .. automethod:: __init__

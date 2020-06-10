@@ -1,0 +1,16 @@
+***
+Bus
+***
+
+.. |br| raw:: html
+
+   <br />
+
+.. automodule:: aristopy.bus
+
+.. autoclass:: Bus
+   :members:
+   :undoc-members:
+   :member-order: bysource
+
+   .. automethod:: __init__

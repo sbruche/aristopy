@@ -1,0 +1,16 @@
+******
+Logger
+******
+
+.. |br| raw:: html
+
+   <br />
+
+.. automodule:: aristopy.logger
+
+.. autoclass:: Logger
+   :members:
+   :undoc-members:
+   :member-order: bysource
+
+   .. automethod:: __init__
