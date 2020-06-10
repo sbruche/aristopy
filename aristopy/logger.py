@@ -1,3 +1,18 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# ==============================================================================
+#    L O G G E R
+# ==============================================================================
+"""
+* File name: logger.py
+* Last edited: 2020-06-14
+* Created by: Stefan Bruche (TU Berlin)
+
+An instance of the Logger class can be assigned to the keyword 'logging' during
+initialization of the EnergySystem instance. That way, the user can decide where
+to log (file, console, or both), and what to log ('DEBUG', 'ERROR', ...).
+The Logger output is usually helpful during debugging.
+"""
 import os
 import sys
 import logging
@@ -22,8 +37,9 @@ class Logger:
                       
         :param default_log_handler: Sets a default handler to the loggers. The
             handler options are "file" or "stream":
-            |br| * "file" sends logs to a file with the specified "logfile_name"
-            |br| * "stream" sends logs to the console (sys.stdout).
+
+            * "file" sends logs to a file with the specified "logfile_name"
+            * "stream" sends logs to the console (sys.stdout).
         :type default_log_handler: str
 
         :param local_log_handler: Dictionary to override the default handler

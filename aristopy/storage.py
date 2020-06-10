@@ -1,10 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# ==============================================================================
+#    S T O R A G E
+# ==============================================================================
 """
-**The Storage class**
-
+* File name: storage.py
 * Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
+
+A storage component can collect a commodity at the inlet at one time step and
+make it available at the outlet at another time step.
+Thus, it is a component to provide flexibility.
 """
 import pyomo.environ as pyomo
 from aristopy import utils
@@ -12,11 +18,6 @@ from aristopy.component import Component
 
 
 class Storage(Component):
-    """
-    A storage component can collect a commodity at the inlet at one time step
-    and make it available at the outlet at another time step.
-    Thus, it is a component to provide flexibility.
-    """
     def __init__(self, ensys, name, inlet, outlet,
                  basic_variable='inlet_variable',
                  has_existence_binary_var=False,

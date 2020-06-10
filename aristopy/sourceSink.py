@@ -1,10 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# ==============================================================================
+#    S O U R C E   A N D   S I N K
+# ==============================================================================
 """
-**The Source and Sink classes**
-
+* File name: sourceSink.py
 * Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
+
+Sources and sinks are responsible for the transportation of commodities
+across the system boundary into and out of the EnergySystem instance.
+The Sink class inherits from the Source class. Both have the same input
+parameters with only one exception: The Sink has an "inlet" instead of
+an "outlet" attribute.
 """
 import pyomo.environ as pyomo
 from aristopy.component import Component
@@ -12,10 +20,6 @@ from aristopy import utils
 
 
 class Source(Component):
-    """
-    Sources are responsible for the transportation of commodities across the
-    system boundary into the EnergySystem instance.
-    """
     def __init__(self, ensys, name, outlet, basic_variable='outlet_variable',
                  has_existence_binary_var=False, has_operation_binary_var=False,
                  time_series_data=None, scalar_params=None,
@@ -324,10 +328,6 @@ class Source(Component):
 
 
 class Sink(Source):
-    """
-    Sinks are responsible for the transportation of commodities across the
-    system boundary out of the EnergySystem instance.
-    """
     def __init__(self, ensys, name, inlet, basic_variable='inlet_variable',
                  has_existence_binary_var=None, has_operation_binary_var=None,
                  time_series_data=None, scalar_params=None,

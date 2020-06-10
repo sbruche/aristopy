@@ -1,17 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# ==============================================================================
+#    S O L A R
+# ==============================================================================
 """
-**The Solar classes**
-
-Please note: The classes SolarData, SolarThermalCollector and PVSystem require
-the availability of the Python module 'pvLib'. The module is not provided with
-the standard installation of aristopy. If you want to use the solar classes,
-consider installing the module in your current environment, e.g., via
->> pip install pvlib
-For further information see: https://pvlib-python.readthedocs.io/en/stable/
-
+* File name: solar.py
 * Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
+
+The solar classes SolarData, SolarThermalCollector, and PVSystem provide
+functionality to model feed-in time series data for solar components (thermal
+and electrical) at a certain location and with specific tilt and azimuth angles.
+
+Please note: The solar classes require the availability of the Python module
+*pvlib*. The module is not provided with the standard installation of aristopy.
+If you want to use the solar classes, consider installing the module in your
+current environment, e.g.: ::
+
+>> pip install pvlib
+
+For further information and an installation guide, users are referred to the
+`pvlib documentation <https://pvlib-python.readthedocs.io/en/stable/>`_.
 """
 import pandas as pd
 try:
@@ -153,8 +162,8 @@ class SolarThermalCollector:
         * 'optical_efficiency': Opt. eff of the collector (float, int)
         * 'thermal_loss_parameter_1': Th. loss of the collector (float, int)
         * 'thermal_loss_parameter_2': Th. loss of the collector (float, int)
-        --> See equation in: V. Quaschning, 'Regenerative Energiesysteme',
-            10. Auflage, Hanser Verlag, 2019, S.131ff
+          |br| => See equation in: V.Quaschning, 'Regenerative Energiesysteme',
+          10th edition, Hanser, 2019, p.131ff.
         * 'irradiance_data': Irradiance (POA) on collector array (pd.Series)
         * 't_ambient': Ambient temperature (float, int, pd.Series)
         * 't_collector_in': Collector inlet temperature (float, int, pd.Series)
@@ -318,8 +327,8 @@ class SolarThermalCollector:
         * 'optical_efficiency': Opt. eff of the collector (float, int)
         * 'thermal_loss_parameter_1': Th. loss of the collector (float, int)
         * 'thermal_loss_parameter_2': Th. loss of the collector (float, int)
-        --> See equation in: V. Quaschning, 'Regenerative Energiesysteme',
-            10. Auflage, Hanser Verlag, 2019, S.131ff
+          |br| => See equation in: V.Quaschning, 'Regenerative Energiesysteme',
+          10th edition, Hanser, 2019, p.131ff.
         * 'irradiance_data': Irradiance (POA) on collector array (pd.Series)
         * 't_ambient': Ambient temperature (float, int, pd.Series)
         * 't_collector_in': Collector inlet temperature (float, int, pd.Series)
@@ -444,7 +453,8 @@ class PVSystem:
     @property
     def area(self):
         """
-        Get area of PV system in :math:`m^2`
+        Get area of the PV system in :math:`m^2`
+
         :return: PV System area
         """
         if 'Area' in self.system.module_parameters.index:
@@ -462,6 +472,7 @@ class PVSystem:
         """
         PV system peak power [W] can be limited by the inverter or the modules
         (minimum). If DC mode is selected the inverter is not considered.
+
         :return: Peak power of the PV System
         """
         # I and V at the MPP have different names depending on the database
@@ -492,12 +503,16 @@ class PVSystem:
             column names 'wind_speed' and 'temp_air' (used in calc. of losses)
         :param surface_tilt: tilt of the PV modules (0=horizontal, 90=vertical)
         :param surface_azimuth: module azimuth angle (180=facing south)
-        :param scaling: Scale feed-in, a) None=no scaling [W], b) 'area'=
-            scaled to area [W/m2], c) 'peak_power'=scaled to nominal power [-]
-        :param mode: a) 'ac': return AC feed-in (including inverter),
+        :param scaling:
+            a) None=no feed-in scaling [W],
+            b) 'area'=scale feed-in to area [W/m2],
+            c) 'peak_power'=scale feed-in to nominal power [-]
+        :param mode:
+            a) 'ac': return AC feed-in (including inverter),
             b) 'dc': return DC feed-in (excluding inverter)
         :param kwargs: Examples for kwargs are 'albedo', 'modules_per_string',
             'strings_per_inverter', 'temperature_model_parameters', ...
+
         :return: pandas DataFrame with POA ('poa_global', ...)
         """
         if 'location' in kwargs.keys():

@@ -1,10 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# ==============================================================================
+#    C O M P O N E N T
+# ==============================================================================
 """
-**The Component class**
-
+* File name: component.py
 * Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
+
+Components are added to an instance of the EnergySystem class.
+The Component class holds basic parameters (e.g., DataFrames for variables and
+parameters) and methods (e.g., calculate contributions to the objective
+function), that are required in all types of components. *aristopy* has five
+basic component types that are inheriting the parameters and methods from the
+Component class: Source, Sink, Conversion, Bus, Storage.
+The Component class itself contains abstract methods and can, therefore, not be
+instantiated itself.
 """
 import copy
 from collections import OrderedDict
@@ -27,14 +38,6 @@ from aristopy import utils, EnergySystem
 # inheriting from 'Component' must override all abstract methods of the parent.
 
 class Component(metaclass=ABCMeta):
-    """
-    The component class is the parent class for all energy system components.
-    In other words, each instance of Source, Sink, Conversion, Bus and Storage
-    inherits the parameters and methods of the component class. The component
-    class itself contains abstract methods and can, therefore, not be
-    instantiated itself. The abstract methods are later overwritten by the child
-    classes to enable instantiation.
-    """
     def __init__(self, ensys, name, inlet, outlet, basic_variable,
                  has_existence_binary_var=False, has_operation_binary_var=False,
                  time_series_data=None, scalar_params=None,
@@ -47,7 +50,8 @@ class Component(metaclass=ABCMeta):
         """
         Initialize an instance of the Component class. Note that an instance of
         the class Component itself can not be instantiated since it holds
-        abstract methods.
+        abstract methods. The abstract methods are later overwritten by the
+        child classes to enable instantiation.
 
         :param ensys: EnergySystem instance the component is added to.
         :type ensys: instance of aristopy's EnergySystem class

@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# ==============================================================================
+#    C O N V E R S I O N
+# ==============================================================================
 """
-**The Conversion class**
-
+* File name: conversion.py
 * Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
+
+A conversion component takes commodities at the inlet and provides other
+commodities at the outlet after an internal conversion.
 """
 import pyomo.environ as pyomo
 from aristopy.component import Component
@@ -12,10 +17,6 @@ from aristopy import utils
 
 
 class Conversion(Component):
-    """
-    A conversion component takes commodities at the inlet and provides other
-    commodities at the outlet after an internal conversion.
-    """
     def __init__(self, ensys, name, inlet, outlet, basic_variable,
                  has_existence_binary_var=None, has_operation_binary_var=None,
                  time_series_data=None, scalar_params=None,

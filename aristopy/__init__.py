@@ -10,10 +10,8 @@ from .sourceSink import Source, Sink
 from .conversion import Conversion
 from .storage import Storage
 from .bus import Bus
+from .flowSeriesVar import Flow, Series, Var
 from .logger import Logger
-from .utils import check_logger_input
+from .plotter import Plotter
 from .solar import SolarData, SolarThermalCollector, PVSystem
-from .plotting import Plotter
-from .flow import Flow
-from .series import Series
-from .var import Var
+from .utils import check_logger_input

@@ -1,10 +1,36 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# ==============================================================================
+#    E N E R G Y S Y S T E M
+# ==============================================================================
 """
-**The EnergySystem class**
-
+* File name: energySystem.py
 * Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
+
+The EnergySystem class is aristopy's main model container. An instance of
+the EnergySystem class holds the modeled components, the overall pyomo
+model and the results of the optimization.
+The EnergySystem class provides features to built and solve the
+optimization problem, manipulate the associated component models, and
+process the results of the optimization. The implemented class methods are:
+
+* Perform clustering of the implemented time series data ('cluster')
+* Declare the pyomo optimization model ('declare_model')
+* Call the main optimization routine ('optimize')
+* Relax the integrality of binary variables ('relax_integrality')
+* Edit properties of component variables, e.g., change bounds or domains
+  ('edit_component_variables')
+* Reset component variables after applying changes, e.g., relaxation
+  ('reset_component_variables')
+* Export and import configurations, i.e. component existences and capacities
+  ('export_component_configuration', 'import_component_configuration')
+* Create integer-cut-constraints to exclude the current design solution
+  from the solution space and enforce a new design in subsequent model runs
+  ('add_design_integer_cut_constraint')
+* Add variables, constraints and objective function contributions directly
+  to the main pyomo model, outside of the component declaration
+  ('add_variable', 'add_constraint' and 'add_objective_function_contribution')
 """
 import os
 import time
@@ -21,32 +47,6 @@ from aristopy import utils, logger
 
 
 class EnergySystem:
-    """
-    The EnergySystem class is aristopy's main model container. An instance of
-    the EnergySystem class holds the modeled components, the overall pyomo
-    model and the results of the optimization.
-    The EnergySystem class provides features to built and solve the
-    optimization problem, manipulate the associated component models, and
-    process the results of the optimization. The implemented class methods are:
-
-    - Perform clustering of the implemented time series data (**cluster**)
-    - Declare the pyomo optimization model (**declare_model**)
-    - Call the main optimization routine (**optimize**)
-    - Relax the integrality of binary variables (**relax_integrality**)
-    - Edit properties of component variables, e.g., change bounds or domains
-      (**edit_component_variables**)
-    - Reset component variables after applying changes, e.g., relaxation
-      (**reset_component_variables**)
-    - Export and import configurations, i.e. component existences and capacities
-      (**export_component_configuration**, **import_component_configuration**)
-    - Create integer-cut-constraints to exclude the current design solution
-      from the solution space and enforce a new design in subsequent model runs
-      (**add_design_integer_cut_constraint**)
-    - Add variables, constraints and objective function contributions directly
-      to the main pyomo model, outside of the component declaration
-      (**add_variable** and **add_constraint** and
-      **add_objective_function_contribution**)
-    """
     def __init__(self, number_of_time_steps=8760, hours_per_time_step=1,
                  interest_rate=0.05, economic_lifetime=20, logging=None):
         """

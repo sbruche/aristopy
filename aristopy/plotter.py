@@ -1,10 +1,31 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# ==============================================================================
+#    P L O T T E R
+# ==============================================================================
 """
-**The Plotter class**
-
+* File name: plotter.py
 * Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
+
+The Plotter class provides three basic plotting methods:
+
+* 'plot_operation': A mixed bar and line plot that visualizes the operation of
+  a component on the basis of a selected commodity.
+
+* 'plot_objective': Bar chart that summarizes the cost contributions of each
+  component to the overall objective function value.
+
+* 'quick_plot': Quick visualization for the values of one component variable as
+  a line, scatter, or bar plot.
+
+Note: The results of the optimization are exported to dictionaries and stored
+as strings in a json-file to easily handle multidimensional indices
+(e.g. tuples). To evaluate the Python strings we use the function "literal_eval"
+from the python built in library "ast". (the strings can only consist of:
+strings, bytes, numbers, tuples, lists, dicts, sets, booleans, and None)
+[`Ref <https://stackoverflow.com/questions/4547274/
+convert-a-python-dict-to-a-string-and-back>`_]
 """
 import os
 import copy
@@ -21,25 +42,7 @@ from aristopy import utils
 class Plotter:
     def __init__(self, json_file):
         """
-        The Plotter class provides three basic plotting methods:
 
-        * 'plot_operation': A mixed bar and line plot that visualizes the
-          operation of a component on the basis of a selected commodity.
-
-        * 'plot_objective': Bar chart that summarizes the cost contributions of
-          each component to the overall objective function value.
-
-        * 'quick_plot': Quick visualization for the values of one component
-          variable as a line, scatter, or bar plot.
-
-        Note:
-        The results of the optimization are exported to dictionaries and stored
-        as strings in a json-file to easily handle multidimensional indices
-        (e.g. tuples). To evaluate the Python strings we use the function
-        "literal_eval" from the python built in library "ast". (the strings can
-        only consist of: strings, bytes, numbers, tuples, lists, dicts, sets,
-        booleans, and None) [`Ref <https://stackoverflow.com/questions/4547274/
-        convert-a-python-dict-to-a-string-and-back>`_]
 
         :param json_file: Path to the optimization results file in JSON-Format
         """
@@ -111,7 +114,7 @@ class Plotter:
 
         :param file_name: Name of the file (if saved); no file-ending required
             |br| *Default: 'objective_plot'*
-        :type save_plot: str
+        :type file_name: str
 
         :param kwargs: Additional keyword arguments to manipulate the plot
             (e.g., labels, figure size, legend position, ...).
@@ -260,7 +263,7 @@ class Plotter:
         :param file_name: Name of the file (if saved); no file-ending required.
             Name is auto-generated if None is provided and plot should be saved.
             |br| *Default: None*
-        :type save_plot: str
+        :type file_name: str
         """
         if self.data is None:
             return
@@ -319,7 +322,7 @@ class Plotter:
         :param commodity: Name of the commodity that should be plotted.
         :type commodity: str
 
-        :param level_of_detail: Specifies the level if plotting detail. Only the
+        :param level_of_detail: Specifies the level of plotting detail. Only the
             commodity in the component itself is plotted if 1 is selected.
             The composition of the commodity (from which sources formed and to
             which destinations sent) is visualized if 2 is selected.
@@ -349,7 +352,7 @@ class Plotter:
 
         :param file_name: Name of the file (if saved); no file-ending required
             |br| *Default: 'operation_plot'*
-        :type save_plot: str
+        :type file_name: str
 
         :param kwargs: Additional keyword arguments to manipulate the plot
             (e.g., labels, figure size, legend position, ...).

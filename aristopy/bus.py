@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# ==============================================================================
+#    B U S
+# ==============================================================================
 """
-**The Bus class**
-
+* File name: bus.py
 * Last edited: 2020-06-14
 * Created by: Stefan Bruche (TU Berlin)
+
+A Bus component collects and transfers a commodity. Bus components can also
+be used to model transmission lines between different sites.
 """
 import pyomo.environ as pyomo
 from aristopy import utils
@@ -12,10 +17,6 @@ from aristopy.component import Component
 
 
 class Bus(Component):
-    """
-    A Bus component collects and transfers a commodity.
-    They can also be used to model transmission lines between different sites.
-    """
     def __init__(self, ensys, name, inlet, outlet,
                  basic_variable='inlet_variable',
                  has_existence_binary_var=None,
