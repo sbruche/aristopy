@@ -12,15 +12,16 @@ The solar classes SolarData, SolarThermalCollector, and PVSystem provide
 functionality to model feed-in time series data for solar components (thermal
 and electrical) at a certain location and with specific tilt and azimuth angles.
 
-Please note: The solar classes require the availability of the Python module
-*pvlib*. The module is not provided with the standard installation of aristopy.
-If you want to use the solar classes, consider installing the module in your
-current environment, e.g.: ::
+.. note::
+   The solar classes require the availability of the Python module *pvlib*.
+   The module is not provided with the standard installation of *aristopy*.
+   If you want to use the solar classes, consider installing the module in your
+   current environment, e.g. via: ::
 
->> pip install pvlib
+   >> pip install pvlib
 
-For further information and an installation guide, users are referred to the
-`pvlib documentation <https://pvlib-python.readthedocs.io/en/stable/>`_.
+   For further information and an installation guide, users are referred to the
+   `pvlib documentation <https://pvlib-python.readthedocs.io/en/stable/>`_.
 """
 import pandas as pd
 try:

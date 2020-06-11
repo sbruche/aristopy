@@ -15,22 +15,44 @@ The EnergySystem class provides features to built and solve the
 optimization problem, manipulate the associated component models, and
 process the results of the optimization. The implemented class methods are:
 
-* Perform clustering of the implemented time series data ('cluster')
-* Declare the pyomo optimization model ('declare_model')
-* Call the main optimization routine ('optimize')
-* Relax the integrality of binary variables ('relax_integrality')
-* Edit properties of component variables, e.g., change bounds or domains
-  ('edit_component_variables')
-* Reset component variables after applying changes, e.g., relaxation
-  ('reset_component_variables')
-* Export and import configurations, i.e. component existences and capacities
-  ('export_component_configuration', 'import_component_configuration')
-* Create integer-cut-constraints to exclude the current design solution
+* :meth:`cluster <aristopy.energySystem.EnergySystem.cluster>`:
+  Perform clustering of the implemented time series data
+
+* :meth:`declare_model <aristopy.energySystem.EnergySystem.declare_model>`:
+  Declare the pyomo optimization model
+
+* :meth:`optimize <aristopy.energySystem.EnergySystem.optimize>`:
+  Call the main optimization routine
+
+* :meth:`relax_integrality
+  <aristopy.energySystem.EnergySystem.relax_integrality>`:
+  Relax the integrality of binary variables
+
+* :meth:`edit_component_variables
+  <aristopy.energySystem.EnergySystem.edit_component_variables>`:
+  Edit properties of component variables, e.g., change bounds or domains
+
+* :meth:`reset_component_variables
+  <aristopy.energySystem.EnergySystem.reset_component_variables>`:
+  Reset component variables after applying changes, e.g., relaxation
+
+* :meth:`export_component_configuration
+  <aristopy.energySystem.EnergySystem.export_component_configuration>`,
+  :meth:`import_component_configuration
+  <aristopy.energySystem.EnergySystem.import_component_configuration>`,:
+  Export and import configurations, i.e. component existences and capacities
+
+* :meth:`add_design_integer_cut_constraint
+  <aristopy.energySystem.EnergySystem.add_design_integer_cut_constraint>`:
+  Create integer-cut-constraints to exclude the current design solution
   from the solution space and enforce a new design in subsequent model runs
-  ('add_design_integer_cut_constraint')
-* Add variables, constraints and objective function contributions directly
+
+* :meth:`add_variable <aristopy.energySystem.EnergySystem.add_variable>`,
+  :meth:`add_constraint <aristopy.energySystem.EnergySystem.add_constraint>`,
+  :meth:`add_objective_function_contribution
+  <aristopy.energySystem.EnergySystem.add_objective_function_contribution>`:
+  Add variables, constraints and objective function contributions directly
   to the main pyomo model, outside of the component declaration
-  ('add_variable', 'add_constraint' and 'add_objective_function_contribution')
 """
 import os
 import time

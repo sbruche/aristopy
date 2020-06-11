@@ -31,7 +31,8 @@ class Bus(Component):
         Initialize an instance of the Bus class.
 
         .. note::
-           See the documentation of the Component class for a description of all
+           See the documentation of the :class:`Component
+           <aristopy.component.Component>` class for a description of all
            keyword arguments and inherited methods.
 
         :param losses: Factor to specify the relative loss of the transported
@@ -83,6 +84,13 @@ class Bus(Component):
     def declare_component_constraints(self, ensys, model):
         """
         Method to declare all component constraints.
+
+        The following constraint methods are inherited from the Component class
+        and are not documented in this sub-class:
+
+        * :meth:`con_couple_bi_ex_and_cap
+          <aristopy.component.Component.con_couple_bi_ex_and_cap>`
+        * :meth:`con_cap_min <aristopy.component.Component.con_cap_min>`
 
         *Method is not intended for public access!*
 

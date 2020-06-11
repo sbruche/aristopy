@@ -37,7 +37,8 @@ class Storage(Component):
         Initialize an instance of the Storage class.
 
         .. note::
-           See the documentation of the Component class for a description of all
+           See the documentation of the :class:`Component
+           <aristopy.component.Component>` class for a description of all
            keyword arguments and inherited methods.
 
         :param charge_rate: Ratio between the maximum charging power or flow and
@@ -207,6 +208,18 @@ class Storage(Component):
     def declare_component_constraints(self, ensys, model):
         """
         Method to declare all component constraints.
+
+        The following constraint methods are inherited from the Component class
+        and are not documented in this sub-class:
+
+        * :meth:`con_couple_bi_ex_and_cap
+          <aristopy.component.Component.con_couple_bi_ex_and_cap>`
+        * :meth:`con_cap_min <aristopy.component.Component.con_cap_min>`
+        * :meth:`con_cap_modular <aristopy.component.Component.con_cap_modular>`
+        * :meth:`con_modular_sym_break
+          <aristopy.component.Component.con_modular_sym_break>`
+        * :meth:`con_couple_existence_and_modular
+          <aristopy.component.Component.con_couple_existence_and_modular>`
 
         *Method is not intended for public access!*
 

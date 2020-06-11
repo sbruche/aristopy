@@ -37,7 +37,8 @@ class Source(Component):
         Initialize an instance of the Source class.
 
         .. note::
-           See the documentation of the Component class for a description of all
+           See the documentation of the :class:`Component
+           <aristopy.component.Component>` class for a description of all
            keyword arguments and inherited methods.
 
         :param commodity_rate_min: Scalar value or time series that provides a
@@ -130,6 +131,17 @@ class Source(Component):
     def declare_component_constraints(self, ensys, model):
         """
         Method to declare all component constraints.
+
+        The following constraint methods are inherited from the Component class
+        and are not documented in this sub-class:
+
+        * :meth:`con_couple_bi_ex_and_cap
+          <aristopy.component.Component.con_couple_bi_ex_and_cap>`
+        * :meth:`con_cap_min <aristopy.component.Component.con_cap_min>`
+        * :meth:`con_bi_var_ex_and_op_relation
+          <aristopy.component.Component.con_bi_var_ex_and_op_relation>`
+        * :meth:`con_couple_op_binary_and_basic_var
+          <aristopy.component.Component.con_couple_op_binary_and_basic_var>`
 
         *Method is not intended for public access!*
 
@@ -348,8 +360,10 @@ class Sink(Source):
         an "outlet" attribute.
 
         .. note::
-           See the documentation of the Component class and the Source class for
-           a description of all keyword arguments and inherited methods.
+           See the documentation of the :class:`Component
+           <aristopy.component.Component>` class and the :class:`Source
+           <aristopy.sourceSink.Source>` class for a description of all
+           keyword arguments and inherited methods.
         """
 
         Source.__init__(self, ensys=ensys, name=name,

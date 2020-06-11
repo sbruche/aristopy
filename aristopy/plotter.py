@@ -10,22 +10,26 @@
 
 The Plotter class provides three basic plotting methods:
 
-* 'plot_operation': A mixed bar and line plot that visualizes the operation of
-  a component on the basis of a selected commodity.
+* :meth:`plot_operation <aristopy.plotter.Plotter.plot_operation>`:
+  A mixed bar and line plot that visualizes the operation of a component on the
+  basis of a selected commodity.
 
-* 'plot_objective': Bar chart that summarizes the cost contributions of each
-  component to the overall objective function value.
+* :meth:`plot_objective <aristopy.plotter.Plotter.plot_objective>`:
+  Bar chart that summarizes the cost contributions of each component to the
+  overall objective function value.
 
-* 'quick_plot': Quick visualization for the values of one component variable as
-  a line, scatter, or bar plot.
+* :meth:`quick_plot <aristopy.plotter.Plotter.quick_plot>`:
+  Quick visualization for the values of one component variable as a line,
+  scatter, or bar plot.
 
-Note: The results of the optimization are exported to dictionaries and stored
-as strings in a json-file to easily handle multidimensional indices
-(e.g. tuples). To evaluate the Python strings we use the function "literal_eval"
-from the python built in library "ast". (the strings can only consist of:
-strings, bytes, numbers, tuples, lists, dicts, sets, booleans, and None)
-[`Ref <https://stackoverflow.com/questions/4547274/
-convert-a-python-dict-to-a-string-and-back>`_]
+.. note::
+   The results of the optimization are exported to dictionaries and stored
+   as strings in a json-file to easily handle multidimensional indice (e.g.
+   tuples). To evaluate the Python strings we use the function "literal_eval"
+   from the python built in library "ast". (the strings can only consist of:
+   strings, bytes, numbers, tuples, lists, dicts, sets, booleans, and None)
+   [`Ref <https://stackoverflow.com/questions/4547274/
+   convert-a-python-dict-to-a-string-and-back>`_]
 """
 import os
 import copy
