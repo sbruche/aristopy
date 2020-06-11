@@ -36,8 +36,9 @@ class Source(Component):
         """
         Initialize an instance of the Source class.
 
-        *See the documentation of the Component class for a description of all
-        keyword arguments and inherited methods.*
+        .. note::
+           See the documentation of the Component class for a description of all
+           keyword arguments and inherited methods.
 
         :param commodity_rate_min: Scalar value or time series that provides a
             minimal value (lower bound) for the basic variable (typically, Sink
@@ -346,8 +347,9 @@ class Sink(Source):
         parameters with only one exception: The Sink has an "inlet" instead of
         an "outlet" attribute.
 
-        *See the documentation of the Component class and the Source class for
-        a description of all keyword arguments and inherited methods.*
+        .. note::
+           See the documentation of the Component class and the Source class for
+           a description of all keyword arguments and inherited methods.
         """
 
         Source.__init__(self, ensys=ensys, name=name,

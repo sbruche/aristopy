@@ -12,6 +12,4 @@ EnergySystem
 
 .. autoclass:: EnergySystem
    :members:
-   :member-order: bysource
-
-   .. automethod:: __init__
+   :undoc-members:

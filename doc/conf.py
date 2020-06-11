@@ -26,7 +26,7 @@ author = 'Stefan Bruche'
 # The short X.Y version
 version = ''
 # The full version, including alpha/beta/rc tags
-release = '0.9'
+release = '0.9.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -38,16 +38,21 @@ release = '0.9'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.todo', 'sphinx.ext.viewcode']					   
+extensions = ['sphinx.ext.autodoc',
+              'sphinx.ext.todo',
+              'sphinx.ext.viewcode'
+              ]
+
+autodoc_member_order = 'bysource'  # sorting of members of auto-documented class
+# Both the class’ and the __init__ method docstring are concatenated & inserted
+autoclass_content = 'both'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['.templates']
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
-#
-# source_suffix = ['.rst', '.md']
-source_suffix = ['.rst', '.txt']
+source_suffix = ['.rst', '.txt']  # '.md' -> markdown
 
 # The master toctree document.
 master_doc = 'index'

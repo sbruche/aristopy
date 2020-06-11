@@ -30,8 +30,9 @@ class Bus(Component):
         """
         Initialize an instance of the Bus class.
 
-        *See the documentation of the Component class for a description of all
-        keyword arguments and inherited methods.*
+        .. note::
+           See the documentation of the Component class for a description of all
+           keyword arguments and inherited methods.
 
         :param losses: Factor to specify the relative loss of the transported
             commodity between inlet and outlet per hour of operation

@@ -11,6 +11,3 @@ Bus
 .. autoclass:: Bus
    :members:
    :undoc-members:
-   :member-order: bysource
-
-   .. automethod:: __init__

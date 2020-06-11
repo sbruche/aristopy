@@ -18,6 +18,4 @@ Component
 
 .. autoclass:: Component
    :members:
-   :member-order: bysource
-
-   .. automethod:: __init__
+..   :undoc-members:

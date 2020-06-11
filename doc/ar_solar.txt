@@ -14,9 +14,7 @@ SolarData
 .. autoclass:: SolarData
    :members:
    :undoc-members:
-   :member-order: bysource
 
-   .. automethod:: __init__
 
 SolarThermalCollector
 =====================
@@ -24,9 +22,7 @@ SolarThermalCollector
 .. autoclass:: SolarThermalCollector
    :members:
    :undoc-members:
-   :member-order: bysource
 
-   .. automethod:: __init__
    
 PVSystem
 ========
@@ -34,6 +30,3 @@ PVSystem
 .. autoclass:: PVSystem
    :members:
    :undoc-members:
-   :member-order: bysource
-
-   .. automethod:: __init__

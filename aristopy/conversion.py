@@ -33,8 +33,9 @@ class Conversion(Component):
         """
         Initialize an instance of the Conversion class.
 
-        *See the documentation of the Component class for a description of all
-        keyword arguments and inherited methods.*
+        .. note::
+           See the documentation of the Component class for a description of all
+           keyword arguments and inherited methods.
 
         :param start_up_cost: Costs incurred when the state of the binary
             operation variable (BI_OP) changes from 0 (OFF) to 1 (ON) from one

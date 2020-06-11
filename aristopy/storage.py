@@ -36,8 +36,9 @@ class Storage(Component):
         """
         Initialize an instance of the Storage class.
 
-        *See the documentation of the Component class for a description of all
-        keyword arguments and inherited methods.*
+        .. note::
+           See the documentation of the Component class for a description of all
+           keyword arguments and inherited methods.
 
         :param charge_rate: Ratio between the maximum charging power or flow and
             the storage capacity. It indicates the reciprocal value of the

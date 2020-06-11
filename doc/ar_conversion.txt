@@ -11,6 +11,3 @@ Conversion
 .. autoclass:: Conversion
    :members:
    :undoc-members:
-   :member-order: bysource
-
-   .. automethod:: __init__

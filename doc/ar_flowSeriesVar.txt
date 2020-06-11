@@ -14,9 +14,6 @@ Flow
 .. autoclass:: Flow
    :members:
    :undoc-members:
-   :member-order: bysource
-
-   .. automethod:: __init__
    
 
 Series
@@ -25,9 +22,6 @@ Series
 .. autoclass:: Series
    :members:
    :undoc-members:
-   :member-order: bysource
-
-   .. automethod:: __init__
    
    
 Var (Variable)
@@ -36,6 +30,3 @@ Var (Variable)
 .. autoclass:: Var
    :members:
    :undoc-members:
-   :member-order: bysource
-
-   .. automethod:: __init__

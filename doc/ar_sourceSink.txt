@@ -14,9 +14,6 @@ Source
 .. autoclass:: Source
    :members:
    :undoc-members:
-   :member-order: bysource
-
-   .. automethod:: __init__
 
 
 Sink
@@ -25,6 +22,3 @@ Sink
 .. autoclass:: aristopy.Sink
    :members:
    :undoc-members:
-   :member-order: bysource
-
-   .. automethod:: __init__
