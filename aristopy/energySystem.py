@@ -795,6 +795,19 @@ class EnergySystem:
         # Call model transformation factory: Expand the arcs
         pyomo.TransformationFactory("network.expand_arcs").apply_to(self.model)
 
+        # Starting from version 5.6.9 the variable domains (and bounds) for
+        # newly created variables on Arcs are not inherited anymore. The default
+        # is 'Reals' and we need to overwrite this to 'NonNegativeReals'.
+        # https://github.com/Pyomo/pyomo/pull/1186
+        for arc_name, connection in self.component_connections.items():
+            # Get the commodity variable from the expanded Block and set domain.
+            arc_block = getattr(self.model, arc_name + '_expanded')
+            # There is only a new commodity variable on the arc if the variables
+            # are split (not for direct connection of single outlet and inlet).
+            if hasattr(arc_block, connection[2]):
+                arc_var = getattr(arc_block, connection[2])
+                arc_var.domain = pyomo.NonNegativeReals
+
         # Workaround for Pyomo-Versions before 5.6.9:
         # Get all constraints that end with '_split' and deactivate them
         # --> Workaround for Port.Extensive function with indexed variables
