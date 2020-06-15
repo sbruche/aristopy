@@ -1,5 +1,5 @@
-==============================================================
-*aristopy* - optimizing design and operation of energy systems
-==============================================================
+=========================================
+Optimizing energy systems with *aristopy*
+=========================================
 
 The readme is added soon.
