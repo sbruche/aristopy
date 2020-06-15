@@ -3,46 +3,45 @@
 
 """The setup script."""
 
+import os
 from setuptools import setup, find_packages
 
-with open('README.rst') as readme_file:
-    readme = readme_file.read()
-
-with open('HISTORY.rst') as history_file:
-    history = history_file.read()
-
-with open('requirements.txt') as requirements_file:
-    requirements = requirements_file.read()
-
-setup_requirements = [ ]
-
-test_requirements = [ ]
+def read_file(file_name):
+    return open(os.path.join(os.path.dirname(__file__), file_name)).read()
 
 setup(
+    name='aristopy',
+    version='0.9.0',
+    # metadata to display on PyPI
     author="Stefan Bruche",
-    author_email='stefan.bruche@gmx.de',
+    author_email='stefan.bruche@tu-berlin.de',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Science/Research',
+        'Intended Audience :: End Users/Desktop'
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
+        'Operating System :: OS Independent',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Topic :: Scientific/Engineering :: Mathematics',
+        'Topic :: Software Development :: Libraries :: Python Modules'
     ],
-    description="Optimization framework for energy systems",
-    install_requires=requirements,
+    description="Framework for optimizing the design and the operation of "
+                "energy systems",
+    long_description=read_file('README.rst'),
+    keywords=['energy systems', 'optimization', 'pyomo'],
+    project_urls={'Source code': '',  # todo: add link
+                  'Documentation': ''},  # todo: add link
+    install_requires=['pandas>=0.19.2',
+                      'numpy>=1.11.3',
+                      'pyomo==5.6.9',
+                      'tsam>=1.1.0',
+                      'xlrd>=1.0.0',
+                      'openpyxl',
+                      'matplotlib'],
     license="MIT license",
-    long_description=readme + '\n\n' + history,
-    include_package_data=True,
-	keywords=['aristopy', 'energy systems', 'optimization'],
-    name='aristopy',
-    packages=find_packages(include=['aristopy*'], exclude=['examples*', 'tests*', 'archiv*']),
-    package_data={},
-    setup_requires=setup_requirements,
-    test_suite='tests',
-    tests_require=test_requirements,
-    url='',
-    version='0.9.0',
-    zip_safe=False,
+    packages=find_packages(include=['aristopy', 'aristopy.*']),
+    setup_requires=['setuptools']
 )
