@@ -25,7 +25,7 @@ Transferred to today's time and the design of energy systems, this implies using
 
 | You are welcome to test *aristopy* and use it for your own purposes. If you publish results based on the application of the package, we kindly ask you to cite this documentation.
 | The `tsam <https://github.com/FZJ-IEK3-VSA/tsam>`_ package (time series aggregation module) is used for the clustering of time series.
-| For calculating solar feed-in time series the package `pvlib <https://github.com/pvlib/pvlib-python>`_ is applied. Pvlib is not a part of the standard installation of *aristopy* and needs to be obtained seperatly.
+| The package `pvlib <https://github.com/pvlib/pvlib-python>`_ is applied for calculating solar feed-in time series. Pvlib is not a part of the standard installation of *aristopy* and needs to be obtained seperatly.
 
 .. toctree::
    :maxdepth: 1
