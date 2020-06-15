@@ -24,7 +24,7 @@ The Plotter class provides three basic plotting methods:
 
 .. note::
    The results of the optimization are exported to dictionaries and stored
-   as strings in a json-file to easily handle multidimensional indice (e.g.
+   as strings in a json-file to easily handle multidimensional indices (e.g.
    tuples). To evaluate the Python strings we use the function "literal_eval"
    from the python built in library "ast". (the strings can only consist of:
    strings, bytes, numbers, tuples, lists, dicts, sets, booleans, and None)

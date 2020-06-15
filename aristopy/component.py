@@ -132,12 +132,12 @@ class Component(metaclass=ABCMeta):
             strings, which are converted into pyomo constraints during model
             declaration. User expressions can be applied for various ends, e.g.,
             for specifying commodity conversion rates, or limiting capacities.
-            The options for mathematical operators are: '==', '>=', '<=', '**',
-            '*', '/', '+', '-', '(', ')'. The expressions can handle variables
-            that are created with standard names (see Globals in utils-file,
-            e.g., CAP), and the variables and parameters added by the user via
-            keyword arguments: 'inlet', 'outlet', 'time_series_data',
-            'scalar_params', 'additional_vars'.
+            The options for mathematical operators are: 'sum', 'sin', 'cos',
+            'exp', 'log', '==', '>=', '<=', '**', '*', '/', '+', '-', '(', ')'.
+            The expressions can handle variables that are created with standard
+            names (see Globals in utils-file, e.g., CAP), and the variables and
+            parameters added by the user via keyword arguments: 'inlet',
+            'outlet', 'time_series_data', 'scalar_params', 'additional_vars'.
             |br| Example: user_expressions=['Q == 0.5*F + 2*BI_OP', 'CAP <= 42']
             |br| *Default: None*
         :type user_expressions: (list of) str, or None
@@ -1078,7 +1078,8 @@ class Component(metaclass=ABCMeta):
 
         :param model: Pyomo ConcreteModel of the EnergySystem instance
         """
-        reserved_chars = ['*', '/', '+', '-', '(', ')', '==', '>=', '<=', '**']
+        reserved_chars = ['*', '/', '+', '-', '(', ')', '==', '>=', '<=', '**',
+                          'sum', 'sin', 'cos', 'exp', 'log']
         for expr_name, expr in self.user_expressions_dict.items():
             has_time_dependency = False  # init
             for i, name in enumerate(expr):
@@ -1122,6 +1123,7 @@ class Component(metaclass=ABCMeta):
                        else pd.MultiIndex.from_tuples([(0, 0)])),
                 columns=range(len(expr)))
 
+            # Add data from the expression to the new DataFrame
             for i, name in enumerate(expr):
                 if name in reserved_chars or isinstance(name, float):
                     df_expr[i] = name
@@ -1135,7 +1137,12 @@ class Component(metaclass=ABCMeta):
             # Do the simplification process and get two python dictionaries with
             # left hand side (lhs) and right hand side (rhs) expressions for the
             # whole set (time slice) and the operation sign ('==', '>=', '<=')
-            lhs, op, rhs = utils.simplify_user_constraint(df_expr)
+            lhs, op, rhs, dropped_idx = utils.simplify_user_constraint(df_expr)
+
+            # Overwrite the 'has_time_dependency' flag if index was dropped
+            # while constructing the constraint because of 'sum' operation.
+            if has_time_dependency and dropped_idx:
+                has_time_dependency = False
 
             # Construct the user constraint using lhs, op, rhs:
             def built_user_constraint_rule(m, p=None, t=None):

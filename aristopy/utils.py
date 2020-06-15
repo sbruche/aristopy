@@ -10,6 +10,7 @@ import warnings
 import pandas as pd
 import numpy as np
 import aristopy
+import pyomo.environ as pyomo
 
 # ==============================================================================
 # GLOBAL VARIABLE NAMES:
@@ -533,13 +534,20 @@ def disassemble_user_expression(expr):
     # List of reserved chars that are used for string splitting:
     reserved_chars_1 = ['*', '/', '+', '-', '(', ')']
     reserved_chars_2 = ['==', '>=', '<=', '**']
+    reserved_chars_3 = ['sum', 'sin', 'cos', 'exp', 'log']
     # Do the string splitting. Exemplary output:
     # ['Q', '==', 'xx', '*', '(', 'F', '/', '0.3', ')', '**', '3']
     expr_part = []
     while len(expr) > 0:
         store_string = ''
         for i in range(len(expr)):
-            if expr[i:i + 2] in reserved_chars_2:  # two signs in a row
+            if expr[i:i + 3] in reserved_chars_3:  # three signs in a row
+                if store_string:  # is not empty
+                    expr_part.append(store_string)
+                expr_part.append(expr[i:i + 3])  # reserved chars
+                expr = expr[len(store_string) + 3:len(expr)]
+                break
+            elif expr[i:i + 2] in reserved_chars_2:  # two signs in a row
                 if store_string:  # is not empty
                     expr_part.append(store_string)
                 expr_part.append(expr[i:i + 2])  # reserved chars
@@ -602,8 +610,13 @@ def simplify_user_constraint(df):
       2  - comp.Q[0,2]  ==  (1.0 + 0.8*comp.F[0,2])**3.0
       [...]
     """
+    debug = False  # prints simplification progress on the console if True
+
     # Simplify the DataFrame until it has only 3 columns (LHS <==> RHS)
     while_iter_count = 0  # init counter
+    found_sum_operator = False  # init
+    dropped_index = False  # init
+
     while len(df.columns) > 3 and while_iter_count < 100:
         # Increase counter by 1 for each iteration in the while-loop
         while_iter_count += 1
@@ -613,7 +626,7 @@ def simplify_user_constraint(df):
         found_minus_sign = False  # init
         df.columns = range(len(df.columns))  # rename the columns
         first_row = df.iloc[0]  # list of first row entries
-        # print(df.head(3).to_string())
+        if debug: print(df.head(3).to_string())
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # 1. Look for a part of the expression in brackets
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -757,7 +770,53 @@ def simplify_user_constraint(df):
         # 'pow', 'div', 'mul', 'add', 'sub'. Check if the term is still
         # enclosed by brackets --> remove them.
         idx = first_row_slice.keys()
-        if first_row_slice[idx[0]] == '(' and first_row_slice[idx[-1]] == ')':
+
+        if first_row[idx[0]] == '(' and first_row[idx[-1]] == ')':
+
+            # Special case for operators: SUM, SIN, COS, EXP, LOG.
+            # These operators are always on the left side of an opening bracket.
+            # Check if there is one of these operators in front of the brackets:
+            if idx[0] != 0 and isinstance(first_row[idx[0]-1], str) and \
+                    first_row[idx[0]-1] in ['sum', 'sin', 'cos', 'exp', 'log']:
+                # Get the name of the operator
+                operator_left_of_bracket = first_row[idx[0]-1]
+
+                # Use simple python sum function if operator is 'sum':
+                if operator_left_of_bracket == 'sum':
+                    # Only do 'sum' if it is not a scalar value (all the same).
+                    # Compare the expression string representations of the first
+                    # two expression rows (after some string modifications).
+                    exception = 'The data in the brackets of "sum"-operator ' \
+                                'is scalar (constant or not time-dependent). ' \
+                                '"sum"-operator is useless in this case. ' \
+                                'Consider rewriting the user_expression.'
+                    all_in_col = df[idx[1]].to_list()
+                    if len(all_in_col) >= 2:
+                        row_0 = _expr_string_adjustment(all_in_col[0].__str__())
+                        row_1 = _expr_string_adjustment(all_in_col[1].__str__())
+                        if row_0 == row_1:
+                            raise ValueError(exception)
+                    # Don't allow sum for time-independent constraints. Actually
+                    # it would work, but it doesn't make sense [CAP == sum(42)].
+                    elif len(all_in_col) == 1:
+                        raise ValueError(exception)
+                    # Do sum operation if exception is not raised
+                    df[idx[1]] = sum(all_in_col)
+                    found_sum_operator = True  # set flag for post-processing
+
+                # Do the math with Pyomo's intrinsic functions for sin, log, ...
+                elif operator_left_of_bracket == 'sin':
+                    df[idx[1]] = [pyomo.sin(k) for k in df[idx[1]].to_list()]
+                elif operator_left_of_bracket == 'cos':
+                    df[idx[1]] = [pyomo.cos(k) for k in df[idx[1]].to_list()]
+                elif operator_left_of_bracket == 'exp':
+                    df[idx[1]] = [pyomo.exp(k) for k in df[idx[1]].to_list()]
+                elif operator_left_of_bracket == 'log':
+                    df[idx[1]] = [pyomo.log(k) for k in df[idx[1]].to_list()]
+                # If there was an operator in front of the brackets --> drop it
+                df.drop([idx[0]-1], axis=1, inplace=True)
+
+            # Now drop the surrounding brackets
             df.drop([idx[0], idx[-1]], axis=1, inplace=True)
             # Set flag 'operation_done' to True to continue while
             operation_done = True
@@ -774,10 +833,28 @@ def simplify_user_constraint(df):
                          'before the constraint could be simplified to the '
                          'desired form "LHS <==> RHS". Check your constraints!')
 
-    # Final renaming of last three columns to [1, 2, 3]
+    # Final renaming of last three columns to [0, 1, 2]
     df.columns = range(len(df.columns))
-    # print(df.head(3).to_string())
-    # print('Number of while-loops:', str(while_iter_count))
+    if debug: print(df.head(3).to_string())
+    if debug: print('Number of while-loops:', str(while_iter_count))
+
+    # Special case: If there was at least one 'sum' operation, it is possible
+    # that the constraint is not time-dependent anymore. Assume 'Q' is an time-
+    # dependent variable. We will loose time-dependency in case A and not in
+    # case B: A) 'CAP == sum(Q)';  B) 'CAP == Q + sum(Q)'.
+    # Expression string representations are compared to check if the expressions
+    # are the same (first two rows are enough). Note: The strings can have the
+    # same content but different order and additional brackets sometimes
+    # => adjust expression string representation to enable comparison.
+    if found_sum_operator and len(df[0]) >= 2:
+        lhs_row_0 = _expr_string_adjustment(df[0].iloc[0].__str__())
+        lhs_row_1 = _expr_string_adjustment(df[0].iloc[1].__str__())
+        rhs_row_0 = _expr_string_adjustment(df[2].iloc[0].__str__())
+        rhs_row_1 = _expr_string_adjustment(df[2].iloc[1].__str__())
+        if lhs_row_0 == lhs_row_1 and rhs_row_0 == rhs_row_1:
+            df.drop(df.index[1:], axis=0, inplace=True)
+            dropped_index = True
+            if debug: print(df.head(3).to_string())
 
     # Convert the first and the third column to python dictionaries and get the
     # global operation sign from the first row of the middle column.
@@ -786,5 +863,16 @@ def simplify_user_constraint(df):
     rhs = df[2].to_dict()
 
     # Return the left and right hand side dicts and the operator sign
-    return lhs, op, rhs
+    return lhs, op, rhs, dropped_index
+
+
+def _expr_string_adjustment(expr):
+    # Remove all (necessary and unnecessary) opening and closing brackets
+    # (sometimes pandas adds them at strange positions in a few rows), split the
+    # expressions at spaces (they are between operation signs and all other
+    # objects, except brackets and indices), and sort the string alphabetically.
+    expr = expr.replace('(', '').replace(')', '')
+    expr = expr.split()
+    expr.sort()
+    return expr
 # ==============================================================================
