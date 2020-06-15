@@ -32,8 +32,8 @@ setup(
                 "energy systems",
     long_description=read_file('README.rst'),
     keywords=['energy systems', 'optimization', 'pyomo'],
-    project_urls={'Source code': '',  # todo: add link
-                  'Documentation': ''},  # todo: add link
+    project_urls={'Source code': 'https://github.com/sbruche/aristopy',
+                  'Documentation': 'https://aristopy.readthedocs.io/en/latest/index.html'},
     install_requires=['pandas>=0.19.2',
                       'numpy>=1.11.3',
                       'pyomo==5.6.9',
