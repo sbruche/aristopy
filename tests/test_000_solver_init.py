@@ -6,8 +6,8 @@ log = ar.Logger(default_log_level='WARNING').get_logger(__name__)
 
 def test_find_available_solvers():
 
-    # Create basic energy system model instance
-    es = ar.EnergySystemModel()
+    # Create basic energy system instance
+    es = ar.EnergySystem()
 
     # Run the optimization and check availability of different solvers
     available_solvers = []

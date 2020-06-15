@@ -1,11 +1,11 @@
 # ignore directories
-aristopy.egg-info
+aristopy.egg-info/
 .idea/
+.pytest_cache/
 __pycache__/
 archiv/
 examples/
 data/
-calculations_oeb-ensys/
 *.build/
 *.dist/
 *.doc/build/

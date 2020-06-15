@@ -15,51 +15,54 @@ def test_export_and_plot():
         solver = 'gurobi'
     log.info('The following solver is used in this test run: %s' % solver)
 
-    es = ar.EnergySystemModel(number_of_time_steps=8, hours_per_time_step=1,
-                              interest_rate=0, economic_lifetime=1)
+    es = ar.EnergySystem(number_of_time_steps=8, hours_per_time_step=1,
+                         interest_rate=0, economic_lifetime=1)
 
-    gas_src = ar.Source(ensys=es, name='gas_src', basic_commodity='F',
+    gas_src = ar.Source(ensys=es, name='gas_src', outlet=ar.Flow('F'),
                         commodity_cost=20)
 
-    boiler = ar.Conversion(ensys=es, name='boiler', basic_commodity='Q',
-                           inlet_connections={'F': 'gas_src'},
-                           outlet_connections={'Q': 'bus'},
+    boiler = ar.Conversion(ensys=es, name='boiler', basic_variable='Q',
+                           inlet=ar.Flow('F', 'gas_src'),
+                           outlet=ar.Flow('Q', 'bus'),
                            capex_per_capacity=60e3, capacity_max=6,
-                           user_expressions=['Q_OUT == F_IN'])
+                           user_expressions=['Q == F'])
 
-    chp = ar.Conversion(ensys=es, name='chp', basic_commodity='Q',
-                        inlet_connections={'F': 'gas_src'},
-                        outlet_connections={'Q': 'bus', 'P': 'elec_snk'},
-                        capex_per_capacity=600e3, operation_binary_var='BI_OP',
+    chp = ar.Conversion(ensys=es, name='chp', basic_variable='Q',
+                        inlet=ar.Flow('F', 'gas_src'),
+                        outlet=[ar.Flow('Q', 'bus'), ar.Flow('P', 'elec_snk')],
+                        capex_per_capacity=600e3, has_operation_binary_var=True,
                         start_up_cost=10e3, min_load_rel=0.5,
-                        capacity=4, user_expressions=['Q_OUT == 0.5 * F_IN',
-                                                      'P_OUT == 0.4 * F_IN'])
+                        capacity=4, user_expressions=['Q == 0.5 * F',
+                                                      'P == 0.4 * F'])
 
-    storage = ar.Storage(ensys=es, name='storage', basic_commodity='Q',
-                         inlet_connections='bus', outlet_connections='bus',
+    storage = ar.Storage(ensys=es, name='storage',
+                         basic_variable='outlet_variable',
+                         inlet=ar.Flow('Q', 'bus', 'Q_CHARGE'),
+                         outlet=ar.Flow('Q', 'bus', 'Q_DISCHARGE'),
                          capex_per_capacity=1000, capacity_max=50,
-                         opex_discharging=1e-9, soc_initial=0.6,
+                         opex_operation=1e-9, soc_initial=0.6,
                          self_discharge=0.05,
                          precise_inter_period_modeling=True)
 
-    bus = ar.Bus(es, 'bus', 'Q', outlet_connections=['heat_snk'], losses=0)
+    bus = ar.Bus(es, 'bus', inlet=ar.Flow('Q', var_name='Q_IN'),
+                 outlet=ar.Flow('Q', var_name='Q_OUT'), losses=0)
 
-    elec_snk = ar.Sink(ensys=es, name='elec_snk', basic_commodity='P',
+    elec_snk = ar.Sink(ensys=es, name='elec_snk', inlet=ar.Flow('P'),
                        commodity_revenues=42)
 
-    heat_snk = ar.Sink(ensys=es, name='heat_snk', basic_commodity='Q',
-                       commodity_rate_fix='demand',
-                       time_series_data={'demand': [4, 4, 6, 6, 10, 10, 4, 4]})
+    heat_snk = ar.Sink(ensys=es, name='heat_snk', inlet=ar.Flow('Q', 'bus'),
+                       commodity_rate_fix=ar.Series('demand',
+                                                    [4, 4, 6, 6, 10, 10, 4, 4]))
 
     # Helper function to write to or get from subdirectory 'temp'
     def temp_file(file_name):
         return os.path.join(os.path.dirname(__file__), 'temp', file_name)
 
     # Run the model as it is and assert the obj. fct. value
-    es.optimize(declares_optimization_problem=True, solver=solver, tee=False,
+    es.optimize(declare_model=True, solver=solver, tee=False,
                 results_file=temp_file('results.json'))
 
-    assert es.pyM.Obj() == pytest.approx(-3.16985142475922e+06)
+    assert es.model.Obj() == pytest.approx(-3.16985142475922e+06)
 
     plotter = ar.Plotter(json_file=temp_file('results.json'))
 
@@ -78,7 +81,7 @@ def test_export_and_plot():
     plotter.plot_objective(bar_width=0.8, bar_lw=0, show_plot=False,
                            file_name=temp_file('objective'))
 
-    plotter.quick_plot('elec_snk', 'P_IN', save_plot=True,
+    plotter.quick_plot('elec_snk', 'P', save_plot=True,
                        file_name=temp_file('quick_plot'))
 
 

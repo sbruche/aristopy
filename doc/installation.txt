@@ -1,0 +1,6 @@
+############
+Installation
+############
+
+.. note::
+    A guide on how to get and install *aristopy* is added on this page soon.

@@ -1,3 +1,36 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# ==============================================================================
+#    P L O T T E R
+# ==============================================================================
+"""
+* File name: plotter.py
+* Last edited: 2020-06-14
+* Created by: Stefan Bruche (TU Berlin)
+
+The Plotter class provides three basic plotting methods:
+
+* :meth:`plot_operation <aristopy.plotter.Plotter.plot_operation>`:
+  A mixed bar and line plot that visualizes the operation of a component on the
+  basis of a selected commodity.
+
+* :meth:`plot_objective <aristopy.plotter.Plotter.plot_objective>`:
+  Bar chart that summarizes the cost contributions of each component to the
+  overall objective function value.
+
+* :meth:`quick_plot <aristopy.plotter.Plotter.quick_plot>`:
+  Quick visualization for the values of one component variable as a line,
+  scatter, or bar plot.
+
+.. note::
+   The results of the optimization are exported to dictionaries and stored
+   as strings in a json-file to easily handle multidimensional indices (e.g.
+   tuples). To evaluate the Python strings we use the function "literal_eval"
+   from the python built in library "ast". (the strings can only consist of:
+   strings, bytes, numbers, tuples, lists, dicts, sets, booleans, and None)
+   [`Ref <https://stackoverflow.com/questions/4547274/
+   convert-a-python-dict-to-a-string-and-back>`_]
+"""
 import os
 import copy
 import json
@@ -7,18 +40,16 @@ import numpy as np
 from warnings import warn
 from aristopy import utils
 
-# The results from the optimization are exported to dictionaries and stored as
-# strings in the json-file to easily handle multidimensional indices (e.g.
-# tuples). To evaluate the Python strings use the function "literal_eval" from
-# the python built in library "ast". (the strings can only consist of:
-# strings, bytes, numbers, tuples, lists, dicts, sets, booleans, and None)
-# https://stackoverflow.com/questions/4547274/convert-a-python-dict-to-a-string-and-back
 
-# Todo: Add a method for capet plotting on a requested component variable.
-
+# Option: Add a method for capet plotting on a requested component variable.
 
 class Plotter:
     def __init__(self, json_file):
+        """
+
+
+        :param json_file: Path to the optimization results file in JSON-Format
+        """
 
         # Leave if no results file available
         if not os.path.isfile(json_file):
@@ -67,17 +98,31 @@ class Plotter:
                       'save_pgf': False, 'save_pdf': False,
                       'save_png': True, 'dpi': 200, 'pad_inches': None}
 
-    # --------------------------------------------------------------------------
+    # ==========================================================================
+    #    P L O T   O B J E C T I V E
+    # ==========================================================================
     def plot_objective(self, show_plot=False, save_plot=True,
                        file_name='objective_plot', **kwargs):
         """
-        Todo: Add explanation and parameter description!
+        Method to create a bar chart that summarizes the cost contributions of
+        each component of the EnergySystem instance to the overall objective
+        function value.
 
-        :param show_plot:
-        :param save_plot:
-        :param file_name:
-        :param kwargs:
-        :return:
+        :param show_plot: State whether the plot should be shown once finalized
+            |br| *Default: False*
+        :type show_plot: bool
+
+        :param save_plot: State whether the plot should be saved once finalized
+            |br| *Default: True*
+        :type save_plot: bool
+
+        :param file_name: Name of the file (if saved); no file-ending required
+            |br| *Default: 'objective_plot'*
+        :type file_name: str
+
+        :param kwargs: Additional keyword arguments to manipulate the plot
+            (e.g., labels, figure size, legend position, ...).
+            See dict 'props' of the Plotter class.
         """
         if self.data is None:
             return
@@ -109,8 +154,8 @@ class Plotter:
                  data['opex_capacity'] + data['opex_exist'] + data[
                      'opex_operation'],
                  data['start_up_cost'],
-                 data['com_cost_time_indep'] + data['com_cost_time_dep'],
-                 data['com_rev_time_indep'] + data['com_rev_time_dep']]
+                 data['commodity_cost'],
+                 data['commodity_revenues']]
 
         names = list(obj_data.keys())
         # to vertically stacked and transposed array (1. row: capex, 2. opex,..)
@@ -119,7 +164,7 @@ class Plotter:
                   'Commodity cost', 'Commodity revenues']
 
         # If objective function contributions have been added via method
-        # 'add_objective_function_contribution' in EnergySystemModel:
+        # 'add_objective_function_contribution' in EnergySystem:
         added_obj = self.data['added_objective_function_contributions']
         # if dict is not empty and if the sum of all (abs) entries is not zero
         if added_obj and sum(abs(i) for i in added_obj.values()) != 0:
@@ -130,7 +175,7 @@ class Plotter:
                                 list(added_obj.values()))
             values = np.append(values, values=add_rows, axis=0)
             values = np.insert(values, values.shape[1], values=add_col, axis=1)
-            # values = np.c_[values, tot]  # --> faster but worse readability
+            # values = np.c_[values, tot]  # --> faster but bad readability
 
         # Plot the Total as an overall sum:
         total = values.sum()
@@ -193,9 +238,37 @@ class Plotter:
                             pad_inches=props['pad_inches'])
         plt.close()
 
-    # --------------------------------------------------------------------------
+    # ==========================================================================
+    #    Q U I C K   P L O T
+    # ==========================================================================
     def quick_plot(self, component_name, variable_name, kind='bar',
                    save_plot=False, file_name=None):
+        """
+        Method to create a quick visualization for the values of one component
+        variable as a line, scatter, or bar plot.
+
+        :param component_name: Name of the component that holds the variable
+            of interest.
+        :type component_name: str
+
+        :param variable_name: Name of the variable (or parameter) that should
+            be plotted.
+        :type variable_name: str
+
+        :param kind: States the kind of plot. Possible options are:
+            'plot' (line plot), 'scatter', 'bar'.
+            |br| *Default: 'bar'*
+        :type kind: str
+
+        :param save_plot: State whether the plot should be saved once finalized
+            |br| *Default: False*
+        :type save_plot: bool
+
+        :param file_name: Name of the file (if saved); no file-ending required.
+            Name is auto-generated if None is provided and plot should be saved.
+            |br| *Default: None*
+        :type file_name: str
+        """
         if self.data is None:
             return
 
@@ -235,24 +308,59 @@ class Plotter:
         else:
             plt.show()
 
-    # --------------------------------------------------------------------------
+    # ==========================================================================
+    #    P L O T   O P E R A T I O N
+    # ==========================================================================
     def plot_operation(self, component_name, commodity, level_of_detail=2,
                        scale_to_hourly_resolution=False,
                        plot_single_period_with_index=None, show_plot=False,
                        save_plot=True, file_name='operation_plot', **kwargs):
         """
-        Todo: Add explanation and parameter description!
+        Method to create a mixed bar and line plot that visualizes the
+        operation of a component on the basis of a selected commodity.
 
-        :param component_name:
-        :param commodity:
-        :param level_of_detail:
-        :param scale_to_hourly_resolution:
-        :param plot_single_period_with_index:
-        :param show_plot:
-        :param save_plot:
-        :param file_name:
-        :param kwargs:
-        :return:
+        :param component_name: Name of the component that holds the commodity
+            of interest.
+        :type component_name: str
+
+        :param commodity: Name of the commodity that should be plotted.
+        :type commodity: str
+
+        :param level_of_detail: Specifies the level of plotting detail. Only the
+            commodity in the component itself is plotted if 1 is selected.
+            The composition of the commodity (from which sources formed and to
+            which destinations sent) is visualized if 2 is selected.
+            |br| *Default: 2*
+        :type level_of_detail: int (1 or 2)
+
+        :param scale_to_hourly_resolution: States if the data should be scaled
+            to hourly resolution before plotting. This might be useful, if the
+            optimization was performed with a value for the EnergySystem keyword
+            argument 'hours_per_time_step' larger than 1.
+            |br| *Default: False*
+        :type scale_to_hourly_resolution: bool
+
+        :param plot_single_period_with_index: States if only one period with the
+            given index number should be plotted. This is only possible if the
+            optimization was performed with aggregated time series data.
+            |br| *Default: None*
+        :type plot_single_period_with_index: int or None
+
+        :param show_plot: State whether the plot should be shown once finalized
+            |br| *Default: False*
+        :type show_plot: bool
+
+        :param save_plot: State whether the plot should be saved once finalized
+            |br| *Default: True*
+        :type save_plot: bool
+
+        :param file_name: Name of the file (if saved); no file-ending required
+            |br| *Default: 'operation_plot'*
+        :type file_name: str
+
+        :param kwargs: Additional keyword arguments to manipulate the plot
+            (e.g., labels, figure size, legend position, ...).
+            See dict 'props' of the Plotter class.
         """
         if self.data is None:
             return
@@ -288,9 +396,9 @@ class Plotter:
             else:
                 warn('Keyword argument "{}" is unknown and ignored'.format(key))
 
-        # ===========================================================
-        #    P L O T T I N G
-        # ===========================================================
+        # **********************************************************************
+        #    Plotting
+        # **********************************************************************
         fig, ax = plt.subplots(figsize=(props['fig_width'],
                                         props['fig_height']))
         try:
@@ -298,13 +406,13 @@ class Plotter:
             # the component and get the associated port variables.
             var_in_name, var_out_name = None, None  # init
             if commodity in self.data['components'][self.comp][
-                    'inlet_ports_and_vars'].keys():
+                    'inlet_commod_and_var_names'].keys():
                 var_in_name = self.data['components'][self.comp][
-                    'inlet_ports_and_vars'][commodity]
+                    'inlet_commod_and_var_names'][commodity]
             if commodity in self.data['components'][self.comp][
-                    'outlet_ports_and_vars'].keys():
+                    'outlet_commod_and_var_names'].keys():
                 var_out_name = self.data['components'][self.comp][
-                    'outlet_ports_and_vars'][commodity]
+                    'outlet_commod_and_var_names'][commodity]
 
             if level_of_detail == 1:
                 # --------------------------------------------------------------

@@ -1,0 +1,21 @@
+#########
+Component
+#########
+
+.. |br| raw:: html
+
+   <br />
+
+.. automodule:: aristopy.component
+
+.. toctree::
+   :maxdepth: 1
+
+   ar_sourceSink
+   ar_conversion
+   ar_bus
+   ar_storage
+
+.. autoclass:: Component
+   :members:
+..   :undoc-members:
