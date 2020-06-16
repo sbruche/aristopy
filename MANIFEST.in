@@ -1,0 +1,8 @@
+include *.txt
+include pytest.ini
+recursive-include doc *.bat
+recursive-include doc *.py
+recursive-include doc *.txt
+recursive-include doc Makefile
+recursive-include tests *.py
+prune doc/.build

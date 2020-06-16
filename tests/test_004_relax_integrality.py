@@ -18,7 +18,10 @@ def test_relax_integrality():
 
     # Helper function to write to or get from subdirectory 'temp'
     def temp_file(file_name):
-        return os.path.join(os.path.dirname(__file__), 'temp', file_name)
+        temp_dir = os.path.join(os.path.dirname(__file__), 'temp')
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+        return os.path.join(temp_dir, file_name)
     # --------------------------------------------------------------------------
     # Simple model with power plant (with minimal-part-load 50% and max. cap.),
     # electricity load and external electricity source.

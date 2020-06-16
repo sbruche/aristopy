@@ -56,7 +56,10 @@ def test_export_and_plot():
 
     # Helper function to write to or get from subdirectory 'temp'
     def temp_file(file_name):
-        return os.path.join(os.path.dirname(__file__), 'temp', file_name)
+        temp_dir = os.path.join(os.path.dirname(__file__), 'temp')
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+        return os.path.join(temp_dir, file_name)
 
     # Run the model as it is and assert the obj. fct. value
     es.optimize(declare_model=True, solver=solver, tee=False,

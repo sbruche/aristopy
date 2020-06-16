@@ -28,7 +28,13 @@ The package documentation is hosted on readthedocs.org and can be accessed
 [here](https://aristopy.readthedocs.io/en/latest/index.html).
 
 ## Installation
-Installation instructions are added soon.
+Precise installation instructions are added soon.
+
+Until then, try to run the following to install *aristopy* via pip:
+
+```python
+pip install aristopy
+```
 
 ## Examples
 Links to example repositories are added soon.

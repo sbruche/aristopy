@@ -1,17 +1,17 @@
-# ignore directories
-aristopy.egg-info/
+# ignored directories and file types
 .idea/
 .pytest_cache/
 __pycache__/
 archiv/
 applications/
 data/
-*.build/
-*.dist/
-*.doc/build/
-
-# ignore file types 
+tests/temp/
+build/
+sdist/
+dist/
+doc/.build/
+*.egg-info/
+*.egg
 *.pyc
-*.egg-info
 *.log
 *.lp
