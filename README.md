@@ -23,17 +23,17 @@ optimal use of the available resources (money, fuel, etc.).
 * Auto-generated visualization of the optimization results with
   flexible plotting routines.
 
-# Documentation
+## Documentation
 The package documentation is hosted on readthedocs.org and can be accessed
 [here](https://aristopy.readthedocs.io/en/latest/index.html).
 
-# Installation
+## Installation
 Installation instructions are added soon.
 
-# Examples
+## Examples
 Links to example repositories are added soon.
 
-# Citing and Contributing
+## Citing and Contributing
 You are welcome to test aristopy and use it for your own purposes. If you
 publish results based on the application of the package, we kindly ask you to
 cite this GitHub repository or the [project documentation](
@@ -43,12 +43,12 @@ If you have questions, found a bug or what to contribute to the development of
 *aristopy* you are invited to open an issue or contact the developers
 (stefan-bruche@tu-berlin.de).
 
-# License
+## License
 [MIT License](https://opensource.org/licenses/MIT)
 
 Copyright (c) 2020 Stefan Bruche (TU Berlin)
 
-# Acknowledgement
+## Acknowledgement
 This work was developed during the research project "MINLP-Optimization of
 Design and Operation of Complex Energy Systems", funded by the German Federal
 Ministry for Economic Affairs and Energy (project reference number 03ET4053A).

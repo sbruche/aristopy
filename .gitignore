@@ -4,7 +4,7 @@ aristopy.egg-info/
 .pytest_cache/
 __pycache__/
 archiv/
-examples/
+applications/
 data/
 *.build/
 *.dist/
