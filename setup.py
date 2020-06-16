@@ -15,6 +15,7 @@ setup(
     # metadata to display on PyPI
     author="Stefan Bruche",
     author_email='stefan.bruche@tu-berlin.de',
+    url='https://github.com/sbruche/aristopy',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
@@ -33,8 +34,7 @@ setup(
     long_description=read_file('README.md'),
     long_description_content_type="text/markdown",
     keywords=['energy systems', 'optimization', 'pyomo'],
-    project_urls={'Source code': 'https://github.com/sbruche/aristopy',
-                  'Documentation': 'https://aristopy.readthedocs.io/en/latest/index.html'},
+    project_urls={'Documentation': 'https://aristopy.readthedocs.io/en/latest/index.html'},
     install_requires=['pandas>=0.19.2',
                       'numpy>=1.11.3',
                       'pyomo==5.6.9',
@@ -45,7 +45,8 @@ setup(
     license="MIT license",
     packages=find_packages(include=['aristopy', 'aristopy.*']),
     setup_requires=['setuptools'],
-    extras_require={'dev': ['pytest',  # allows: $ pip install -e .[dev]
+    # allows installation with additional packages: $ pip install -e .[dev]
+    extras_require={'dev': ['pytest',
                             'sphinx',
                             'sphinx-rtd-theme>=0.4.3',
                             'twine']}
