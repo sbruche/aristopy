@@ -29,8 +29,7 @@ setup(
         'Topic :: Scientific/Engineering :: Mathematics',
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
-    description="Framework for optimizing the design and the operation of "
-                "energy systems",
+    description="Framework for the optimization of energy systems",
     long_description=read_file('README.md'),
     long_description_content_type="text/markdown",
     keywords=['energy systems', 'optimization', 'pyomo'],

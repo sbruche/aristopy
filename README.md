@@ -30,7 +30,8 @@ The package documentation is hosted on readthedocs.org and can be accessed
 ## Installation
 Precise installation instructions are added soon.
 
-Until then, try to run the following to install *aristopy* via pip:
+Until then, try to install *aristopy* in your current environment via
+pip by using the following command:
 
 ```python
 pip install aristopy
