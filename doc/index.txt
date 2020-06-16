@@ -18,14 +18,14 @@ Transferred to today's time and the design of energy systems, this implies using
 * Flexible modeling of energy systems with only a small number of basic components (Source, Sink, Conversion, Bus, Storage) and a comprehensive API.
 * Manual scripting of component constraints to enable all types of mathematical modeling classes (linear [LP], mixed-integer linear [MILP], mixed-integer non-linear [MINLP], etc.).
 * Declaration of persistent models to quickly run models iteratively after applying small changes (e.g., add an integer-cut constraint).
-* Auto-generated visualization of the optimization results with flexibel plotting routines.
+* Auto-generated visualization of the optimization results with flexible plotting routines.
 
 
 **How to cite aristopy**
 
 | You are welcome to test *aristopy* and use it for your own purposes. If you publish results based on the application of the package, we kindly ask you to cite this documentation.
 | The `tsam <https://github.com/FZJ-IEK3-VSA/tsam>`_ package (time series aggregation module) is used for the clustering of time series.
-| The package `pvlib <https://github.com/pvlib/pvlib-python>`_ is applied for calculating solar feed-in time series. Pvlib is not a part of the standard installation of *aristopy* and needs to be obtained seperatly.
+| The package `pvlib <https://github.com/pvlib/pvlib-python>`_ is applied for calculating solar feed-in time series. Pvlib is not a part of the standard installation of *aristopy* and needs to be obtained separately.
 
 .. toctree::
    :maxdepth: 1

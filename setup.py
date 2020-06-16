@@ -30,7 +30,8 @@ setup(
     ],
     description="Framework for optimizing the design and the operation of "
                 "energy systems",
-    long_description=read_file('README.rst'),
+    long_description=read_file('README.md'),
+    long_description_content_type="text/markdown",
     keywords=['energy systems', 'optimization', 'pyomo'],
     project_urls={'Source code': 'https://github.com/sbruche/aristopy',
                   'Documentation': 'https://aristopy.readthedocs.io/en/latest/index.html'},
