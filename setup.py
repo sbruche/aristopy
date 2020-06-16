@@ -47,5 +47,6 @@ setup(
     setup_requires=['setuptools'],
     extras_require={'dev': ['pytest',  # allows: $ pip install -e .[dev]
                             'sphinx',
-                            'sphinx-rtd-theme>=0.4.3']}
+                            'sphinx-rtd-theme>=0.4.3',
+                            'twine']}
 )
