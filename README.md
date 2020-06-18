@@ -28,14 +28,19 @@ The package documentation is hosted on readthedocs.org and can be accessed
 [here](https://aristopy.readthedocs.io/en/latest/index.html).
 
 ## Installation
-Precise installation instructions are added soon.
+Before you can create your first optimization model with *aristopy*, you need
+to make sure you have Python and *aristopy*, and at least one suitable 
+mathematical solver installed on your machine.
 
-Until then, try to install *aristopy* in your current environment via
-pip by using the following command:
+The installation of *aristopy* in your current environment can easily be 
+executed from the command line via pip: 
 
 ```python
 pip install aristopy
 ```
+
+More detailed installation instructions can be found in the 
+[documentation](https://aristopy.readthedocs.io/en/latest/installation.html)
 
 ## Examples
 Links to example repositories are added soon.
