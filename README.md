@@ -1,4 +1,5 @@
-<a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/"><img src="https://www.energietechnik.tu-berlin.de/fileadmin/fg106/Fotos/aristopy_logo_small.png" alt="aristopy Logo" width="300px"></a>
+<a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/">
+<img src="./doc/images/aristopy_logo_small.png" alt="aristopy logo" width="300px"/></a>
 
 # Optimizing energy systems with *aristopy*
 
@@ -43,8 +44,8 @@ More detailed installation instructions can be found in the
 [documentation](https://aristopy.readthedocs.io/en/latest/installation.html).
 
 ## Examples
-The code of the first simple example from the examples directory is shown 
-below to illustrate the notation of *aristopy*. 
+The code of the first simple example from the examples directory, shown 
+below, illustrates the notation of *aristopy*. 
 A detailed description of the code is provided in the 
 [documentation](https://aristopy.readthedocs.io/en/latest/01_simple_model.html). 
 
@@ -90,17 +91,17 @@ plotter.plot_operation('heat_sink', 'Heat', lgd_pos='lower center',
                        bar_lw=0.5, ylabel='Thermal energy [MWh]')
 plotter.plot_objective(lgd_pos='lower center')
 ```
-The Plotter class is used to read the exported optimization results  
-from the JSON-file and to provide basic plotting routines.
-The method *plot_operation* returns a mixed bar and line plot that
-visualizes the operation of a component on the basis of a selected commodity.
 
-<img src="./doc/images/operation_plot.png" alt="operation plot" width="700"/>
+The method *plot_operation* returns a mixed bar and line plot that visualizes 
+the operation of a component based on a selected commodity.
+
+<img src="./doc/images/operation_plot.png" alt="operation plot" width="600"/>
 
 The method *plot_objective* returns a bar chart that summarizes the cost
-contributions of each component to the overall objective function value.
+contributions of each component to the overall objective function value 
+(net present value).
 
-<img src="./doc/images/objective_plot.png" alt="objective plot" width="700"/>
+<img src="./doc/images/objective_plot.png" alt="objective plot" width="600"/>
 
 ## Citing and Contributing
 You are welcome to test aristopy and use it for your own purposes. If you
@@ -123,4 +124,5 @@ Design and Operation of Complex Energy Systems", funded by the German Federal
 Ministry for Economic Affairs and Energy (project reference number 03ET4053A).
 The funding is gratefully acknowledged.
 
-<a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/"><img src="https://www.energietechnik.tu-berlin.de/fileadmin/fg106/Fotos/bwmi_logo_small.png" alt="BMWi Logo" width="200px"></a>
+<a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/">
+<img src="./doc/images/bmwi_logo_small.png" alt="BMWi Logo" width="200px"></a>
