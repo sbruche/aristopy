@@ -90,6 +90,17 @@ plotter.plot_operation('heat_sink', 'Heat', lgd_pos='lower center',
                        bar_lw=0.5, ylabel='Thermal energy [MWh]')
 plotter.plot_objective(lgd_pos='lower center')
 ```
+The Plotter class is used to read the exported optimization results  
+from the JSON-file and to provide basic plotting routines.
+The method *plot_operation* returns a mixed bar and line plot that
+visualizes the operation of a component on the basis of a selected commodity.
+
+<img src="./doc/images/operation_plot.png" alt="operation plot" width="700"/>
+
+The method *plot_objective* returns a bar chart that summarizes the cost
+contributions of each component to the overall objective function value.
+
+<img src="./doc/images/objective_plot.png" alt="objective plot" width="700"/>
 
 ## Citing and Contributing
 You are welcome to test aristopy and use it for your own purposes. If you
