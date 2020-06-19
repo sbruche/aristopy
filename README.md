@@ -1,5 +1,5 @@
 <a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/">
-<img src="./doc/images/aristopy_logo_small.png" alt="aristopy logo" width="300px"/></a>
+<img src="./doc/images/aristopy_logo.png" alt="aristopy logo" width="300px"/></a>
 
 # Optimizing energy systems with *aristopy*
 
@@ -104,13 +104,13 @@ contributions of each component to the overall objective function value
 <img src="./doc/images/objective_plot.png" alt="objective plot" width="600"/>
 
 ## Citing and Contributing
-You are welcome to test aristopy and use it for your own purposes. If you
-publish results based on the application of the package, we kindly ask you to
+You are welcome to test aristopy and use it for your purposes. If you
+publish results based on the application of the package, please
 cite this GitHub repository or the [project documentation](
 https://aristopy.readthedocs.io/en/latest/index.html) on readthedocs.org.
 
-If you have questions, found a bug or what to contribute to the development of
-*aristopy* you are invited to open an issue or contact the developers
+If you have questions, found a bug, or want to contribute to the development
+of *aristopy*, you are invited to open an issue or contact the developers
 (stefan-bruche@tu-berlin.de).
 
 ## License
@@ -125,4 +125,4 @@ Ministry for Economic Affairs and Energy (project reference number 03ET4053A).
 The funding is gratefully acknowledged.
 
 <a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/">
-<img src="./doc/images/bmwi_logo_small.png" alt="BMWi Logo" width="200px"></a>
+<img src="./doc/images/bmwi_logo.png" alt="BMWi Logo" width="200px"></a>
