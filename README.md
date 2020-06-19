@@ -43,7 +43,53 @@ More detailed installation instructions can be found in the
 [documentation](https://aristopy.readthedocs.io/en/latest/installation.html).
 
 ## Examples
-Links to example repositories are added soon.
+The code of the first simple example from the examples directory is shown 
+below to illustrate the notation of *aristopy*. 
+A detailed description of the code is provided in the 
+[documentation](https://aristopy.readthedocs.io/en/latest/01_simple_model.html). 
+
+```python
+import aristopy as ar
+
+# Create basic energy system instance
+es = ar.EnergySystem(
+    number_of_time_steps=3, hours_per_time_step=1,
+    interest_rate=0.05, economic_lifetime=20)
+
+# Add a gas source, two different conversion units and sinks
+gas_source = ar.Source(
+    ensys=es, name='gas_source', commodity_cost=20, outlet=ar.Flow('Fuel'))
+
+gas_boiler = ar.Conversion(
+    ensys=es, name='gas_boiler', basic_variable='Heat',
+    inlet=ar.Flow('Fuel', 'gas_source'), outlet=ar.Flow('Heat', 'heat_sink'),
+    capacity_max=150, capex_per_capacity=60e3,
+    user_expressions='Heat == 0.9 * Fuel')
+
+chp_unit = ar.Conversion(
+    ensys=es, name='chp_unit', basic_variable='Elec',
+    inlet=ar.Flow('Fuel', 'gas_source'),
+    outlet=[ar.Flow('Heat', 'heat_sink'), ar.Flow('Elec', 'elec_sink')],
+    capacity_max=100, capex_per_capacity=600e3,
+    user_expressions=['Heat == 0.5 * Fuel',
+                      'Elec == 0.4 * Fuel'])
+
+heat_sink = ar.Sink(
+    ensys=es, name='heat_sink', inlet=ar.Flow('Heat'),
+    commodity_rate_fix=ar.Series('heat_demand', [100, 200, 150]))
+
+elec_sink = ar.Sink(
+    ensys=es, name='elec_sink', inlet=ar.Flow('Elec'), commodity_revenues=30)
+
+# Run the optimization
+es.optimize(solver='cbc', results_file='results.json')
+
+# Plot some results
+plotter = ar.Plotter('results.json')
+plotter.plot_operation('heat_sink', 'Heat', lgd_pos='lower center',
+                       bar_lw=0.5, ylabel='Thermal energy [MWh]')
+plotter.plot_objective(lgd_pos='lower center')
+```
 
 ## Citing and Contributing
 You are welcome to test aristopy and use it for your own purposes. If you
