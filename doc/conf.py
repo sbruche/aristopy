@@ -21,10 +21,13 @@ sys.path.append(os.path.abspath(main_dir))
 
 # Copy jupyter notebook files  (*.ipynb) and .csv files from example paths
 example_01_dir = os.path.join(main_dir, 'examples', '01_simple_model')
-for file in os.listdir(example_01_dir):
-    if file.endswith('.ipynb') or file.endswith('.csv'):
-        shutil.copy(src=os.path.join(example_01_dir, file),
-                    dst=os.path.dirname(__file__))
+example_02_dir = os.path.join(main_dir, 'examples', '02_complex_model')
+example_03_dir = os.path.join(main_dir, 'examples', '03_solar_model')
+for path in [example_01_dir, example_02_dir, example_03_dir]:
+    for file in os.listdir(path):
+        if file.endswith('.ipynb') or file.endswith('.csv'):
+            shutil.copy(src=os.path.join(path, file),
+                        dst=os.path.dirname(__file__))
 
 # -- Project information -----------------------------------------------------
 

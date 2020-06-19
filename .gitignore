@@ -24,3 +24,11 @@ examples/*
 !examples/01_simple_model/
 examples/01_simple_model/*
 !examples/01_simple_model/*.ipynb
+!examples/02_complex_model/
+examples/02_complex_model/*
+!examples/02_complex_model/*.ipynb
+!examples/02_complex_model/*.csv
+!examples/03_solar_model/
+examples/03_solar_model/*
+!examples/03_solar_model/*.ipynb
+!examples/03_solar_model/*.csv
