@@ -10,8 +10,17 @@ build/
 sdist/
 dist/
 doc/.build/
+doc/*.ipynb
+doc/*.csv
+doc/*.json
+doc/*.png
 *.egg-info/
 *.egg
 *.pyc
 *.log
 *.lp
+# Ignore everything in examples, add subdirectories with file exceptions to add
+examples/*
+!examples/01_simple_model/
+examples/01_simple_model/*
+!examples/01_simple_model/*.ipynb

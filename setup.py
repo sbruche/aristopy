@@ -11,7 +11,7 @@ def read_file(file_name):
 
 setup(
     name='aristopy',
-    version='0.9.0',
+    version='0.9.1',
     # metadata to display on PyPI
     author="Stefan Bruche",
     author_email='stefan.bruche@tu-berlin.de',
@@ -46,7 +46,7 @@ setup(
     setup_requires=['setuptools'],
     # allows installation with additional packages: $ pip install -e .[dev]
     extras_require={'dev': ['pytest',
-                            'sphinx',
-                            'sphinx-rtd-theme>=0.4.3',
+                            'sphinx', 'sphinx-rtd-theme>=0.4.3',
+                            'nbsphinx', 'ipython',
                             'twine']}
 )

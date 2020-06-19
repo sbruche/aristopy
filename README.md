@@ -40,7 +40,7 @@ pip install aristopy
 ```
 
 More detailed installation instructions can be found in the 
-[documentation](https://aristopy.readthedocs.io/en/latest/installation.html)
+[documentation](https://aristopy.readthedocs.io/en/latest/installation.html).
 
 ## Examples
 Links to example repositories are added soon.

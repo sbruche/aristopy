@@ -13,9 +13,18 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 import os
 import sys
-# File conf.py is in directory 'X', use parent directory of 'X' and add this path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
+import shutil
 
+# File conf.py is in directory 'X', use parent directory of 'X' and add to path
+main_dir = os.path.join(os.path.dirname(__file__), os.pardir)
+sys.path.append(os.path.abspath(main_dir))
+
+# Copy jupyter notebook files  (*.ipynb) and .csv files from example paths
+example_01_dir = os.path.join(main_dir, 'examples', '01_simple_model')
+for file in os.listdir(example_01_dir):
+    if file.endswith('.ipynb') or file.endswith('.csv'):
+        shutil.copy(src=os.path.join(example_01_dir, file),
+                    dst=os.path.dirname(__file__))
 
 # -- Project information -----------------------------------------------------
 
@@ -26,7 +35,7 @@ author = 'Stefan Bruche'
 # The short X.Y version
 version = ''
 # The full version, including alpha/beta/rc tags
-release = '0.9.0'
+release = '0.9.1'
 
 
 # -- General configuration ---------------------------------------------------
@@ -40,7 +49,8 @@ release = '0.9.0'
 # ones.
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.todo',
-              'sphinx.ext.viewcode'
+              'sphinx.ext.viewcode',
+              'nbsphinx'  # extension to add whole jupyter notebooks
               ]
 
 autodoc_member_order = 'bysource'  # sorting of members of auto-documented class

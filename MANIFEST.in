@@ -1,8 +1,6 @@
 include *.txt
 include pytest.ini
-recursive-include doc *.bat
-recursive-include doc *.py
-recursive-include doc *.txt
-recursive-include doc Makefile
+recursive-include doc *.bat *.py *.txt Makefile
 recursive-include tests *.py
+recursive-include examples *.ipynb *.csv
 prune doc/.build

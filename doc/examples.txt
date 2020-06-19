@@ -5,3 +5,8 @@ Examples
 .. note::
     A guide on how to set up your first *aristopy* optimization model
     and how to use the extended functionality is added on this page soon.
+
+.. toctree::
+   :maxdepth: 1
+
+   01_simple_model
