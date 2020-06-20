@@ -40,13 +40,16 @@ setup(
                       'tsam>=1.1.0',
                       'xlrd>=1.0.0',
                       'openpyxl',
-                      'matplotlib'],
+                      'matplotlib',
+                      'nbsphinx',  # todo: required here for readthedocs
+                      ],
     license="MIT license",
     packages=find_packages(include=['aristopy', 'aristopy.*']),
     setup_requires=['setuptools'],
     # allows installation with additional packages: $ pip install -e .[dev]
     extras_require={'dev': ['pytest',
                             'sphinx', 'sphinx-rtd-theme>=0.4.3',
-                            'nbsphinx', 'ipython',
+                            # 'nbsphinx',
+                            'ipython',
                             'twine']}
 )
