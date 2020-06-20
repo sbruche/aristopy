@@ -60,7 +60,7 @@ import json
 from collections import OrderedDict
 
 import pandas as pd
-import pyomo.environ as pyomo
+import pyomo.environ as pyo
 import pyomo.network as network
 import pyomo.opt as opt
 from tsam.timeseriesaggregation import TimeSeriesAggregation
@@ -496,16 +496,16 @@ class EnergySystem:
         # 1) time_set, 2) intra_period_time_steps_set,
         # 3) inter_period_time_steps_set, 4) typical_periods_set
 
-        model.time_set = pyomo.Set(
+        model.time_set = pyo.Set(
             dimen=2, initialize=init_time_set, ordered=True)
 
-        model.intra_period_time_set = pyomo.Set(
+        model.intra_period_time_set = pyo.Set(
             dimen=2, initialize=init_intra_period_time_set, ordered=True)
 
-        model.inter_period_time_set = pyomo.Set(
+        model.inter_period_time_set = pyo.Set(
             initialize=self.inter_period_time_steps, ordered=True)
 
-        model.typical_periods_set = pyomo.Set(
+        model.typical_periods_set = pyo.Set(
             initialize=self.typical_periods, ordered=True)
 
     def declare_objective(self, model):
@@ -536,7 +536,7 @@ class EnergySystem:
                       for comp in self.components.values()) \
                   + summarize_extra_objective_function_contributions()
             return NPV
-        model.Obj = pyomo.Objective(rule=objective, sense=pyomo.maximize)
+        model.Obj = pyo.Objective(rule=objective, sense=pyo.maximize)
 
     def declare_model(self, use_clustered_data=False,
                       declare_persistent=False,
@@ -760,10 +760,10 @@ class EnergySystem:
         # ######################################################################
         # Create a pyomo ConcreteModel instance to store the sets, variables,
         # constraints, objective function, etc.
-        self.model = pyomo.ConcreteModel()
+        self.model = pyo.ConcreteModel()
         # Duals are stored with the name 'dual' in the model instance (might be
         # interesting for analyzing optimization results of linear models).
-        self.model.dual = pyomo.Suffix(direction=pyomo.Suffix.IMPORT)
+        self.model.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
 
         # **********************************************************************
         #   Declare time sets
@@ -793,7 +793,7 @@ class EnergySystem:
             setattr(self.model, arc_name, network.Arc(src=outlet, dest=inlet))
 
         # Call model transformation factory: Expand the arcs
-        pyomo.TransformationFactory("network.expand_arcs").apply_to(self.model)
+        pyo.TransformationFactory("network.expand_arcs").apply_to(self.model)
 
         # Starting from version 5.6.9 the variable domains (and bounds) for
         # newly created variables on Arcs are not inherited anymore. The default
@@ -806,7 +806,7 @@ class EnergySystem:
             # are split (not for direct connection of single outlet and inlet).
             if hasattr(arc_block, connection[2]):
                 arc_var = getattr(arc_block, connection[2])
-                arc_var.domain = pyomo.NonNegativeReals
+                arc_var.domain = pyo.NonNegativeReals
 
         # Workaround for Pyomo-Versions before 5.6.9:
         # Get all constraints that end with '_split' and deactivate them
@@ -827,20 +827,20 @@ class EnergySystem:
         for var_name in self.added_variables:
             # Get the pandas series from DataFrame and the variable specs
             var_dict = self.added_variables[var_name]
-            domain = getattr(pyomo, var_dict['domain'])
+            domain = getattr(pyo, var_dict['domain'])
             bounds = (var_dict['lb'], var_dict['ub'])
             init = var_dict['init']
             # Differentiation between variables with and without time_set
             if var_dict['has_time_set']:
-                setattr(self.model, var_name, pyomo.Var(
+                setattr(self.model, var_name, pyo.Var(
                     self.model.time_set, domain=domain, bounds=bounds,
                     initialize=init))
             elif var_dict['alternative_set'] is not None:
-                setattr(self.model, var_name, pyomo.Var(
+                setattr(self.model, var_name, pyo.Var(
                     var_dict['alternative_set'], domain=domain,
                     bounds=bounds, initialize=init))
             else:
-                setattr(self.model, var_name, pyomo.Var(
+                setattr(self.model, var_name, pyo.Var(
                     domain=domain, bounds=bounds, initialize=init))
             # Store variable in self.added_variables[var_name]['pyomo']
             pyomo_var = getattr(self.model, var_name)
@@ -856,13 +856,13 @@ class EnergySystem:
             con = getattr(self, con_name)
             # Differentiation between variables with and without time_set
             if con_dict['has_time_set']:
-                setattr(self.model, con_name, pyomo.Constraint(
+                setattr(self.model, con_name, pyo.Constraint(
                     self.model.time_set, rule=con))
             elif con_dict['alternative_set'] is not None:
-                setattr(self.model, con_name, pyomo.Constraint(
+                setattr(self.model, con_name, pyo.Constraint(
                     con_dict['alternative_set'], rule=con))
             else:
-                setattr(self.model, con_name, pyomo.Constraint(rule=con))
+                setattr(self.model, con_name, pyo.Constraint(rule=con))
 
         # Additional objective function contributions:
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -876,7 +876,7 @@ class EnergySystem:
         # initialized as an empty pyomo ConstraintList while declaring the
         # optimization problem. Integer cut constraints can be added with
         # function "add_design_integer_cut_constraint".
-        self.model.integer_cut_constraints = pyomo.ConstraintList()
+        self.model.integer_cut_constraints = pyo.ConstraintList()
 
         # **********************************************************************
         #   Declare objective function
@@ -1396,7 +1396,7 @@ class EnergySystem:
         def get_added_obj_values():
             obj_values = {}
             for key, val in self.added_obj_contributions_results.items():
-                obj_values[key] = pyomo.value(val)
+                obj_values[key] = pyo.value(val)
             return obj_values
 
         components = {}

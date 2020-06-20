@@ -14,7 +14,7 @@ The Sink class inherits from the Source class. Both have the same input
 parameters with only one exception: The Sink has an "inlet" instead of
 an "outlet" attribute.
 """
-import pyomo.environ as pyomo
+import pyomo.environ as pyo
 from aristopy.component import Component
 from aristopy import utils
 
@@ -189,7 +189,7 @@ class Source(Component):
                     # Exceptional case: Selection of a scalar basic variable
                     return basic_var <= cap
 
-            setattr(self.block, 'con_operation_limit', pyomo.Constraint(
+            setattr(self.block, 'con_operation_limit', pyo.Constraint(
                 model.time_set, rule=con_operation_limit))
 
     def con_commodity_rate_min(self, model):
@@ -214,7 +214,7 @@ class Source(Component):
                 else:
                     # if 'commodity_rate_min' is provided as scalar value
                     return basic_var[p, t] >= op_min
-            setattr(self.block, 'con_commodity_rate_min', pyomo.Constraint(
+            setattr(self.block, 'con_commodity_rate_min', pyo.Constraint(
                 model.time_set, rule=con_commodity_rate_min))
 
     def con_commodity_rate_max(self, model):
@@ -239,7 +239,7 @@ class Source(Component):
                 else:
                     # if 'commodity_rate_max' is provided as scalar value
                     return basic_var[p, t] <= op_max
-            setattr(self.block, 'con_commodity_rate_max', pyomo.Constraint(
+            setattr(self.block, 'con_commodity_rate_max', pyo.Constraint(
                 model.time_set, rule=con_commodity_rate_max))
 
     def con_commodity_rate_fix(self, model):
@@ -264,7 +264,7 @@ class Source(Component):
                 else:
                     # if 'commodity_rate_fix' is provided as scalar value
                     return basic_var[p, t] == op_fix
-            setattr(self.block, 'con_commodity_rate_fix', pyomo.Constraint(
+            setattr(self.block, 'con_commodity_rate_fix', pyo.Constraint(
                 model.time_set, rule=con_commodity_rate_fix))
 
     # ==========================================================================

@@ -11,7 +11,7 @@
 A Bus component collects and transfers a commodity. Bus components can also
 be used to model transmission lines between different sites.
 """
-import pyomo.environ as pyomo
+import pyomo.environ as pyo
 from aristopy import utils
 from aristopy.component import Component
 
@@ -129,7 +129,7 @@ class Bus(Component):
             def con_operation_limit(m, p, t):
                 return basic_var[p, t] <= cap * dt
 
-            setattr(self.block, 'con_operation_limit', pyomo.Constraint(
+            setattr(self.block, 'con_operation_limit', pyo.Constraint(
                 model.time_set, rule=con_operation_limit))
 
     def con_bus_balance(self, model):
@@ -147,7 +147,7 @@ class Bus(Component):
         def con_bus_balance(m, p, t):
             return outlet_var[p, t] == inlet_var[p, t] * (1 - self.losses)
 
-        setattr(self.block, 'con_bus_balance', pyomo.Constraint(
+        setattr(self.block, 'con_bus_balance', pyo.Constraint(
                 model.time_set, rule=con_bus_balance))
 
     # ==========================================================================

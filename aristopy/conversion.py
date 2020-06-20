@@ -11,7 +11,7 @@
 A conversion component takes commodities at the inlet and provides other
 commodities at the outlet after an internal conversion.
 """
-import pyomo.environ as pyomo
+import pyomo.environ as pyo
 from aristopy.component import Component
 from aristopy import utils
 
@@ -258,7 +258,7 @@ class Conversion(Component):
             def con_existence_sym_break(m):
                 return bi_ex <= bi_ex_prior
             setattr(self.block, 'con_existence_sym_break',
-                    pyomo.Constraint(rule=con_existence_sym_break))
+                    pyo.Constraint(rule=con_existence_sym_break))
 
     # **************************************************************************
     #    Time-dependent constraints
@@ -281,7 +281,7 @@ class Conversion(Component):
 
             def con_operation_sym_break(m, p, t):
                 return bi_op[p, t] <= bi_op_prior[p, t]
-            setattr(self.block, 'con_operation_sym_break', pyomo.Constraint(
+            setattr(self.block, 'con_operation_sym_break', pyo.Constraint(
                 model.time_set, rule=con_operation_sym_break))
 
     def con_operation_limit(self, model):
@@ -308,7 +308,7 @@ class Conversion(Component):
                     # Exceptional case: Selection of a scalar basic variable
                     return basic_var <= cap
 
-            setattr(self.block, 'con_operation_limit', pyomo.Constraint(
+            setattr(self.block, 'con_operation_limit', pyo.Constraint(
                 model.time_set, rule=con_operation_limit))
 
     def con_min_load_rel(self, model):
@@ -336,7 +336,7 @@ class Conversion(Component):
 
             def con_min_load_rel(m, p, t):
                 return basic_var[p, t] >= cap * bi_op[p, t] * min_load * dt
-            setattr(self.block, 'con_min_load_rel', pyomo.Constraint(
+            setattr(self.block, 'con_min_load_rel', pyo.Constraint(
                 model.time_set, rule=con_min_load_rel))
 
     def con_start_up_cost(self, model):
@@ -359,8 +359,8 @@ class Conversion(Component):
                 if t != 0:  # not in first time step of a period
                     return 0 <= bi_op[p, t - 1] - bi_op[p, t] + bi_su[p, t]
                 else:
-                    return pyomo.Constraint.Skip
-            setattr(self.block, 'con_start_up_cost', pyomo.Constraint(
+                    return pyo.Constraint.Skip
+            setattr(self.block, 'con_start_up_cost', pyo.Constraint(
                 model.time_set, rule=con_start_up_cost))
 
     def con_start_up_cost_inter(self, ensys, model):
@@ -394,8 +394,8 @@ class Conversion(Component):
                     return 0 <= bi_op[prev_typ_period, last_ts_idx] - bi_op[
                         typ_period, 0] + bi_su_inter[p]
                 else:
-                    return pyomo.Constraint.Skip
-            setattr(self.block, 'con_start_up_cost_inter', pyomo.Constraint(
+                    return pyo.Constraint.Skip
+            setattr(self.block, 'con_start_up_cost_inter', pyo.Constraint(
                 ensys.periods, rule=con_start_up_cost_inter))
 
     # ==========================================================================
@@ -423,7 +423,7 @@ class Conversion(Component):
                 model.time_set) / ensys.number_of_years
             if self.use_inter_period_formulation and ensys.is_data_clustered:
                 bi_su_inter = self.variables[utils.BI_SU_INTER]['pyomo']
-                start_cost_inter = -1 * ensys.pvf * self.start_up_cost * pyomo.\
+                start_cost_inter = -1 * ensys.pvf * self.start_up_cost * pyo.\
                     summation(bi_su_inter) / ensys.number_of_years
             else:
                 start_cost_inter = 0

@@ -46,7 +46,6 @@ setup(
     # allows installation with additional packages: $ pip install -e .[dev]
     extras_require={'dev': ['pytest',
                             'sphinx', 'sphinx-rtd-theme>=0.4.3',
-                            'pygments>=2.4.1',
                             'nbsphinx',
                             'ipython',
                             'twine']}

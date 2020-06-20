@@ -10,7 +10,7 @@ import warnings
 import pandas as pd
 import numpy as np
 import aristopy
-import pyomo.environ as pyomo
+import pyomo.environ as pyo
 
 # ==============================================================================
 # GLOBAL VARIABLE NAMES:
@@ -806,13 +806,13 @@ def simplify_user_constraint(df):
 
                 # Do the math with Pyomo's intrinsic functions for sin, log, ...
                 elif operator_left_of_bracket == 'sin':
-                    df[idx[1]] = [pyomo.sin(k) for k in df[idx[1]].to_list()]
+                    df[idx[1]] = [pyo.sin(k) for k in df[idx[1]].to_list()]
                 elif operator_left_of_bracket == 'cos':
-                    df[idx[1]] = [pyomo.cos(k) for k in df[idx[1]].to_list()]
+                    df[idx[1]] = [pyo.cos(k) for k in df[idx[1]].to_list()]
                 elif operator_left_of_bracket == 'exp':
-                    df[idx[1]] = [pyomo.exp(k) for k in df[idx[1]].to_list()]
+                    df[idx[1]] = [pyo.exp(k) for k in df[idx[1]].to_list()]
                 elif operator_left_of_bracket == 'log':
-                    df[idx[1]] = [pyomo.log(k) for k in df[idx[1]].to_list()]
+                    df[idx[1]] = [pyo.log(k) for k in df[idx[1]].to_list()]
                 # If there was an operator in front of the brackets --> drop it
                 df.drop([idx[0]-1], axis=1, inplace=True)
 
