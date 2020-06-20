@@ -8,10 +8,9 @@ from setuptools import setup, find_packages
 
 def read_file(file_name):
     return open(os.path.join(os.path.dirname(__file__), file_name)).read()
-
 setup(
     name='aristopy',
-    version='0.9.1-dev',
+    version='0.9.dev1',
     # metadata to display on PyPI
     author="Stefan Bruche",
     author_email='stefan.bruche@tu-berlin.de',
@@ -40,16 +39,16 @@ setup(
                       'tsam>=1.1.0',
                       'xlrd>=1.0.0',
                       'openpyxl',
-                      'matplotlib',
-                      'nbsphinx',  # todo: required here for readthedocs
-                      ],
+                      'matplotlib'],
     license="MIT license",
     packages=find_packages(include=['aristopy', 'aristopy.*']),
     setup_requires=['setuptools'],
     # allows installation with additional packages: $ pip install -e .[dev]
     extras_require={'dev': ['pytest',
                             'sphinx', 'sphinx-rtd-theme>=0.4.3',
-                            # 'nbsphinx',
+                            'pygments>=2.4.1',
+                            'nbsphinx',
                             'ipython',
                             'twine']}
 )
+
