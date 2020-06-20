@@ -16,6 +16,6 @@ visualizing results (Plotter), or modeling specific solar components
 .. toctree::
    :maxdepth: 3
 	   
-   ar_energySystem
-   ar_component
-   ar_utilities
+   energySystem
+   component
+   utilities

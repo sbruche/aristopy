@@ -14,8 +14,8 @@ series data for thermal and electrical solar collectors.
 .. toctree::
    :maxdepth: 2
    
-   ar_flowSeriesVar
-   ar_logger
-   ar_plotter
-   ar_solar
+   flowSeriesVar
+   logger
+   plotter
+   solar
   

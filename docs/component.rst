@@ -11,10 +11,10 @@ Component
 .. toctree::
    :maxdepth: 1
 
-   ar_sourceSink
-   ar_conversion
-   ar_bus
-   ar_storage
+   sourceSink
+   conversion
+   bus
+   storage
 
 .. autoclass:: Component
    :members:
