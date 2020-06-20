@@ -1,4 +1,4 @@
-.. image:: https://www.energietechnik.tu-berlin.de/fileadmin/fg106/Fotos/aristopy_logo_small.png
+.. image:: misc/aristopy_logo.png
     :target: https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/
     :width: 300px
     :alt: aristopy Logo

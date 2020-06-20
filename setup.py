@@ -36,6 +36,7 @@ setup(
     install_requires=['pandas>=0.19.2',
                       'numpy>=1.11.3',
                       'pyomo==5.6.9',
+                      'pyutilib<6',  # problems with 'enum' for version >= 6.0
                       'tsam>=1.1.0',
                       'xlrd>=1.0.0',
                       'openpyxl',

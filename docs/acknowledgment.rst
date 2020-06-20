@@ -12,7 +12,7 @@ and `pvlib <https://github.com/pvlib/pvlib-python>`_.
 We learned a lot from these packages during the development of *aristopy* and had the opportunity to adapt selected code elements.
 These packages greatly contribute to the open-source community, and they are worth looking at more closely.
 
-.. image:: https://www.energietechnik.tu-berlin.de/fileadmin/fg106/Fotos/bwmi_logo_small.png
+.. image:: misc/bmwi_logo.png
     :target: https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/
     :width: 200px
     :alt: BMWi Logo
