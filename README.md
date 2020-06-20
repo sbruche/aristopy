@@ -1,5 +1,5 @@
 <a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/">
-<img src="./doc/images/aristopy_logo.png" alt="aristopy logo" width="300px"/></a>
+<img src="./docs/misc/aristopy_logo.png" alt="aristopy logo" width="300px"/></a>
 
 # Optimizing energy systems with *aristopy*
 
@@ -95,13 +95,13 @@ plotter.plot_objective(lgd_pos='lower center')
 The method *plot_operation* returns a mixed bar and line plot that visualizes 
 the operation of a component based on a selected commodity.
 
-<img src="./doc/images/operation_plot.png" alt="operation plot" width="600"/>
+<img src="./docs/misc/operation_plot.png" alt="operation plot" width="600"/>
 
 The method *plot_objective* returns a bar chart that summarizes the cost
 contributions of each component to the overall objective function value 
 (net present value).
 
-<img src="./doc/images/objective_plot.png" alt="objective plot" width="600"/>
+<img src="./docs/misc/objective_plot.png" alt="objective plot" width="600"/>
 
 ## Citing and Contributing
 You are welcome to test aristopy and use it for your purposes. If you
@@ -125,4 +125,4 @@ Ministry for Economic Affairs and Energy (project reference number 03ET4053A).
 The funding is gratefully acknowledged.
 
 <a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/">
-<img src="./doc/images/bmwi_logo.png" alt="BMWi Logo" width="200px"></a>
+<img src="./docs/misc/bmwi_logo.png" alt="BMWi Logo" width="200px"></a>

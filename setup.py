@@ -11,7 +11,7 @@ def read_file(file_name):
 
 setup(
     name='aristopy',
-    version='0.9.1',
+    version='0.9.1-dev',
     # metadata to display on PyPI
     author="Stefan Bruche",
     author_email='stefan.bruche@tu-berlin.de',

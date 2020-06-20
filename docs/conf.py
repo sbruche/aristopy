@@ -36,9 +36,9 @@ copyright = '2020, Stefan Bruche'
 author = 'Stefan Bruche'
 
 # The short X.Y version
-version = ''
+version = '0.9'
 # The full version, including alpha/beta/rc tags
-release = '0.9.1'
+release = '0.9.1-dev'
 
 
 # -- General configuration ---------------------------------------------------

@@ -9,11 +9,11 @@ tests/temp/
 build/
 sdist/
 dist/
-doc/.build/
-doc/*.ipynb
-doc/*.csv
-doc/*.json
-doc/*.png
+docs/.build/
+docs/*.ipynb
+docs/*.csv
+docs/*.json
+docs/*.png
 *.egg-info/
 *.egg
 *.pyc
