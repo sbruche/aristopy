@@ -19,13 +19,12 @@ import shutil
 main_dir = os.path.join(os.path.dirname(__file__), os.pardir)
 sys.path.append(os.path.abspath(main_dir))
 
-# Copy jupyter notebook files  (*.ipynb) and .csv files from example paths
-example_01_dir = os.path.join(main_dir, 'examples', '01_simple_model')
-example_02_dir = os.path.join(main_dir, 'examples', '02_complex_model')
-example_03_dir = os.path.join(main_dir, 'examples', '03_solar_model')
-for path in [example_01_dir, example_02_dir, example_03_dir]:
+# Copy jupyter notebook files  (*.ipynb) from example paths
+for path in [os.path.join(main_dir, 'examples', 'model_to_get_started'),
+             os.path.join(main_dir, 'examples', 'advanced_features'),
+             os.path.join(main_dir, 'examples', 'solar_components')]:
     for file in os.listdir(path):
-        if file.endswith('.ipynb') or file.endswith('.csv'):
+        if file.endswith('.ipynb'):
             shutil.copy(src=os.path.join(path, file),
                         dst=os.path.dirname(__file__))
 
@@ -80,7 +79,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['.build', 'Thumbs.db', '.DS_Store', '+HOWTO.txt']
+exclude_patterns = ['.build', 'Thumbs.db', '.DS_Store']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'  # None

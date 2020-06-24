@@ -5,4 +5,4 @@ recursive-include docs *.bat *.py *.png Makefile
 recursive-include tests *.py
 recursive-include examples *.ipynb *.csv
 prune examples/*/.ipynb_checkpoints
-prune docs/.buildrena
+prune docs/.build

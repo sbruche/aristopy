@@ -211,8 +211,7 @@ class EnergySystem:
 
     def __repr__(self):
         # Define class format for printing and logging
-        return '<EnSysMo: "id=%s..%s">' % (hex(id(self))[:3],
-                                           hex(id(self))[-3:])
+        return '<EnSys: "id=%s..%s">' % (hex(id(self))[:3], hex(id(self))[-3:])
 
     def add_variable(self, var):
         """
@@ -1060,7 +1059,8 @@ class EnergySystem:
                 if os.path.isfile(results_file):
                     os.remove(results_file)
 
-    def export_component_configuration(self):
+    def export_component_configuration(self, write_to_excel=False,
+                                       file_name='component_config.xlsx'):
         """
         This function collects the configuration data of all modeled components
         (results of the optimization) as pandas Series and returns them in a
@@ -1070,14 +1070,32 @@ class EnergySystem:
         * the binary existence variables of modules (utils.BI_MODULE_EX)
         * the component capacity variable (utils.CAP)
 
+        :param write_to_excel: Specify whether the component configuration
+            DataFrame should be stored in an Excel-file.
+            |br| *Default: False*
+        :type write_to_excel: bool
+
+        :param file_name: Name of the exported Excel-file containing the
+            component configuration (if flag "write_to_excel" is True).
+            |br| *Default: 'component_config.xlsx'*
+        :type file_name: str
+
         :returns: The configuration of all components of the model instance.
         :rtype: pandas DataFrame
         """
         self.log.info('Call of function "export_component_configuration"')
 
+        assert isinstance(write_to_excel, bool), 'input should be a boolean'
+        assert isinstance(file_name, str), '"file_name" should be a string'
+
         for name, comp in self.components.items():
             self.component_configuration[name] = \
                 comp.export_component_configuration()
+
+        # Write configuration to Excel-file if requested:
+        if write_to_excel:
+            self.component_configuration.to_excel(file_name)
+
         return self.component_configuration
 
     def import_component_configuration(self, config, fix_existence=True,

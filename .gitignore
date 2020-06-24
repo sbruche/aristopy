@@ -21,14 +21,14 @@ docs/*.png
 *.lp
 # Ignore everything in examples, add subdirectories with file exceptions to add
 examples/*
-!examples/01_simple_model/
-examples/01_simple_model/*
-!examples/01_simple_model/*.ipynb
-!examples/02_complex_model/
-examples/02_complex_model/*
-!examples/02_complex_model/*.ipynb
-!examples/02_complex_model/*.csv
-!examples/03_solar_model/
-examples/03_solar_model/*
-!examples/03_solar_model/*.ipynb
-!examples/03_solar_model/*.csv
+!examples/model_to_get_started/
+examples/model_to_get_started/*
+!examples/model_to_get_started/*.ipynb
+!examples/advanced_features/
+examples/advanced_features/*
+!examples/advanced_features/*.ipynb
+!examples/advanced_features/*.csv
+!examples/solar_components/
+examples/solar_components/*
+!examples/solar_components/*.ipynb
+!examples/solar_components/*.csv

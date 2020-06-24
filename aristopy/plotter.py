@@ -46,7 +46,11 @@ from aristopy import utils
 class Plotter:
     def __init__(self, json_file):
         """
+        The Plotter class provides three basic plotting methods:
 
+        * plot_operation
+        * plot_objective
+        * quick_plot
 
         :param json_file: Path to the optimization results file in JSON-Format
         """
@@ -315,6 +319,7 @@ class Plotter:
                        scale_to_hourly_resolution=False,
                        plot_single_period_with_index=None, show_plot=False,
                        save_plot=True, file_name='operation_plot', **kwargs):
+        # Todo: Add start and end arguments to enable plotting of index slices?!
         """
         Method to create a mixed bar and line plot that visualizes the
         operation of a component on the basis of a selected commodity.
