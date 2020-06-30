@@ -187,7 +187,7 @@ class Source(Component):
                     return basic_var[p, t] <= cap * dt
                 else:
                     # Exceptional case: Selection of a scalar basic variable
-                    return basic_var <= cap
+                    return basic_var == cap
 
             setattr(self.block, 'con_operation_limit', pyo.Constraint(
                 model.time_set, rule=con_operation_limit))

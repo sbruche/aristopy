@@ -142,6 +142,9 @@ class EnergySystem:
         # from 0 to number_of_typical_periods-1.
         self.typical_periods = [0]
 
+        # Stores the instance of the time series aggregation (if performed)
+        self.tsa_instance = None
+
         # **********************************************************************
         #   Economics
         # **********************************************************************
@@ -372,7 +375,7 @@ class EnergySystem:
             sorted(time_series_data.columns), axis=1)
 
         # Set up instance of tsam's TimeSeriesAggregation class and cluster data
-        cluster_class = TimeSeriesAggregation(
+        self.tsa_instance = TimeSeriesAggregation(
             timeSeries=time_series_data,
             noTypicalPeriods=number_of_typical_periods,
             hoursPerPeriod=
@@ -382,11 +385,11 @@ class EnergySystem:
             **kwargs)
 
         # Store clustered time series data in the components
-        data = pd.DataFrame.from_dict(cluster_class.clusterPeriodDict)
+        data = pd.DataFrame.from_dict(self.tsa_instance.clusterPeriodDict)
         for comp in self.components.values():
             comp.set_aggregated_time_series_data(data)
 
-        self.typical_periods = cluster_class.clusterPeriodIdx
+        self.typical_periods = self.tsa_instance.clusterPeriodIdx
         self.number_of_time_steps_per_period = number_of_time_steps_per_period
 
         self.periods = list(range(int(
@@ -394,7 +397,7 @@ class EnergySystem:
         self.inter_period_time_steps = list(range(int(
             self.number_of_time_steps / number_of_time_steps_per_period) + 1))
 
-        self.periods_order = cluster_class.clusterOrder
+        self.periods_order = self.tsa_instance.clusterOrder
         self.period_occurrences = [
             (self.periods_order == tp).sum() for tp in self.typical_periods]
 
@@ -580,6 +583,10 @@ class EnergySystem:
         # Initialize flags of model status
         self.is_model_declared = False
         self.is_persistent_model_declared = False
+
+        # Reset time series aggregation instance for model w/o clustered data
+        if not use_clustered_data:
+            self.tsa_instance = None
 
         # ######################################################################
         #   C O M P O N E N T   C O N N E C T I O N S

@@ -23,6 +23,7 @@ and electrical) at a certain location and with specific tilt and azimuth angles.
    For further information and an installation guide, users are referred to the
    `pvlib documentation <https://pvlib-python.readthedocs.io/en/stable/>`_.
 """
+import inspect
 import pandas as pd
 try:
     import pvlib
@@ -119,26 +120,48 @@ class SolarData:
             times=self.data_index)
 
     def calculate_dni(self):
+        # Calculate clear sky data for the specified location by using the model
+        # 'simplified_solis'. The method returns a DataFrame with ghi, dni, dhi.
+        # The clear sky 'dni' value is used to validate and restrict the dni
+        # returned by the method "pvlib.irradiance.dni".
+        clearsky = self.location.get_clearsky(
+            times=self.solar_position.index, model='simplified_solis',
+            solar_position=self.solar_position)
+
         # Calc. direct normal irradiation (DNI) from GHI, DHI and solar position
         # DNI may be unreasonably high or neg. for zenith angles close to 90°
         # (sunrise/sunset transitions). Function sets them to NaN => corr. to 0
-        return pvlib.irradiance.dni(ghi=self.ghi, dhi=self.dhi,
-                                    zenith=self.solar_position[
-                                        'apparent_zenith']).fillna(0)
+        dni = pvlib.irradiance.dni(
+            ghi=self.ghi, dhi=self.dhi,
+            zenith=self.solar_position['apparent_zenith'],
+            clearsky_dni=clearsky['dni'], clearsky_tolerance=1.1).fillna(0)
 
-    def get_plane_of_array_irradiance(self, surface_tilt, surface_azimuth):
+        return dni
+
+    def get_plane_of_array_irradiance(self, surface_tilt, surface_azimuth,
+                                      **kwargs):
         """
         Calculate and return the plane of array irradiance (POA).
 
         :param surface_tilt: tilt of the PV modules (0=horizontal, 90=vertical)
         :param surface_azimuth: module azimuth angle (180=facing south)
+        :param kwargs: Option to specify more keyword arguments, e.g, 'albedo'
+            or 'surface_type'. Search for method 'get_total_irradiance' in the
+            documentation of pvlib for further information.
         :return: pandas DataFrame with POA ('poa_global', ...)
         """
+        # Inspect pvlib-function for accepted arguments and filter the kwargs
+        accepted_kwargs = {}
+        kw_options = inspect.signature(pvlib.irradiance.get_total_irradiance)
+        for key, val in kwargs.items():
+            if key in kw_options.parameters.keys():
+                accepted_kwargs[key] = val
+
         return pvlib.irradiance.get_total_irradiance(
             surface_tilt=surface_tilt, surface_azimuth=surface_azimuth,
             dni=self.calculate_dni(), ghi=self.ghi, dhi=self.dhi,
             solar_zenith=self.solar_position['apparent_zenith'],
-            solar_azimuth=self.solar_position['azimuth'])
+            solar_azimuth=self.solar_position['azimuth'], **accepted_kwargs)
 
     def get_irradiance_dataframe(self):
         """
@@ -361,9 +384,9 @@ class PVSystem:
         PV plant with specified module, inverter, tilt and azimuth angle,
         location and weather data.
 
-        :param module: Name of the module as in PVLib Database. to see the full
+        :param module: Name of the module as in PVLib Database. To see the full
             database type e.g. "pvlib.pvsystem.retrieve_sam(name='cecmod')"
-        :param inverter: Name of the inverter as in PVLib Database. to see the
+        :param inverter: Name of the inverter as in PVLib Database. To see the
             database type e.g. "pvlib.pvsystem.retrieve_sam(name='cecinverter')"
         """
         if not HAS_PVLIB:
