@@ -3,7 +3,7 @@
 """
 **Globals, helper and utility functions**
 
-* Last edited: 2020-06-14
+* Last edited: 2020-06-30
 * Created by: Stefan Bruche (TU Berlin)
 """
 import warnings
@@ -568,7 +568,7 @@ def disassemble_user_expression(expr):
     return expr_part
 
 
-def simplify_user_constraint(df):
+def simplify_user_constraint(df, time_step_weights):
     """
     Simplify a user-defined constraint in multiple iterations until the provided
     DataFrame holds only 3 columns (left hand side, le/eq/ge, right hand side).
@@ -790,18 +790,21 @@ def simplify_user_constraint(df):
                                 'is scalar (constant or not time-dependent). ' \
                                 '"sum"-operator is useless in this case. ' \
                                 'Consider rewriting the user_expression.'
-                    all_in_col = df[idx[1]].to_list()
-                    if len(all_in_col) >= 2:
-                        row_0 = _expr_string_adjustment(all_in_col[0].__str__())
-                        row_1 = _expr_string_adjustment(all_in_col[1].__str__())
+                    all_rows = df[idx[1]].to_list()
+                    if len(all_rows) >= 2:
+                        row_0 = _expr_string_adjustment(all_rows[0].__str__())
+                        row_1 = _expr_string_adjustment(all_rows[1].__str__())
                         if row_0 == row_1:
                             raise ValueError(exception)
                     # Don't allow sum for time-independent constraints. Actually
                     # it would work, but it doesn't make sense [CAP == sum(42)].
-                    elif len(all_in_col) == 1:
+                    elif len(all_rows) == 1:
                         raise ValueError(exception)
-                    # Do sum operation if exception is not raised
-                    df[idx[1]] = sum(all_in_col)
+                    # Do sum operation if exception is not raised:
+                    # Also consider the weight of each time-step (only important
+                    # if the data is clustered).
+                    df[idx[1]] = sum(weight * row_data for weight, row_data
+                                     in zip(time_step_weights, all_rows))
                     found_sum_operator = True  # set flag for post-processing
 
                 # Do the math with Pyomo's intrinsic functions for sin, log, ...

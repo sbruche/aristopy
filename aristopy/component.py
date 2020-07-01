@@ -5,7 +5,7 @@
 # ==============================================================================
 """
 * File name: component.py
-* Last edited: 2020-06-14
+* Last edited: 2020-06-30
 * Created by: Stefan Bruche (TU Berlin)
 
 Components are added to an instance of the EnergySystem class.
@@ -1136,8 +1136,14 @@ class Component(metaclass=ABCMeta):
 
             # Do the simplification process and get two python dictionaries with
             # left hand side (lhs) and right hand side (rhs) expressions for the
-            # whole set (time slice) and the operation sign ('==', '>=', '<=')
-            lhs, op, rhs, dropped_idx = utils.simplify_user_constraint(df_expr)
+            # whole set (time slice) and the operation sign ('==', '>=', '<=').
+            # The simplification function also requires a list with weights for
+            # all time steps. It is applied in case time-dependent variables are
+            # summarized ("sum" operation). Only important if data is clustered.
+            time_step_weights = [self.ensys.period_occurrences[p]
+                                 for p, _ in model.time_set]
+            lhs, op, rhs, dropped_idx = utils.simplify_user_constraint(
+                df_expr, time_step_weights)
 
             # Overwrite the 'has_time_dependency' flag if index was dropped
             # while constructing the constraint because of 'sum' operation.
