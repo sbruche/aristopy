@@ -1,5 +1,5 @@
 <a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/">
-<img src="./docs/misc/aristopy_logo.png" alt="aristopy logo" width="300px"/></a>
+<img src="https://raw.githubusercontent.com/sbruche/aristopy/master/docs/misc/aristopy_logo.png" alt="aristopy logo" width="300px"/></a>
 
 # Optimizing energy systems with *aristopy*
 
@@ -47,7 +47,7 @@ More detailed installation instructions can be found in the
 The code of the first simple example from the examples directory, shown 
 below, illustrates the notation of *aristopy*. 
 A detailed description of the code is provided in the 
-[documentation](https://aristopy.readthedocs.io/en/latest/01_simple_model.html). 
+[documentation](https://aristopy.readthedocs.io/en/latest/model_to_get_started.html). 
 
 ```python
 import aristopy as ar
@@ -95,13 +95,13 @@ plotter.plot_objective(lgd_pos='lower center')
 The method *plot_operation* returns a mixed bar and line plot that visualizes 
 the operation of a component based on a selected commodity.
 
-<img src="./docs/misc/operation_plot.png" alt="operation plot" width="600"/>
+<img src="https://raw.githubusercontent.com/sbruche/aristopy/master/docs/misc/operation_plot.png" alt="operation plot" width="600"/>
 
 The method *plot_objective* returns a bar chart that summarizes the cost
 contributions of each component to the overall objective function value 
 (net present value).
 
-<img src="./docs/misc/objective_plot.png" alt="objective plot" width="600"/>
+<img src="https://raw.githubusercontent.com/sbruche/aristopy/master/docs/misc/objective_plot.png" alt="objective plot" width="600"/>
 
 ## Citing and Contributing
 You are welcome to test aristopy and use it for your purposes. If you
@@ -125,4 +125,4 @@ Ministry for Economic Affairs and Energy (project reference number 03ET4053A).
 The funding is gratefully acknowledged.
 
 <a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/">
-<img src="./docs/misc/bmwi_logo.png" alt="BMWi Logo" width="200px"></a>
+<img src="https://raw.githubusercontent.com/sbruche/aristopy/master/docs/misc/bmwi_logo.png" alt="BMWi Logo" width="200px"></a>
