@@ -5,7 +5,7 @@
 # ==============================================================================
 """
 * File name: solar.py
-* Last edited: 2020-06-14
+* Last edited: 2020-06-30
 * Created by: Stefan Bruche (TU Berlin)
 
 The solar classes SolarData, SolarThermalCollector, and PVSystem provide
@@ -33,7 +33,7 @@ except ImportError:
 
 
 class SolarData:
-    def __init__(self, ghi, dhi, latitude, longitude, altitude=0):
+    def __init__(self, ghi, dhi, latitude, longitude, altitude=0, dni=None):
         """
         Class to provide solar input data for PV or solar thermal calculations.
 
@@ -49,6 +49,9 @@ class SolarData:
         :param latitude: Latitude value (float, int) for respective location.
         :param longitude: Longitude value (float, int) for respective location.
         :param altitude: Altitude value (float, int) for respective location.
+        :param dni: Pandas series (with datetime index and time zone) for direct
+            normal (beam) irradiation data at the respective location.
+            Is calculated from GHI and DHI if not provided here.
         """
         if not HAS_PVLIB:
             raise ImportError(
@@ -60,8 +63,7 @@ class SolarData:
 
         self.ghi = ghi
         self.dhi = dhi
-
-        self._tz = 'UTC'  # default, overwritten by GHI input time series
+        self.dni = dni
 
         self.location = (latitude, longitude, altitude)
 
@@ -71,17 +73,16 @@ class SolarData:
 
     @ghi.setter
     def ghi(self, ghi):
-        if isinstance(ghi, pd.Series):
-            self._ghi = ghi
-            self._data_index = ghi.index
-            self._tz = ghi.index.tz
-            # Update the solar position for the location and the time index
-            # Not during first initialization --> location is inited later
-            if hasattr(self, 'location'):
-                self.solar_position = self.location.get_solarposition(
-                    times=self._data_index)
-        else:
+        if not isinstance(ghi, pd.Series):
             raise TypeError('Input for GHI needs to be a pandas Series')
+        self._ghi = ghi
+        self._data_index = ghi.index
+        self._tz = ghi.index.tz
+        # Update the solar position for the location and the time index
+        # Not during first initialization --> location is inited later
+        if hasattr(self, 'location'):
+            self.solar_position = self.location.get_solarposition(
+                times=self._data_index)
 
     @property
     def data_index(self):
@@ -93,15 +94,30 @@ class SolarData:
 
     @dhi.setter
     def dhi(self, dhi):
-        if isinstance(dhi, pd.Series):
-            if not dhi.index.equals(self._data_index):
-                raise ValueError('GHI and DHI need to have the same data index')
-            elif dhi.index.tz != self._tz:
-                raise ValueError('GHI and DHI need to have the same time zone')
-            else:
-                self._dhi = dhi
-        else:
+        if not isinstance(dhi, pd.Series):
             raise TypeError('Input for DHI needs to be a pandas Series')
+        if not dhi.index.equals(self._data_index):
+            raise ValueError('GHI and DHI need to have the same data index')
+        if dhi.index.tz != self._tz:
+            raise ValueError('GHI and DHI need to have the same time zone')
+        self._dhi = dhi
+
+    @property
+    def dni(self):
+        return self._dni
+
+    @dni.setter
+    def dni(self, dni):
+        if isinstance(dni, type(None)):
+            self._dni = None
+            return
+        if not isinstance(dni, pd.Series):
+            raise TypeError('Input for DNI needs to be a pandas Series')
+        if not dni.index.equals(self._data_index):
+            raise ValueError('DNI needs the same data index as GHI and DHI')
+        if dni.index.tz != self._tz:
+            raise ValueError('DNI needs the same time zone as GHI and DHI')
+        self._dni = dni
 
     @property
     def location(self):
@@ -119,8 +135,13 @@ class SolarData:
         self.solar_position = self._location.get_solarposition(
             times=self.data_index)
 
-    def calculate_dni(self):
-        # Calculate clear sky data for the specified location by using the model
+    def get_dni(self):
+        # If DNI already specified during initialization of SolarData => use it!
+        if not isinstance(self.dni, type(None)):
+            return self.dni
+
+        # Else: Calculate DNI in two steps:
+        # 1. Calculate clear sky data for the specified location by using model
         # 'simplified_solis'. The method returns a DataFrame with ghi, dni, dhi.
         # The clear sky 'dni' value is used to validate and restrict the dni
         # returned by the method "pvlib.irradiance.dni".
@@ -128,22 +149,22 @@ class SolarData:
             times=self.solar_position.index, model='simplified_solis',
             solar_position=self.solar_position)
 
-        # Calc. direct normal irradiation (DNI) from GHI, DHI and solar position
-        # DNI may be unreasonably high or neg. for zenith angles close to 90°
-        # (sunrise/sunset transitions). Function sets them to NaN => corr. to 0
-        dni = pvlib.irradiance.dni(
+        # 2. DNI from GHI, DHI and solar positions. DNI may be unreasonably
+        # high or neg. for zenith angles close to 90° (sunrise/sunset
+        # transitions). Function sets them to NaN => correct to 0
+        self.dni = pvlib.irradiance.dni(
             ghi=self.ghi, dhi=self.dhi,
             zenith=self.solar_position['apparent_zenith'],
             clearsky_dni=clearsky['dni'], clearsky_tolerance=1.1).fillna(0)
 
-        return dni
+        return self.dni
 
     def get_plane_of_array_irradiance(self, surface_tilt, surface_azimuth,
                                       **kwargs):
         """
         Calculate and return the plane of array irradiance (POA).
 
-        :param surface_tilt: tilt of the PV modules (0=horizontal, 90=vertical)
+        :param surface_tilt: tilt of the modules (0=horizontal, 90=vertical)
         :param surface_azimuth: module azimuth angle (180=facing south)
         :param kwargs: Option to specify more keyword arguments, e.g, 'albedo'
             or 'surface_type'. Search for method 'get_total_irradiance' in the
@@ -159,7 +180,7 @@ class SolarData:
 
         return pvlib.irradiance.get_total_irradiance(
             surface_tilt=surface_tilt, surface_azimuth=surface_azimuth,
-            dni=self.calculate_dni(), ghi=self.ghi, dhi=self.dhi,
+            dni=self.get_dni(), ghi=self.ghi, dhi=self.dhi,
             solar_zenith=self.solar_position['apparent_zenith'],
             solar_azimuth=self.solar_position['azimuth'], **accepted_kwargs)
 
@@ -173,7 +194,7 @@ class SolarData:
         df = pd.DataFrame(index=self.ghi.index)
         df['ghi'] = self.ghi
         df['dhi'] = self.dhi
-        df['dni'] = self.calculate_dni()
+        df['dni'] = self.get_dni()
         return df
 
 
@@ -224,11 +245,10 @@ class SolarThermalCollector:
 
     @t_collector_in.setter
     def t_collector_in(self, value):
-        if isinstance(value, (float, int, pd.Series)):  # multiple type options
-            self._t_collector_in = value
-            self._trigger_calculation()
-        else:
+        if not isinstance(value, (float, int, pd.Series)):
             raise ValueError('Expected numeric value or pandas Series.')
+        self._t_collector_in = value
+        self._trigger_calculation()
 
     @property
     def t_collector_out(self):
@@ -236,11 +256,10 @@ class SolarThermalCollector:
 
     @t_collector_out.setter
     def t_collector_out(self, value):
-        if isinstance(value, (float, int, pd.Series)):  # multiple type options
-            self._t_collector_out = value
-            self._trigger_calculation()
-        else:
+        if not isinstance(value, (float, int, pd.Series)):
             raise ValueError('Expected numeric value or pandas Series.')
+        self._t_collector_out = value
+        self._trigger_calculation()
 
     @property
     def irradiance_data(self):
@@ -248,11 +267,10 @@ class SolarThermalCollector:
 
     @irradiance_data.setter
     def irradiance_data(self, value):
-        if isinstance(value, pd.Series):
-            self._irradiance_data = value
-            self._trigger_calculation()
-        else:
+        if not isinstance(value, pd.Series):
             raise ValueError('Irradiance data required as pandas Series')
+        self._irradiance_data = value
+        self._trigger_calculation()
 
     @property
     def optical_efficiency(self):
@@ -260,11 +278,10 @@ class SolarThermalCollector:
 
     @optical_efficiency.setter
     def optical_efficiency(self, value):
-        if isinstance(value, (int, float)) and 0 < value <= 1:
-            self._optical_efficiency = value
-            self._trigger_calculation()
-        else:
+        if not isinstance(value, (int, float)) or not 0 < value <= 1:
             raise ValueError('Expected a value between 0 and 1 for opt. eff.')
+        self._optical_efficiency = value
+        self._trigger_calculation()
 
     @property
     def thermal_loss_parameter_1(self):
@@ -272,11 +289,10 @@ class SolarThermalCollector:
 
     @thermal_loss_parameter_1.setter
     def thermal_loss_parameter_1(self, value):
-        if isinstance(value, (float, int)):
-            self._thermal_loss_parameter_1 = value
-            self._trigger_calculation()
-        else:
+        if not isinstance(value, (float, int)):
             raise ValueError('Expected a numeric value for the th. loss param.')
+        self._thermal_loss_parameter_1 = value
+        self._trigger_calculation()
 
     @property
     def thermal_loss_parameter_2(self):
@@ -284,11 +300,10 @@ class SolarThermalCollector:
 
     @thermal_loss_parameter_2.setter
     def thermal_loss_parameter_2(self, value):
-        if isinstance(value, (float, int)):
-            self._thermal_loss_parameter_2 = value
-            self._trigger_calculation()
-        else:
+        if not isinstance(value, (float, int)):
             raise ValueError('Expected a numeric value for the th. loss param.')
+        self._thermal_loss_parameter_2 = value
+        self._trigger_calculation()
 
     @property
     def t_ambient(self):
@@ -296,11 +311,10 @@ class SolarThermalCollector:
 
     @t_ambient.setter
     def t_ambient(self, value):
-        if isinstance(value, (float, int, pd.Series)):  # multiple type options
-            self._t_ambient = value
-            self._trigger_calculation()
-        else:
+        if not isinstance(value, (float, int, pd.Series)):
             raise ValueError('Expected numeric value or pandas Series.')
+        self._t_ambient = value
+        self._trigger_calculation()
 
     def _has_all_inputs(self):
         # flag to check if collector is ready for calculation of heat output

@@ -10,6 +10,7 @@ build/
 sdist/
 dist/
 docs/.build/
+docs/*.txt
 docs/*.ipynb
 docs/*.csv
 docs/*.json
@@ -21,14 +22,7 @@ docs/*.png
 *.lp
 # Ignore everything in examples, add subdirectories with file exceptions to add
 examples/*
-!examples/model_to_get_started/
-examples/model_to_get_started/*
-!examples/model_to_get_started/*.ipynb
-!examples/advanced_features/
-examples/advanced_features/*
-!examples/advanced_features/*.ipynb
-!examples/advanced_features/*.csv
-!examples/solar_components/
-examples/solar_components/*
-!examples/solar_components/*.ipynb
-!examples/solar_components/*.csv
+!examples/*/
+examples/*/*
+!examples/*/*.ipynb
+!examples/*/*.csv
