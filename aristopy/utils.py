@@ -55,8 +55,8 @@ def aggregate_time_series(full_series, number_of_time_steps_to_aggregate,
     if not (isinstance(full_series, (pd.Series, np.ndarray, list))):
         raise ValueError('The "full_series" can either by a pandas Series or a '
                          'numpy ndarray or a Python list.')
-    check_nonzero_positive_int(number_of_time_steps_to_aggregate,
-                               'number_of_time_steps_to_aggregate')
+    check_positive_int(number_of_time_steps_to_aggregate,
+                       'number_of_time_steps_to_aggregate')
     if not (aggregate_by == 'sum' or aggregate_by == 'mean'):
         raise ValueError('Keyword "aggregate_by" can either be "sum" or "mean"')
 
@@ -168,7 +168,7 @@ def check_and_set_capacities(cap, cap_min, cap_max, cap_per_mod, max_mod_nbr):
         if val is not None:
             check_and_set_positive_number(val)
     if max_mod_nbr is not None:
-        check_nonzero_positive_int(max_mod_nbr, 'maximal_module_number')
+        check_positive_int(max_mod_nbr, 'maximal_module_number')
 
     # fixed capacity dominates other arguments
     if cap is not None:
@@ -372,9 +372,9 @@ def check_and_set_user_expr(data):
 def check_cluster_input(number_of_typical_periods,
                         number_of_time_steps_per_period, number_of_time_steps):
     """ Check correctness of input arguments to the 'cluster' method """
-    check_nonzero_positive_int(
+    check_positive_int(
         number_of_typical_periods, 'number_of_typical_periods')
-    check_nonzero_positive_int(
+    check_positive_int(
         number_of_time_steps_per_period, 'number_of_time_steps_per_period')
     if not number_of_time_steps % number_of_time_steps_per_period == 0:
 
@@ -430,9 +430,9 @@ def check_edit_var_input(name, store_vars, **kwargs):
 def check_energy_system_input(number_of_time_steps, hours_per_time_step,
                               interest_rate, economic_lifetime, logging):
     """ Check input to initialization method of the EnergySystem class """
-    check_nonzero_positive_int(number_of_time_steps, 'number_of_time_steps')
-    check_nonzero_positive_int(hours_per_time_step, 'hours_per_time_step')
-    check_nonzero_positive_int(economic_lifetime, 'economic_lifetime')
+    check_positive_int(number_of_time_steps, 'number_of_time_steps')
+    check_positive_int(hours_per_time_step, 'hours_per_time_step')
+    check_positive_int(economic_lifetime, 'economic_lifetime')
     check_and_set_positive_number(interest_rate, 'interest_rate')
     if logging is not None and not isinstance(logging, aristopy.Logger):
         raise TypeError('"logging" only takes instances of the class "Logger"')
@@ -468,12 +468,15 @@ def check_logger_input(logfile, delete_old, default_handler, local_handler,
                              '"WARNING", "ERROR", "CRITICAL"')
 
 
-def check_nonzero_positive_int(value, name=None):
-    """ Check that the input value is a positive and non-zero integer. """
+def check_positive_int(value, name=None, zero_is_invalid=True):
+    """ Check that the input value is a positive (and non-zero) integer. """
     param = '' if name is None else '"'+name+'" '  # ending with space!
-    if not isinstance(value, int) or not value > 0:
+    if zero_is_invalid and (not isinstance(value, int) or not value > 0):
         raise ValueError('Input argument {}requires a positive and non-zero '
                          'integer.'.format(param))
+    elif not zero_is_invalid and (not isinstance(value, int) or not value >= 0):
+        raise ValueError('Input argument {}requires a positive integer (>=0).'
+                         .format(param))
 
 
 def check_optimize_input(use_clustered_data, declare_persistent,
@@ -484,7 +487,7 @@ def check_optimize_input(use_clustered_data, declare_persistent,
                               declare_persistent, persistent_solver)
     assert isinstance(solver, str), 'The "solver" parameter should be a string!'
     if time_limit is not None:
-        check_nonzero_positive_int(time_limit, 'time_limit')
+        check_positive_int(time_limit, 'time_limit')
     assert isinstance(optimization_specs, str), \
         'The "optimization_specs" parameter should be a string!'
 

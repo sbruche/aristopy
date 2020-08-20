@@ -153,8 +153,8 @@ class Conversion(Component):
             use_inter_period_formulation, 'use_inter_period_formulation')
 
         # Multiple instances formed and collected in one group
-        utils.check_nonzero_positive_int(instances_in_group,
-                                         'instances_in_group')
+        utils.check_positive_int(instances_in_group, 'instances_in_group',
+                                 zero_is_invalid=False)
         self.instances_in_group = instances_in_group
         self.group_has_existence_order = utils.check_and_set_bool(
             group_has_existence_order, 'group_has_existence_order')
