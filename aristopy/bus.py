@@ -19,7 +19,7 @@ from aristopy.component import Component
 class Bus(Component):
     def __init__(self, ensys, name, inlet, outlet,
                  basic_variable='inlet_variable',
-                 has_existence_binary_var=None,
+                 has_existence_binary_var=False,
                  time_series_data=None, scalar_params=None,
                  additional_vars=None, user_expressions=None,
                  capacity=None, capacity_min=None, capacity_max=None,
