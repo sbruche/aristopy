@@ -63,7 +63,7 @@ class Conversion(Component):
             number larger than 1 is provided, the names of the components are
             extended with integers starting from 1 (e.g., 'conversion_1', ...).
             |br| *Default: 1*
-        :type instances_in_group: int (>0)
+        :type instances_in_group: int (>=0)
 
         :param group_has_existence_order: If multiple similar instances are
             created and arranged in a group ('instances_in_group'>1), the user
