@@ -1424,6 +1424,12 @@ class EnergySystem:
                 obj_values[key] = pyo.value(val)
             return obj_values
 
+        def get_added_variable_values():
+            var_dict = {}
+            for var in self.added_variables.loc['pyomo']:
+                var_dict[var.local_name] = str(var.get_values())
+            return var_dict
+
         components = {}
         for name, comp in self.components.items():
             components[name] = comp.serialize()
@@ -1442,6 +1448,7 @@ class EnergySystem:
             ('present value factor', self.pvf),
             ('components', components),
             ('arc_variables', get_arc_variable_values()),
+            ('added_variables', get_added_variable_values()),
             ('added_objective_function_contributions', get_added_obj_values()),
             ('run_info', self.run_info)
         ])
