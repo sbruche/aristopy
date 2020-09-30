@@ -10,7 +10,7 @@ def read_file(file_name):
     return open(os.path.join(os.path.dirname(__file__), file_name)).read()
 setup(
     name='aristopy',
-    version='0.9.2',
+    version='0.9.dev3',
     # metadata to display on PyPI
     author="Stefan Bruche",
     author_email='stefan.bruche@tu-berlin.de',
