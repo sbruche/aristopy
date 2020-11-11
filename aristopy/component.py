@@ -1445,11 +1445,13 @@ class Component(metaclass=ABCMeta):
             if isinstance(val, (int, float)):
                 obj_values[key] = val
             elif val.is_expression_type():  # if pyomo expression
-                obj_values[key] = 0  # init
+                obj_values[key], found_invalid = 0, False  # init
                 for v in EXPR.identify_variables(val):
                     if pyo.value(v, exception=False) is None:
-                        obj_values[key] = None
+                        found_invalid = True
                         break
+                if not found_invalid:
+                    obj_values[key] = pyo.value(val, exception=False)
             else:  # should be single pyomo var
                 obj_values[key] = pyo.value(val, exception=False)
         return obj_values
