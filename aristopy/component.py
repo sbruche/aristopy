@@ -1435,11 +1435,21 @@ class Component(metaclass=ABCMeta):
         return para_dict
 
     def get_obj_values(self):
+        # pyo.value(XYZ, exception=False) produces ERROR output for expressions.
+        # It's probably a bug in Pyomo. So I use a workaround for now and walk
+        # through the expression and apply pyo.value(XYZ, exception=False) on
+        # all included variables one by one.
+        from pyomo.core.expr import current as EXPR
         obj_values = {}
         for key, val in self.comp_obj_dict.items():
-            # if isinstance(val, int) or isinstance(val, float):
-            #     obj_values[key] = val
-            # else:  # if pyomo expression
-            #     obj_values[key] = pyo.value(val)
-            obj_values[key] = pyo.value(val)
+            if isinstance(val, (int, float)):
+                obj_values[key] = val
+            elif val.is_expression_type():  # if pyomo expression
+                obj_values[key] = 0  # init
+                for v in EXPR.identify_variables(val):
+                    if pyo.value(v, exception=False) is None:
+                        obj_values[key] = None
+                        break
+            else:  # should be single pyomo var
+                obj_values[key] = pyo.value(val, exception=False)
         return obj_values

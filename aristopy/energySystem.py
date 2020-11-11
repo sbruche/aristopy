@@ -1421,7 +1421,7 @@ class EnergySystem:
         def get_added_obj_values():
             obj_values = {}
             for key, val in self.added_obj_contributions_results.items():
-                obj_values[key] = pyo.value(val)
+                obj_values[key] = pyo.value(val, exception=False)
             return obj_values
 
         def get_added_variable_values():
