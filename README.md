@@ -1,9 +1,6 @@
-<h1>
-```diff
-- The project has been moved to [GitLab](https://git.tu-berlin.de/etus/public/aristopy)
-```
-</h1>
-
+# This project has been moved to [GitLab](https://git.tu-berlin.de/etus/public/aristopy)!!!
+**Please visit our new project page to contribute or receive updates: https://git.tu-berlin.de/etus/public/aristopy**
+***
 
 <a href="https://www.energietechnik.tu-berlin.de/menue/forschung/energiesystemanalyse_und_optimierung/oeb_ensys/">
 <img src="https://raw.githubusercontent.com/sbruche/aristopy/master/docs/misc/aristopy_logo.png" alt="aristopy logo" width="300px"/></a>
